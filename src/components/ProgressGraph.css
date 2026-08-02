@@ -1,0 +1,220 @@
+.progress-graph {
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.progress-graph__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress-graph__header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.progress-graph__header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.progress-graph__tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.progress-graph__tab {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 10px 12px;
+  color: #374151;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.progress-graph__tab--active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.progress-graph__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.progress-graph__chart-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progress-graph__svg {
+  width: 100%;
+  min-height: 180px;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.progress-graph__legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.progress-graph__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-graph__legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.progress-graph__legend-dot--actual {
+  background: #2563eb;
+}
+
+.progress-graph__legend-dot--ideal {
+  background: #f59e0b;
+}
+
+.progress-graph__labels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+  gap: 8px;
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.progress-graph__summary {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.progress-graph__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.progress-graph__metric {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 10px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress-graph__metric-label {
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.progress-graph__metric strong {
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.progress-graph__bars-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(32px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.progress-graph__bar-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-graph__bar {
+  width: 100%;
+  min-height: 28px;
+  background: linear-gradient(180deg, #93c5fd 0%, #bfdbfe 100%);
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+  color: #1e40af;
+  font-size: 0.72rem;
+}
+
+.progress-graph__bar-label {
+  font-size: 0.72rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+.progress-graph__status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
+  gap: 10px;
+}
+
+.progress-graph__status-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 10px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-graph__status-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.progress-graph__status-dot--done {
+  background: #16a34a;
+}
+
+.progress-graph__status-dot--pending {
+  background: #f87171;
+}
+
+.progress-graph__empty {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 520px) {
+  .progress-graph__tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .progress-graph__labels {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .progress-graph__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
