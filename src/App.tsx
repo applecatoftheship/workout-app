@@ -3,108 +3,27 @@ import './App.css'
 import { MonthlyCalendar } from './components/MonthlyCalendar'
 import { ProgressGraph } from './components/ProgressGraph'
 import { mockAppData } from './mockData'
+import {
+  fetchDailyConditions,
+  syncDailyConditions,
+  fetchGoals,
+  upsertGoals,
+  fetchTrainingLogs,
+  syncTrainingLogs,
+  fetchMealLogs,
+} from './supabase'
+import type { Goals } from './supabase'
 import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
 
-const STORAGE_KEY = 'workout-app-data-v1'
-
-type Goals = {
-  targetWeight: number
-  targetSleepHours: number
-  weeklyTrainingGoal: number
-  monthlyTrainingGoal: number
-  dailyCalorieGoal: number
-  dailyProteinGoal: number
-  dailyFatGoal: number
-  dailyCarbohydrateGoal: number
-}
-
-type PersistedAppState = {
-  trainingLogs: TrainingLog[]
-  mealLogs: MealLog[]
-  dailyConditions: DailyCondition[]
-  goals: Goals
-}
-
 const defaultGoals: Goals = {
-  targetWeight: 65,
+  targetWeight: 72.5,
   targetSleepHours: 7.5,
-  weeklyTrainingGoal: 3,
-  monthlyTrainingGoal: 12,
+  weeklyTrainingGoal: 4,
+  monthlyTrainingGoal: 16,
   dailyCalorieGoal: 2200,
   dailyProteinGoal: 150,
   dailyFatGoal: 60,
   dailyCarbohydrateGoal: 250,
-}
-
-function cloneTrainingLogs(logs: TrainingLog[]) {
-  return logs.map((log) => ({
-    ...log,
-    exercises: log.exercises.map((exercise) => ({ ...exercise })),
-  }))
-}
-
-function createDefaultState(): PersistedAppState {
-  return {
-    trainingLogs: cloneTrainingLogs(mockAppData.trainingLogs),
-    mealLogs: mockAppData.mealLogs.map((log) => ({ ...log })),
-    dailyConditions: mockAppData.dailyConditions.map((condition) => ({ ...condition })),
-    goals: { ...defaultGoals },
-  }
-}
-
-function loadPersistedState(): PersistedAppState {
-  if (typeof window === 'undefined') {
-    return createDefaultState()
-  }
-
-  const rawValue = window.localStorage.getItem(STORAGE_KEY)
-  if (!rawValue) {
-    return createDefaultState()
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue) as Partial<PersistedAppState>
-    const trainingLogs = Array.isArray(parsed.trainingLogs)
-      ? cloneTrainingLogs(parsed.trainingLogs as TrainingLog[])
-      : mockAppData.trainingLogs.map((log) => ({ ...log, exercises: log.exercises.map((exercise) => ({ ...exercise })) }))
-    const mealLogs = Array.isArray(parsed.mealLogs)
-      ? (parsed.mealLogs as MealLog[]).map((log) => ({ ...log }))
-      : mockAppData.mealLogs.map((log) => ({ ...log }))
-    const dailyConditions = Array.isArray(parsed.dailyConditions)
-      ? (parsed.dailyConditions as DailyCondition[]).map((condition) => ({ ...condition }))
-      : mockAppData.dailyConditions.map((condition) => ({ ...condition }))
-    const goals = parsed.goals && typeof parsed.goals === 'object'
-      ? {
-          targetWeight: typeof parsed.goals.targetWeight === 'number' ? parsed.goals.targetWeight : defaultGoals.targetWeight,
-          targetSleepHours: typeof parsed.goals.targetSleepHours === 'number' ? parsed.goals.targetSleepHours : defaultGoals.targetSleepHours,
-          weeklyTrainingGoal: typeof parsed.goals.weeklyTrainingGoal === 'number' ? parsed.goals.weeklyTrainingGoal : defaultGoals.weeklyTrainingGoal,
-          monthlyTrainingGoal: typeof parsed.goals.monthlyTrainingGoal === 'number' ? parsed.goals.monthlyTrainingGoal : defaultGoals.monthlyTrainingGoal,
-          dailyCalorieGoal: typeof parsed.goals.dailyCalorieGoal === 'number' ? parsed.goals.dailyCalorieGoal : defaultGoals.dailyCalorieGoal,
-          dailyProteinGoal: typeof parsed.goals.dailyProteinGoal === 'number' ? parsed.goals.dailyProteinGoal : defaultGoals.dailyProteinGoal,
-          dailyFatGoal: typeof parsed.goals.dailyFatGoal === 'number' ? parsed.goals.dailyFatGoal : defaultGoals.dailyFatGoal,
-          dailyCarbohydrateGoal: typeof parsed.goals.dailyCarbohydrateGoal === 'number' ? parsed.goals.dailyCarbohydrateGoal : defaultGoals.dailyCarbohydrateGoal,
-        }
-      : { ...defaultGoals }
-
-    return {
-      trainingLogs,
-      mealLogs,
-      dailyConditions,
-      goals,
-    }
-  } catch {
-    // Fallback to the built-in mock data when storage contents are invalid.
-  }
-
-  return createDefaultState()
-}
-
-function savePersistedState(state: PersistedAppState) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
 
 const today = new Date()
@@ -153,22 +72,25 @@ function formatAggregatedMealInfo(mealLogs: MealLog[]) {
 }
 
 function App() {
-  const initialState = useMemo(() => loadPersistedState(), [])
   const [activeView, setActiveView] = useState<'dashboard' | 'calendar' | 'progress'>('dashboard')
-  const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>(() => initialState.trainingLogs)
-  const [mealLogs, setMealLogs] = useState<MealLog[]>(() => initialState.mealLogs)
-  const [dailyConditions, setDailyConditions] = useState<DailyCondition[]>(() => initialState.dailyConditions)
-  const [goals, setGoals] = useState<Goals>(() => initialState.goals)
+  const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
+  const [areTrainingLogsLoaded, setAreTrainingLogsLoaded] = useState(false)
+  const [mealLogs, setMealLogs] = useState<MealLog[]>([])
+  const [areMealLogsLoaded, setAreMealLogsLoaded] = useState(false)
+  const [dailyConditions, setDailyConditions] = useState<DailyCondition[]>([])
+  const [areDailyConditionsLoaded, setAreDailyConditionsLoaded] = useState(false)
+  const [goals, setGoals] = useState<Goals>({ ...defaultGoals })
+  const [areGoalsLoaded, setAreGoalsLoaded] = useState(false)
   const [isEditingGoals, setIsEditingGoals] = useState(false)
   const [goalFormState, setGoalFormState] = useState({
-    targetWeight: String(initialState.goals.targetWeight),
-    targetSleepHours: String(initialState.goals.targetSleepHours),
-    weeklyTrainingGoal: String(initialState.goals.weeklyTrainingGoal),
-    monthlyTrainingGoal: String(initialState.goals.monthlyTrainingGoal),
-    dailyCalorieGoal: String(initialState.goals.dailyCalorieGoal),
-    dailyProteinGoal: String(initialState.goals.dailyProteinGoal),
-    dailyFatGoal: String(initialState.goals.dailyFatGoal),
-    dailyCarbohydrateGoal: String(initialState.goals.dailyCarbohydrateGoal),
+    targetWeight: String(defaultGoals.targetWeight),
+    targetSleepHours: String(defaultGoals.targetSleepHours),
+    weeklyTrainingGoal: String(defaultGoals.weeklyTrainingGoal),
+    monthlyTrainingGoal: String(defaultGoals.monthlyTrainingGoal),
+    dailyCalorieGoal: String(defaultGoals.dailyCalorieGoal),
+    dailyProteinGoal: String(defaultGoals.dailyProteinGoal),
+    dailyFatGoal: String(defaultGoals.dailyFatGoal),
+    dailyCarbohydrateGoal: String(defaultGoals.dailyCarbohydrateGoal),
   })
   const [goalFormErrors, setGoalFormErrors] = useState<{
     targetWeight?: string
@@ -182,10 +104,126 @@ function App() {
   }>({})
   const [goalFormSummaryError, setGoalFormSummaryError] = useState<string | null>(null)
 
-  useEffect(() => {
-    savePersistedState({ trainingLogs, mealLogs, dailyConditions, goals })
-  }, [dailyConditions, goals, mealLogs, trainingLogs])
 
+  useEffect(() => {
+    let isMounted = true
+
+    fetchDailyConditions()
+      .then((data) => {
+        if (isMounted) {
+          setDailyConditions(data)
+          setAreDailyConditionsLoaded(true)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから体調記録の取得に失敗しました', error)
+        if (isMounted) {
+          setAreDailyConditionsLoaded(true)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!areDailyConditionsLoaded) {
+      return
+    }
+
+    syncDailyConditions(dailyConditions).catch((error) => {
+      console.error('Supabaseへの体調記録の保存に失敗しました', error)
+    })
+  }, [dailyConditions, areDailyConditionsLoaded])
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchMealLogs()
+      .then((data) => {
+        if (isMounted) {
+          setMealLogs(data)
+          setAreMealLogsLoaded(true)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから食事記録の取得に失敗しました', error)
+        if (isMounted) {
+          setAreMealLogsLoaded(true)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchGoals()
+      .then((data) => {
+        if (isMounted && data) {
+          setGoals(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから目標設定の取得に失敗しました', error)
+      })
+      .finally(() => {
+        if (isMounted) {
+          setAreGoalsLoaded(true)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!areGoalsLoaded) {
+      return
+    }
+
+    upsertGoals(goals).catch((error) => {
+      console.error('Supabaseへの目標設定の保存に失敗しました', error)
+    })
+  }, [goals, areGoalsLoaded])
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchTrainingLogs()
+      .then((data) => {
+        if (isMounted) {
+          setTrainingLogs(data)
+          setAreTrainingLogsLoaded(true)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseからトレーニング記録の取得に失敗しました', error)
+        if (isMounted) {
+          setAreTrainingLogsLoaded(true)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!areTrainingLogsLoaded) {
+      return
+    }
+
+    syncTrainingLogs(trainingLogs).catch((error) => {
+      console.error('Supabaseへのトレーニング記録の保存に失敗しました', error)
+    })
+  }, [trainingLogs, areTrainingLogsLoaded])
+  
   const todayTrainingLogs = useMemo(
     () => trainingLogs.filter((log) => log.date === todayString),
     [trainingLogs],
@@ -217,13 +255,13 @@ function App() {
         calories: acc.calories + log.calories,
         protein: acc.protein + log.protein,
         fat: acc.fat + log.fat,
-        carbohydrates: acc.carbohydrates + log.carbohydrates,
+  carbohydrates: acc.carbohydrates + log.carbohydrates,
       }),
       { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
     )
   }, [todayMealLogs])
 
-  const todayMealSummary = todayMealLogs.length > 0 ? formatAggregatedMealInfo(todayMealLogs) : '記録なし'
+const todayMealSummary = todayMealLogs.length > 0 ? formatAggregatedMealInfo(todayMealLogs) : '記録なし'
 
   const todayNutritionMetrics = [
     {
@@ -787,4 +825,4 @@ function App() {
   )
 }
 
-export default App
+export default App  
