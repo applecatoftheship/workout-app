@@ -76,7 +76,6 @@ function App() {
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
   const [areTrainingLogsLoaded, setAreTrainingLogsLoaded] = useState(false)
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
-  const [areMealLogsLoaded, setAreMealLogsLoaded] = useState(false)
   const [dailyConditions, setDailyConditions] = useState<DailyCondition[]>([])
   const [areDailyConditionsLoaded, setAreDailyConditionsLoaded] = useState(false)
   const [goals, setGoals] = useState<Goals>({ ...defaultGoals })
@@ -144,13 +143,12 @@ function App() {
       .then((data) => {
         if (isMounted) {
           setMealLogs(data)
-          setAreMealLogsLoaded(true)
         }
       })
       .catch((error) => {
         console.error('Supabaseから食事記録の取得に失敗しました', error)
         if (isMounted) {
-          setAreMealLogsLoaded(true)
+          
         }
       })
 
