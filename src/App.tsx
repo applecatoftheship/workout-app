@@ -530,7 +530,13 @@ function App() {
           setDailyConditions={setDailyConditions}
         />
       ) : activeView === 'progress' ? (
-        <ProgressGraph trainingLogs={trainingLogs} dailyConditions={dailyConditions} targetWeight={goals.targetWeight} />
+        <ProgressGraph
+            trainingLogs={trainingLogs}
+            dailyConditions={dailyConditions}
+            targetWeight={goals.targetWeight}
+            weeklyTrainingGoal={goals.weeklyTrainingGoal}
+            monthlyTrainingGoal={goals.monthlyTrainingGoal}
+          />
       ) : (
         <>
           <section className="hero-card">
