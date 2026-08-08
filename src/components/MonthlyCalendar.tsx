@@ -34,6 +34,18 @@ function formatMonthLabel(date: Date) {
     month: 'long',
   }).format(date)
 }
+function getProgramIcon(program: DailyProgram) {
+  if (program.type === 'rest' || program.type === 'recovery') {
+    return '💤'
+  }
+  if (program.type === 'cardio') {
+    return '🏃'
+  }
+  if (program.type === 'mobility') {
+    return '🧘'
+  }
+  return '💪'
+}
 
 function getProgramLabel(program: DailyProgram) {
   if (program.type === 'rest' || program.type === 'recovery') {
@@ -114,7 +126,6 @@ function getMealTypeLabel(mealType: MealType) {
       return 'その他'
   }
 }
-
 
 function getProgramForDate(programs: MonthlyProgram | undefined, dateKey: DateString) {
   if (!programs) {
@@ -264,6 +275,7 @@ export function MonthlyCalendar({
   const [conditionFormSummaryError, setConditionFormSummaryError] = useState<string | null>(null)
   const [foodItems, setFoodItems] = useState<FoodItem[]>([])
   const [isMealSaving, setIsMealSaving] = useState(false)
+  const [activeDetailTab, setActiveDetailTab] = useState<'training' | 'condition' | 'meal'>('training')
 
   useEffect(() => {
     fetchFoodItems()
@@ -344,6 +356,7 @@ export function MonthlyCalendar({
     setEditingMealIndex(null)
     setIsConditionFormOpen(false)
     setEditingConditionIndex(null)
+    setActiveDetailTab('training')
   }, [selectedDate])
 
   const changeMonth = (direction: -1 | 1) => {
@@ -612,113 +625,6 @@ export function MonthlyCalendar({
       { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
     )
   }, [foodItems, mealFormState.selections])
-  
-  const deleteMealLog = async (mealIndex: number) => {
-    const confirmed = window.confirm('この食事記録を本当に削除しますか？')
-    if (!confirmed) {
-      return
-    }
-
-    const target = mealLogs[mealIndex]
-    if (!target?.id) {
-      return
-    }
-
-    try {
-      await deleteMealLogRemote(target.id)
-      const refreshed = await fetchMealLogs()
-      setMealLogs(refreshed)
-    } catch (error) {
-      console.error('Supabaseからの食事記録の削除に失敗しました', error)
-      window.alert('削除に失敗しました。もう一度お試しください')
-      return
-    }
-
-    if (editingMealIndex === mealIndex) {
-      setIsMealFormOpen(false)
-      setEditingMealIndex(null)
-    }
-    if (editingMealIndex !== null && editingMealIndex > mealIndex) {
-      setEditingMealIndex(editingMealIndex - 1)
-    }
-  }
-  const openConditionForm = (conditionIndex?: number) => {
-    const existingCondition = typeof conditionIndex === 'number' && conditionIndex >= 0 ? dailyConditions[conditionIndex] : null
-
-    setEditingConditionIndex(typeof conditionIndex === 'number' && conditionIndex >= 0 ? conditionIndex : null)
-    setConditionFormState(
-      existingCondition
-        ? {
-            weight: String(existingCondition.weight),
-            sleepHours: String(existingCondition.sleepHours),
-            fatigue: existingCondition.fatigue,
-            notes: existingCondition.notes ?? '',
-          }
-        : createEmptyConditionFormState(),
-    )
-    setConditionFormErrors(createEmptyConditionFormErrors())
-    setConditionFormSummaryError(null)
-    setIsFormOpen(false)
-    setIsMealFormOpen(false)
-    setIsConditionFormOpen(true)
-  }
-
-  const handleConditionFieldChange = (field: keyof ConditionFormState, value: string | FatigueLevel | '') => {
-    setConditionFormState((current) => ({ ...current, [field]: value }))
-  }
-  const validateConditionForm = () => {
-    const errors: ConditionFormErrors = {}
-    const weightValue = Number(conditionFormState.weight)
-    const sleepValue = Number(conditionFormState.sleepHours)
-
-    if (!Number.isFinite(weightValue) || weightValue <= 0) {
-      errors.weight = '体重は0より大きい数値で入力してください'
-    }
-    if (!Number.isFinite(sleepValue) || sleepValue < 0 || sleepValue > 24) {
-      errors.sleepHours = '睡眠時間は0以上24以下の数値で入力してください'
-    }
-    if (!conditionFormState.fatigue) {
-      errors.fatigue = '疲労度は必須です'
-    }
-
-    const hasErrors = Object.keys(errors).length > 0
-    if (hasErrors) {
-      setConditionFormSummaryError('入力内容にエラーがあります。各項目を確認してください')
-    } else {
-      setConditionFormSummaryError(null)
-    }
-
-    setConditionFormErrors(errors)
-    return !hasErrors
-  }
-
-  const saveCondition = () => {
-    if (!validateConditionForm()) {
-      return
-    }
-
-    const nextCondition = {
-      date: selectedDate,
-      weight: Number(conditionFormState.weight),
-      sleepHours: Number(conditionFormState.sleepHours),
-      fatigue: conditionFormState.fatigue as FatigueLevel,
-      notes: conditionFormState.notes.trim() || undefined,
-    }
-
-    setDailyConditions((current) => {
-      if (editingConditionIndex !== null) {
-        const updated = [...current]
-        updated[editingConditionIndex] = nextCondition
-        return updated
-      }
-
-      return [...current, nextCondition]
-    })
-
-    setIsConditionFormOpen(false)
-    setEditingConditionIndex(null)
-  }
-
   const validateMealForm = () => {
     const errors: MealLogFormErrors = {}
 
@@ -781,6 +687,114 @@ export function MonthlyCalendar({
       setIsMealSaving(false)
     }
   }
+
+  const deleteMealLog = async (mealIndex: number) => {
+    const confirmed = window.confirm('この食事記録を本当に削除しますか？')
+    if (!confirmed) {
+      return
+    }
+
+    const target = mealLogs[mealIndex]
+    if (!target?.id) {
+      return
+    }
+
+    try {
+      await deleteMealLogRemote(target.id)
+      const refreshed = await fetchMealLogs()
+      setMealLogs(refreshed)
+    } catch (error) {
+      console.error('Supabaseからの食事記録の削除に失敗しました', error)
+      window.alert('削除に失敗しました。もう一度お試しください')
+      return
+    }
+
+    if (editingMealIndex === mealIndex) {
+      setIsMealFormOpen(false)
+      setEditingMealIndex(null)
+    }
+    if (editingMealIndex !== null && editingMealIndex > mealIndex) {
+      setEditingMealIndex(editingMealIndex - 1)
+    }
+  }
+  const openConditionForm = (conditionIndex?: number) => {
+    const existingCondition = typeof conditionIndex === 'number' && conditionIndex >= 0 ? dailyConditions[conditionIndex] : null
+
+    setEditingConditionIndex(typeof conditionIndex === 'number' && conditionIndex >= 0 ? conditionIndex : null)
+    setConditionFormState(
+      existingCondition
+        ? {
+            weight: String(existingCondition.weight),
+            sleepHours: String(existingCondition.sleepHours),
+            fatigue: existingCondition.fatigue,
+            notes: existingCondition.notes ?? '',
+          }
+        : createEmptyConditionFormState(),
+    )
+    setConditionFormErrors(createEmptyConditionFormErrors())
+    setConditionFormSummaryError(null)
+    setIsFormOpen(false)
+    setIsMealFormOpen(false)
+    setIsConditionFormOpen(true)
+  }
+
+  const handleConditionFieldChange = (field: keyof ConditionFormState, value: string | FatigueLevel | '') => {
+    setConditionFormState((current) => ({ ...current, [field]: value }))
+  }
+
+  const validateConditionForm = () => {
+    const errors: ConditionFormErrors = {}
+    const weightValue = Number(conditionFormState.weight)
+    const sleepValue = Number(conditionFormState.sleepHours)
+
+    if (!Number.isFinite(weightValue) || weightValue <= 0) {
+      errors.weight = '体重は0より大きい数値で入力してください'
+    }
+    if (!Number.isFinite(sleepValue) || sleepValue < 0 || sleepValue > 24) {
+      errors.sleepHours = '睡眠時間は0以上24以下の数値で入力してください'
+    }
+    if (!conditionFormState.fatigue) {
+      errors.fatigue = '疲労度は必須です'
+    }
+
+    const hasErrors = Object.keys(errors).length > 0
+    if (hasErrors) {
+      setConditionFormSummaryError('入力内容にエラーがあります。各項目を確認してください')
+    } else {
+      setConditionFormSummaryError(null)
+    }
+
+    setConditionFormErrors(errors)
+    return !hasErrors
+  }
+
+  const saveCondition = () => {
+    if (!validateConditionForm()) {
+      return
+    }
+
+    const nextCondition = {
+      date: selectedDate,
+      weight: Number(conditionFormState.weight),
+      sleepHours: Number(conditionFormState.sleepHours),
+      fatigue: conditionFormState.fatigue as FatigueLevel,
+      notes: conditionFormState.notes.trim() || undefined,
+    }
+
+    setDailyConditions((current) => {
+      if (editingConditionIndex !== null) {
+        const updated = [...current]
+        updated[editingConditionIndex] = nextCondition
+        return updated
+      }
+
+      return [...current, nextCondition]
+    })
+
+    setIsConditionFormOpen(false)
+    setEditingConditionIndex(null)
+  }
+
   const deleteCondition = () => {
     if (!selectedCondition) {
       return
@@ -838,7 +852,7 @@ export function MonthlyCalendar({
             >
               <span className="calendar-day__number">{day.date.getDate()}</span>
               <span className="calendar-day__content">
-                {day.programs.length === 0 ? '予定なし' : getProgramLabel(day.programs[0])}
+                {day.programs.length > 0 ? getProgramIcon(day.programs[0]) : ''}
               </span>
             </button>
           )
@@ -870,6 +884,31 @@ export function MonthlyCalendar({
             )}
           </div>
 
+          <div className="calendar-detail__tabs">
+            <button
+              type="button"
+              className={`calendar-detail__tab ${activeDetailTab === 'training' ? 'calendar-detail__tab--active' : ''}`}
+              onClick={() => setActiveDetailTab('training')}
+            >
+              トレーニング
+            </button>
+            <button
+              type="button"
+              className={`calendar-detail__tab ${activeDetailTab === 'condition' ? 'calendar-detail__tab--active' : ''}`}
+              onClick={() => setActiveDetailTab('condition')}
+            >
+              体調
+            </button>
+            <button
+              type="button"
+              className={`calendar-detail__tab ${activeDetailTab === 'meal' ? 'calendar-detail__tab--active' : ''}`}
+              onClick={() => setActiveDetailTab('meal')}
+            >
+              食事
+            </button>
+          </div>
+
+          {activeDetailTab === 'training' ? (
           <div className="calendar-detail__section">
             <h4>トレーニング実績</h4>
             <button type="button" className="calendar-detail__button" onClick={() => openForm()}>
@@ -1005,7 +1044,9 @@ export function MonthlyCalendar({
               <p className="calendar-detail__empty">記録なし</p>
             )}
           </div>
+          ) : null}
 
+          {activeDetailTab === 'condition' ? (
           <div className="calendar-detail__section">
             <div className="calendar-detail__section-header">
               <h4>体調</h4>
@@ -1097,7 +1138,9 @@ export function MonthlyCalendar({
               <p className="calendar-detail__empty">記録なし</p>
             )}
           </div>
+          ) : null}
 
+          {activeDetailTab === 'meal' ? (
           <div className="calendar-detail__section">
             <h4>食事記録</h4>
             <button type="button" className="calendar-detail__button" onClick={() => openMealForm()}>
@@ -1282,6 +1325,7 @@ export function MonthlyCalendar({
               <p className="calendar-detail__empty">記録なし</p>
             )}
           </div>
+          ) : null}
         </div>
       </div>
     </section>

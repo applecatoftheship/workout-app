@@ -16,10 +16,10 @@ import type { Goals } from './supabase'
 import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
 
 const defaultGoals: Goals = {
-  targetWeight: 72.5,
+  targetWeight: 65,
   targetSleepHours: 7.5,
-  weeklyTrainingGoal: 4,
-  monthlyTrainingGoal: 16,
+  weeklyTrainingGoal: 3,
+  monthlyTrainingGoal: 12,
   dailyCalorieGoal: 2200,
   dailyProteinGoal: 150,
   dailyFatGoal: 60,
@@ -81,6 +81,9 @@ function App() {
   const [goals, setGoals] = useState<Goals>({ ...defaultGoals })
   const [areGoalsLoaded, setAreGoalsLoaded] = useState(false)
   const [isEditingGoals, setIsEditingGoals] = useState(false)
+  const [isTodayDetailOpen, setIsTodayDetailOpen] = useState(false)
+  const [isNutritionOpen, setIsNutritionOpen] = useState(false)
+  const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false)
   const [goalFormState, setGoalFormState] = useState({
     targetWeight: String(defaultGoals.targetWeight),
     targetSleepHours: String(defaultGoals.targetSleepHours),
@@ -102,7 +105,6 @@ function App() {
     dailyCarbohydrateGoal?: string
   }>({})
   const [goalFormSummaryError, setGoalFormSummaryError] = useState<string | null>(null)
-
 
   useEffect(() => {
     let isMounted = true
@@ -135,27 +137,6 @@ function App() {
       console.error('Supabaseへの体調記録の保存に失敗しました', error)
     })
   }, [dailyConditions, areDailyConditionsLoaded])
-
-  useEffect(() => {
-    let isMounted = true
-
-    fetchMealLogs()
-      .then((data) => {
-        if (isMounted) {
-          setMealLogs(data)
-        }
-      })
-      .catch((error) => {
-        console.error('Supabaseから食事記録の取得に失敗しました', error)
-        if (isMounted) {
-          
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -221,7 +202,25 @@ function App() {
       console.error('Supabaseへのトレーニング記録の保存に失敗しました', error)
     })
   }, [trainingLogs, areTrainingLogsLoaded])
-  
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchMealLogs()
+      .then((data) => {
+        if (isMounted) {
+          setMealLogs(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから食事記録の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   const todayTrainingLogs = useMemo(
     () => trainingLogs.filter((log) => log.date === todayString),
     [trainingLogs],
@@ -253,13 +252,13 @@ function App() {
         calories: acc.calories + log.calories,
         protein: acc.protein + log.protein,
         fat: acc.fat + log.fat,
-  carbohydrates: acc.carbohydrates + log.carbohydrates,
+        carbohydrates: acc.carbohydrates + log.carbohydrates,
       }),
       { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
     )
   }, [todayMealLogs])
 
-const todayMealSummary = todayMealLogs.length > 0 ? formatAggregatedMealInfo(todayMealLogs) : '記録なし'
+  const todayMealSummary = todayMealLogs.length > 0 ? formatAggregatedMealInfo(todayMealLogs) : '記録なし'
 
   const todayNutritionMetrics = [
     {
@@ -606,199 +605,225 @@ const todayMealSummary = todayMealLogs.length > 0 ? formatAggregatedMealInfo(tod
             </div>
           </section>
 
-          <section className="panel-card">
-            <div className="panel-card__header">
-              <h2>今日の内容</h2>
-              <p>筋トレ・食事・体調を一目で確認できます。</p>
-            </div>
-
-            <div className="detail-list">
-              <div className="detail-item">
-                <span className="detail-label">トレーニング内容</span>
-                <p>{todayTrainingLogs.length > 0 ? formatExerciseList(todayTrainingExercises) : todayProgram ? formatExerciseList(todayProgram.exercises) : '記録なし'}</p>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">実績</span>
-                <p>{todayTrainingSummary}</p>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">食事情報</span>
-                <p>{todayMealSummary}</p>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">体調メモ</span>
-                <p>{todayCondition ? todayCondition.notes ?? 'メモなし' : '記録なし'}</p>
-              </div>
-            </div>
-
-            <div className="nutrition-section">
-              <div className="panel-card__header">
-                <h2>今日の食事・PFC</h2>
-                <p>1日の栄養進捗を目標値と比較して表示します。</p>
-              </div>
-              {todayMealLogs.length === 0 ? (
-                <p className="no-record">今日の食事記録はありません</p>
-              ) : (
-                <div className="nutrition-grid">
-                  {todayNutritionMetrics.map((metric) => (
-                    <article key={metric.label} className="nutrition-card">
-                      <span className="nutrition-card__label">{metric.label}</span>
-                      <div className="nutrition-card__value">{metric.value}</div>
-                      <div className="nutrition-card__rate">{metric.rate}%</div>
-                      <div className="nutrition-progress" aria-label={`${metric.label}進捗`}>
-                        <div className="nutrition-progress__fill" style={{ width: `${metric.rate}%` }} />
-                      </div>
-                    </article>
-                  ))}
+          <section className="panel-card accordion-item">
+            <button
+              type="button"
+              className="accordion-header"
+              onClick={() => setIsTodayDetailOpen((current) => !current)}
+            >
+              今日の内容
+              <span className="accordion-chevron">{isTodayDetailOpen ? '▼' : '▶'}</span>
+            </button>
+            {isTodayDetailOpen ? (
+              <div className="accordion-body">
+                <p className="panel-card__description">筋トレ・食事・体調を一目で確認できます。</p>
+                <div className="detail-list">
+                  <div className="detail-item">
+                    <span className="detail-label">トレーニング内容</span>
+                    <p>{todayTrainingLogs.length > 0 ? formatExerciseList(todayTrainingExercises) : todayProgram ? formatExerciseList(todayProgram.exercises) : '記録なし'}</p>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">実績</span>
+                    <p>{todayTrainingSummary}</p>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">食事情報</span>
+                    <p>{todayMealSummary}</p>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">体調メモ</span>
+                    <p>{todayCondition ? todayCondition.notes ?? 'メモなし' : '記録なし'}</p>
+                  </div>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : null}
           </section>
 
-          <section className="panel-card goal-panel">
-            <div className="panel-card__header">
-              <div>
-                <h2>8月の目標</h2>
-                <p>今月の進捗を確認し、目標を調整できます。</p>
+          <section className="panel-card accordion-item">
+            <button
+              type="button"
+              className="accordion-header"
+              onClick={() => setIsNutritionOpen((current) => !current)}
+            >
+              今日の食事・PFC
+              <span className="accordion-chevron">{isNutritionOpen ? '▼' : '▶'}</span>
+            </button>
+            {isNutritionOpen ? (
+              <div className="accordion-body">
+                <p className="panel-card__description">1日の栄養進捗を目標値と比較して表示します。</p>
+                {todayMealLogs.length === 0 ? (
+                  <p className="no-record">今日の食事記録はありません</p>
+                ) : (
+                  <div className="nutrition-grid">
+                    {todayNutritionMetrics.map((metric) => (
+                      <article key={metric.label} className="nutrition-card">
+                        <span className="nutrition-card__label">{metric.label}</span>
+                        <div className="nutrition-card__value">{metric.value}</div>
+                        <div className="nutrition-card__rate">{metric.rate}%</div>
+                        <div className="nutrition-progress" aria-label={`${metric.label}進捗`}>
+                          <div className="nutrition-progress__fill" style={{ width: `${metric.rate}%` }} />
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
               </div>
-              <button type="button" className="button button--secondary" onClick={openGoalEditor}>
-                目標を編集
-              </button>
-            </div>
+            ) : null}
+          </section>
 
-            {isEditingGoals ? (
-              <div className="dashboard-goals-form">
-                {goalFormSummaryError ? <p className="form-error">{goalFormSummaryError}</p> : null}
-                <label className="dashboard-goals-field">
-                  <span>目標体重 (kg)</span>
-                  <input
-                    type="number"
-                    min="0.1"
-                    step="0.1"
-                    value={goalFormState.targetWeight}
-                    onChange={(event) => handleGoalFieldChange('targetWeight', event.target.value)}
-                  />
-                  {goalFormErrors.targetWeight ? <p className="form-error">{goalFormErrors.targetWeight}</p> : null}
-                </label>
-                <label className="dashboard-goals-field">
-                  <span>目標睡眠時間 (時間)</span>
-                  <input
-                    type="number"
-                    min="0.1"
-                    max="24"
-                    step="0.1"
-                    value={goalFormState.targetSleepHours}
-                    onChange={(event) => handleGoalFieldChange('targetSleepHours', event.target.value)}
-                  />
-                  {goalFormErrors.targetSleepHours ? <p className="form-error">{goalFormErrors.targetSleepHours}</p> : null}
-                </label>
-                <label className="dashboard-goals-field">
-                  <span>週の目標トレーニング回数</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={goalFormState.weeklyTrainingGoal}
-                    onChange={(event) => handleGoalFieldChange('weeklyTrainingGoal', event.target.value)}
-                  />
-                  {goalFormErrors.weeklyTrainingGoal ? <p className="form-error">{goalFormErrors.weeklyTrainingGoal}</p> : null}
-                </label>
-                <label className="dashboard-goals-field">
-                  <span>8月の目標トレーニング回数</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={goalFormState.monthlyTrainingGoal}
-                    onChange={(event) => handleGoalFieldChange('monthlyTrainingGoal', event.target.value)}
-                  />
-                  {goalFormErrors.monthlyTrainingGoal ? <p className="form-error">{goalFormErrors.monthlyTrainingGoal}</p> : null}
-                </label>
-                <label className="dashboard-goals-field">
-                  <span>1日の目標カロリー</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={goalFormState.dailyCalorieGoal}
-                    onChange={(event) => handleGoalFieldChange('dailyCalorieGoal', event.target.value)}
-                  />
-                  {goalFormErrors.dailyCalorieGoal ? <p className="form-error">{goalFormErrors.dailyCalorieGoal}</p> : null}
-                </label>
-                <label className="dashboard-goals-field">
-                  <span>1日の目標タンパク質</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={goalFormState.dailyProteinGoal}
-                    onChange={(event) => handleGoalFieldChange('dailyProteinGoal', event.target.value)}
-                  />
-                  {goalFormErrors.dailyProteinGoal ? <p className="form-error">{goalFormErrors.dailyProteinGoal}</p> : null}
-                </label>
-                <label className="dashboard-goals-field">
-                  <span>1日の目標脂質</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={goalFormState.dailyFatGoal}
-                    onChange={(event) => handleGoalFieldChange('dailyFatGoal', event.target.value)}
-                  />
-                  {goalFormErrors.dailyFatGoal ? <p className="form-error">{goalFormErrors.dailyFatGoal}</p> : null}
-                </label>
-                <label className="dashboard-goals-field">
-                  <span>1日の目標炭水化物</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={goalFormState.dailyCarbohydrateGoal}
-                    onChange={(event) => handleGoalFieldChange('dailyCarbohydrateGoal', event.target.value)}
-                  />
-                  {goalFormErrors.dailyCarbohydrateGoal ? <p className="form-error">{goalFormErrors.dailyCarbohydrateGoal}</p> : null}
-                </label>
-                <div className="dashboard-goals-actions">
-                  <button type="button" className="button button--primary" onClick={saveGoalSettings}>
-                    保存する
-                  </button>
-                  <button type="button" className="button button--secondary" onClick={cancelGoalEdit}>
-                    キャンセル
+          <section className="panel-card accordion-item goal-panel">
+            <button
+              type="button"
+              className="accordion-header"
+              onClick={() => setIsGoalPanelOpen((current) => !current)}
+            >
+              8月の目標
+              <span className="accordion-chevron">{isGoalPanelOpen ? '▼' : '▶'}</span>
+            </button>
+            {isGoalPanelOpen ? (
+              <div className="accordion-body">
+                <div className="panel-card__header-row">
+                  <p className="panel-card__description">今月の進捗を確認し、目標を調整できます。</p>
+                  <button type="button" className="button button--secondary" onClick={openGoalEditor}>
+                    目標を編集
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="goal-grid">
-                <article className="goal-card goal-card--training">
-                  <div className="goal-card__title">8月トレーニング</div>
-                  <div className="goal-card__stat">{currentMonthTrainingCount} / {goals.monthlyTrainingGoal}回</div>
-                  <div className="goal-card__percent">{achievementRate}%</div>
-                  <div className="progress-meter" aria-label="8月トレーニング進捗">
-                    <div className="progress-meter__fill" style={{ width: `${achievementRate}%` }} />
+
+                {isEditingGoals ? (
+                  <div className="dashboard-goals-form">
+                    {goalFormSummaryError ? <p className="form-error">{goalFormSummaryError}</p> : null}
+                    <label className="dashboard-goals-field">
+                      <span>目標体重 (kg)</span>
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={goalFormState.targetWeight}
+                        onChange={(event) => handleGoalFieldChange('targetWeight', event.target.value)}
+                      />
+                      {goalFormErrors.targetWeight ? <p className="form-error">{goalFormErrors.targetWeight}</p> : null}
+                    </label>
+                    <label className="dashboard-goals-field">
+                      <span>目標睡眠時間 (時間)</span>
+                      <input
+                        type="number"
+                        min="0.1"
+                        max="24"
+                        step="0.1"
+                        value={goalFormState.targetSleepHours}
+                        onChange={(event) => handleGoalFieldChange('targetSleepHours', event.target.value)}
+                      />
+                      {goalFormErrors.targetSleepHours ? <p className="form-error">{goalFormErrors.targetSleepHours}</p> : null}
+                    </label>
+                    <label className="dashboard-goals-field">
+                      <span>週の目標トレーニング回数</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={goalFormState.weeklyTrainingGoal}
+                        onChange={(event) => handleGoalFieldChange('weeklyTrainingGoal', event.target.value)}
+                      />
+                      {goalFormErrors.weeklyTrainingGoal ? <p className="form-error">{goalFormErrors.weeklyTrainingGoal}</p> : null}
+                    </label>
+                    <label className="dashboard-goals-field">
+                      <span>8月の目標トレーニング回数</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={goalFormState.monthlyTrainingGoal}
+                        onChange={(event) => handleGoalFieldChange('monthlyTrainingGoal', event.target.value)}
+                      />
+                      {goalFormErrors.monthlyTrainingGoal ? <p className="form-error">{goalFormErrors.monthlyTrainingGoal}</p> : null}
+                    </label>
+                    <label className="dashboard-goals-field">
+                      <span>1日の目標カロリー</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={goalFormState.dailyCalorieGoal}
+                        onChange={(event) => handleGoalFieldChange('dailyCalorieGoal', event.target.value)}
+                      />
+                      {goalFormErrors.dailyCalorieGoal ? <p className="form-error">{goalFormErrors.dailyCalorieGoal}</p> : null}
+                    </label>
+                    <label className="dashboard-goals-field">
+                      <span>1日の目標タンパク質</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={goalFormState.dailyProteinGoal}
+                        onChange={(event) => handleGoalFieldChange('dailyProteinGoal', event.target.value)}
+                      />
+                      {goalFormErrors.dailyProteinGoal ? <p className="form-error">{goalFormErrors.dailyProteinGoal}</p> : null}
+                    </label>
+                    <label className="dashboard-goals-field">
+                      <span>1日の目標脂質</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={goalFormState.dailyFatGoal}
+                        onChange={(event) => handleGoalFieldChange('dailyFatGoal', event.target.value)}
+                      />
+                      {goalFormErrors.dailyFatGoal ? <p className="form-error">{goalFormErrors.dailyFatGoal}</p> : null}
+                    </label>
+                    <label className="dashboard-goals-field">
+                      <span>1日の目標炭水化物</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={goalFormState.dailyCarbohydrateGoal}
+                        onChange={(event) => handleGoalFieldChange('dailyCarbohydrateGoal', event.target.value)}
+                      />
+                      {goalFormErrors.dailyCarbohydrateGoal ? <p className="form-error">{goalFormErrors.dailyCarbohydrateGoal}</p> : null}
+                    </label>
+                    <div className="dashboard-goals-actions">
+                      <button type="button" className="button button--primary" onClick={saveGoalSettings}>
+                        保存する
+                      </button>
+                      <button type="button" className="button button--secondary" onClick={cancelGoalEdit}>
+                        キャンセル
+                      </button>
+                    </div>
                   </div>
-                </article>
+                ) : (
+                  <div className="goal-grid">
+                    <article className="goal-card goal-card--training">
+                      <div className="goal-card__title">8月トレーニング</div>
+                      <div className="goal-card__stat">{currentMonthTrainingCount} / {goals.monthlyTrainingGoal}回</div>
+                      <div className="goal-card__percent">{achievementRate}%</div>
+                      <div className="progress-meter" aria-label="8月トレーニング進捗">
+                        <div className="progress-meter__fill" style={{ width: `${achievementRate}%` }} />
+                      </div>
+                    </article>
 
-                <article className="goal-card">
-                  <div className="goal-card__title">目標体重</div>
-                  <div className="goal-card__stat">現在 {latestWeightText}</div>
-                  <div className="goal-card__stat">目標 {targetWeightText}</div>
-                  <div className="goal-card__note">あと {weightDifferenceText}</div>
-                </article>
+                    <article className="goal-card">
+                      <div className="goal-card__title">目標体重</div>
+                      <div className="goal-card__stat">現在 {latestWeightText}</div>
+                      <div className="goal-card__stat">目標 {targetWeightText}</div>
+                      <div className="goal-card__note">あと {weightDifferenceText}</div>
+                    </article>
 
-                <article className="goal-card">
-                  <div className="goal-card__title">睡眠</div>
-                  <div className="goal-card__stat">平均 {averageSleepText}</div>
-                  <div className="goal-card__stat">目標 {goals.targetSleepHours.toFixed(1)}時間</div>
-                  <div className="goal-card__note">あと {sleepDifferenceText}</div>
-                </article>
+                    <article className="goal-card">
+                      <div className="goal-card__title">睡眠</div>
+                      <div className="goal-card__stat">平均 {averageSleepText}</div>
+                      <div className="goal-card__stat">目標 {goals.targetSleepHours.toFixed(1)}時間</div>
+                      <div className="goal-card__note">あと {sleepDifferenceText}</div>
+                    </article>
 
-                <article className="goal-card">
-                  <div className="goal-card__title">今週のトレーニング</div>
-                  <div className="goal-card__stat">今週 {weekTrainingCount} / {goals.weeklyTrainingGoal}回</div>
-                  <div className="goal-card__note">この週の進捗を確認できます。</div>
-                </article>
+                    <article className="goal-card">
+                      <div className="goal-card__title">今週のトレーニング</div>
+                      <div className="goal-card__stat">今週 {weekTrainingCount} / {goals.weeklyTrainingGoal}回</div>
+                      <div className="goal-card__note">この週の進捗を確認できます。</div>
+                    </article>
+                  </div>
+                )}
               </div>
-            )}
+            ) : null}
           </section>
 
           <section className="links-section" aria-label="機能メニュー">
@@ -823,4 +848,4 @@ const todayMealSummary = todayMealLogs.length > 0 ? formatAggregatedMealInfo(tod
   )
 }
 
-export default App  
+export default App
