@@ -534,6 +534,7 @@ function App() {
             trainingLogs={trainingLogs}
             dailyConditions={dailyConditions}
             targetWeight={goals.targetWeight}
+            targetSleepHours={goals.targetSleepHours}
             weeklyTrainingGoal={goals.weeklyTrainingGoal}
             monthlyTrainingGoal={goals.monthlyTrainingGoal}
           />
