@@ -1,0 +1,354 @@
+.hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 2px;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-hero-muted);
+}
+
+.hero-card h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.status-pill,
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.status-pill {
+  background: var(--color-pitch);
+  color: #d8f2e4;
+}
+
+.summary-card {
+  background: var(--color-ink-soft);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.summary-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.summary-card h2,
+.panel-card h2 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.chip {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-hero-muted);
+}
+
+.summary-card__body {
+  margin: 0;
+  color: #cdd6d0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.status-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.status-card {
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-card:nth-child(1) { border-left-color: var(--color-pitch); }
+.status-card:nth-child(2) { border-left-color: var(--color-amber); }
+.status-card:nth-child(3) { border-left-color: var(--color-amber); }
+.status-card:nth-child(4) { border-left-color: var(--color-red); }
+
+.status-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-card__label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.status-card__value {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.status-card__detail,
+.status-card__note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.74rem;
+  line-height: 1.3;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.66rem;
+  font-weight: 500;
+}
+
+.status-chip--good {
+  background: var(--color-pitch-soft);
+  color: var(--color-pitch-text);
+}
+
+.status-chip--warning {
+  background: var(--color-amber-soft);
+  color: var(--color-amber-text);
+}
+
+.status-chip--alert {
+  background: var(--color-red-soft);
+  color: var(--color-red-text);
+}
+
+.status-chip--neutral {
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+}
+
+.status-progress,
+.status-progress__fill {
+  width: 100%;
+}
+
+.status-progress {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  overflow: hidden;
+}
+
+.status-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-pitch);
+}
+
+.metric-card {
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 56px;
+  background: var(--color-ink-soft);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.metric-card.primary,
+.metric-card.secondary,
+.metric-card.accent {
+  background: var(--color-ink-soft);
+  color: #f6f5f0;
+}
+
+.metric-label {
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--color-hero-muted);
+}
+
+.metric-card strong {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-item {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  padding: 8px 10px;
+  background: var(--color-bg);
+}
+
+.detail-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--color-pitch-text);
+  margin-bottom: 2px;
+}
+
+.detail-item p {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.nutrition-section {
+  margin-top: 12px;
+}
+
+.nutrition-section .panel-card__header {
+  margin-bottom: 8px;
+}
+
+.nutrition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.nutrition-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nutrition-card__label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.nutrition-card__value {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--color-text);
+}
+
+.nutrition-card__rate {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-pitch-text);
+}
+
+.nutrition-progress {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  overflow: hidden;
+}
+
+.nutrition-progress__fill {
+  height: 100%;
+  background: var(--color-pitch);
+  border-radius: 999px;
+}
+
+.no-record {
+  color: var(--color-text-muted);
+  padding: 8px 0;
+  font-size: 0.85rem;
+}
+
+.links-section {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.link-card {
+  background: var(--color-surface);
+  border: 0;
+  padding: 10px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 64px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.link-card__badge {
+  display: none;
+}
+
+.link-card strong {
+  color: var(--color-text);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.link-card p {
+  display: none;
+}
+
+@media (min-width: 700px) {
+  .hero-card {
+    padding: 20px 22px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .status-overview {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .status-overview,
+  .metrics-grid {
+    gap: 6px;
+  }
+}

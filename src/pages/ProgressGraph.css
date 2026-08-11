@@ -1,0 +1,83 @@
+.progress-graph {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progress-graph__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.progress-graph__header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.05rem;
+  color: var(--color-text);
+}
+
+.progress-graph__header p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+}
+
+.progress-graph__tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.progress-graph__tab {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 8px 6px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.progress-graph__tab--active {
+  background: var(--color-ink);
+  color: #f6f5f0;
+  border-color: var(--color-ink);
+}
+
+.progress-graph__period {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  align-self: flex-start;
+}
+
+.progress-graph__period-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.progress-graph__period-button--active {
+  background: var(--color-pitch);
+  color: #d8f2e4;
+}
+
+.progress-graph__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}

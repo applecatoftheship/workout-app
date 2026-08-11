@@ -1,0 +1,512 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { DateString, MealLog, MealType } from '../../types'
+import { getMealTypeLabel } from '../../utils/calendarHelpers'
+import {
+  fetchFoodItems,
+  createFoodItem,
+  fetchMealLogSelections,
+  fetchMealLogs,
+  upsertMealLog,
+  deleteMealLogRemote,
+} from '../../api/mealLogs'
+import type { FoodItem, MealLogInput } from '../../api/mealLogs'
+
+type MealLogFoodSelectionForm = {
+  key: string
+  foodItemId: string
+  customMultiplier: string
+}
+
+type MealLogFormState = {
+  mealType: MealType | ''
+  notes: string
+  selections: MealLogFoodSelectionForm[]
+  newFoodName: string
+  newFoodCalories: string
+  newFoodProtein: string
+  newFoodFat: string
+  newFoodCarbohydrates: string
+}
+
+type MealLogFormErrors = {
+  mealType?: string
+  selections?: string
+  newFoodName?: string
+  newFoodCalories?: string
+  newFoodProtein?: string
+  newFoodFat?: string
+  newFoodCarbohydrates?: string
+}
+
+const createEmptyMealFormState = (): MealLogFormState => ({
+  mealType: '',
+  notes: '',
+  selections: [],
+  newFoodName: '',
+  newFoodCalories: '',
+  newFoodProtein: '',
+  newFoodFat: '',
+  newFoodCarbohydrates: '',
+})
+
+const createEmptyMealFormErrors = (): MealLogFormErrors => ({})
+
+let selectionKeyCounter = 0
+function createSelectionKey() {
+  selectionKeyCounter += 1
+  return `selection-${selectionKeyCounter}`
+}
+
+type MealLogFormProps = {
+  mealLogs: MealLog[]
+  setMealLogs: React.Dispatch<React.SetStateAction<MealLog[]>>
+  selectedDate: DateString
+  isMealFormOpen: boolean
+  setIsMealFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setIsFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpen, setIsMealFormOpen, setIsFormOpen }: MealLogFormProps) {
+  const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null)
+  const [mealFormState, setMealFormState] = useState<MealLogFormState>(createEmptyMealFormState())
+  const [mealFormErrors, setMealFormErrors] = useState<MealLogFormErrors>(createEmptyMealFormErrors())
+  const [mealFormSummaryError, setMealFormSummaryError] = useState<string | null>(null)
+  const [foodItems, setFoodItems] = useState<FoodItem[]>([])
+  const [isMealSaving, setIsMealSaving] = useState(false)
+
+  useEffect(() => {
+    fetchFoodItems()
+      .then(setFoodItems)
+      .catch((error) => {
+        console.error('Supabaseから食材一覧の取得に失敗しました', error)
+      })
+  }, [])
+
+  const selectedMealLogs = useMemo(
+    () => mealLogs.map((mealLog, index) => ({ mealLog, index })).filter(({ mealLog }) => mealLog.date === selectedDate),
+    [mealLogs, selectedDate],
+  )
+
+  const mealTotals = useMemo(
+    () =>
+      selectedMealLogs.reduce(
+        (totals, { mealLog }) => ({
+          calories: totals.calories + mealLog.calories,
+          protein: totals.protein + mealLog.protein,
+          fat: totals.fat + mealLog.fat,
+          carbohydrates: totals.carbohydrates + mealLog.carbohydrates,
+        }),
+        { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
+      ),
+    [selectedMealLogs],
+  )
+
+  useEffect(() => {
+    setIsMealFormOpen(false)
+    setEditingMealIndex(null)
+  }, [selectedDate, setIsMealFormOpen])
+
+  const openMealForm = (mealIndex?: number) => {
+    const existingLog = typeof mealIndex === 'number' ? mealLogs[mealIndex] : null
+
+    setEditingMealIndex(typeof mealIndex === 'number' ? mealIndex : null)
+    setMealFormErrors(createEmptyMealFormErrors())
+    setMealFormSummaryError(null)
+    setIsFormOpen(false)
+    setIsMealFormOpen(true)
+
+    if (!existingLog?.id) {
+      setMealFormState(createEmptyMealFormState())
+      return
+    }
+
+    setMealFormState({ ...createEmptyMealFormState(), mealType: existingLog.mealType, notes: existingLog.notes ?? '' })
+
+    fetchMealLogSelections(existingLog.id)
+      .then((selections) => {
+        setMealFormState((current) => ({
+          ...current,
+          selections: selections.map((selection) => ({
+            key: createSelectionKey(),
+            foodItemId: selection.foodItemId,
+            customMultiplier: selection.customMultiplier != null ? String(selection.customMultiplier) : '',
+          })),
+        }))
+      })
+      .catch((error) => {
+        console.error('Supabaseから食事記録の内訳取得に失敗しました', error)
+      })
+  }
+
+  const handleMealFieldChange = (field: 'mealType' | 'notes', value: string) => {
+    setMealFormState((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleNewFoodFieldChange = (
+    field: 'newFoodName' | 'newFoodCalories' | 'newFoodProtein' | 'newFoodFat' | 'newFoodCarbohydrates',
+    value: string,
+  ) => {
+    setMealFormState((current) => ({ ...current, [field]: value }))
+  }
+
+  const addFoodSelection = (foodItemId: string) => {
+    if (!foodItemId) {
+      return
+    }
+    setMealFormState((current) => ({
+      ...current,
+      selections: [...current.selections, { key: createSelectionKey(), foodItemId, customMultiplier: '' }],
+    }))
+  }
+
+  const removeFoodSelection = (key: string) => {
+    setMealFormState((current) => ({
+      ...current,
+      selections: current.selections.filter((selection) => selection.key !== key),
+    }))
+  }
+
+  const handleSelectionMultiplierChange = (key: string, value: string) => {
+    setMealFormState((current) => ({
+      ...current,
+      selections: current.selections.map((selection) =>
+        selection.key === key ? { ...selection, customMultiplier: value } : selection,
+      ),
+    }))
+  }
+
+  const handleAddNewFoodItem = async () => {
+    const name = mealFormState.newFoodName.trim()
+    const calories = Number(mealFormState.newFoodCalories)
+    const protein = Number(mealFormState.newFoodProtein)
+    const fat = Number(mealFormState.newFoodFat)
+    const carbohydrates = Number(mealFormState.newFoodCarbohydrates)
+
+    if (!name) {
+      setMealFormErrors((current) => ({ ...current, newFoodName: '食材名は必須です' }))
+      return
+    }
+    if (![calories, protein, fat, carbohydrates].every((value) => Number.isFinite(value) && value >= 0)) {
+      setMealFormErrors((current) => ({ ...current, newFoodCalories: 'カロリー・PFCは0以上の数値で入力してください' }))
+      return
+    }
+
+    try {
+      const created = await createFoodItem({ name, calories, protein, fat, carbohydrates })
+      setFoodItems((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)))
+      setMealFormState((current) => ({
+        ...current,
+        selections: [...current.selections, { key: createSelectionKey(), foodItemId: created.id, customMultiplier: '' }],
+        newFoodName: '',
+        newFoodCalories: '',
+        newFoodProtein: '',
+        newFoodFat: '',
+        newFoodCarbohydrates: '',
+      }))
+      setMealFormErrors((current) => ({ ...current, newFoodName: undefined, newFoodCalories: undefined }))
+    } catch (error) {
+      console.error('Supabaseへの食材登録に失敗しました', error)
+      setMealFormErrors((current) => ({ ...current, newFoodName: '食材の登録に失敗しました' }))
+    }
+  }
+
+  const mealFormPreviewTotals = useMemo(() => {
+    return mealFormState.selections.reduce(
+      (totals, selection) => {
+        const foodItem = foodItems.find((item) => item.id === selection.foodItemId)
+        if (!foodItem) {
+          return totals
+        }
+        const multiplier = selection.customMultiplier.trim() === '' ? 1 : Number(selection.customMultiplier)
+        const safeMultiplier = Number.isFinite(multiplier) ? multiplier : 1
+        return {
+          calories: totals.calories + foodItem.calories * safeMultiplier,
+          protein: totals.protein + foodItem.protein * safeMultiplier,
+          fat: totals.fat + foodItem.fat * safeMultiplier,
+          carbohydrates: totals.carbohydrates + foodItem.carbohydrates * safeMultiplier,
+        }
+      },
+      { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
+    )
+  }, [foodItems, mealFormState.selections])
+
+  const validateMealForm = () => {
+    const errors: MealLogFormErrors = {}
+
+    if (!mealFormState.mealType) {
+      errors.mealType = '食事タイプは必須です'
+    }
+    if (mealFormState.selections.length === 0) {
+      errors.selections = '少なくとも1つの食材を選択してください'
+    }
+    for (const selection of mealFormState.selections) {
+      if (selection.customMultiplier.trim() !== '') {
+        const multiplierValue = Number(selection.customMultiplier)
+        if (!Number.isFinite(multiplierValue) || multiplierValue <= 0) {
+          errors.selections = '倍率は0より大きい数値で入力してください'
+        }
+      }
+    }
+
+    const hasErrors = Object.keys(errors).length > 0
+    if (hasErrors) {
+      setMealFormSummaryError('入力内容にエラーがあります。各項目を確認してください')
+    } else {
+      setMealFormSummaryError(null)
+    }
+
+    setMealFormErrors(errors)
+    return !hasErrors
+  }
+
+  const saveMealLog = async () => {
+    if (!validateMealForm()) {
+      return
+    }
+
+    const existingLog = editingMealIndex !== null ? mealLogs[editingMealIndex] : null
+    const id = existingLog?.id ?? crypto.randomUUID()
+
+    const input: MealLogInput = {
+      id,
+      date: selectedDate,
+      mealType: mealFormState.mealType as MealType,
+      notes: mealFormState.notes.trim() || undefined,
+      selections: mealFormState.selections.map((selection) => ({
+        foodItemId: selection.foodItemId,
+        customMultiplier: selection.customMultiplier.trim() === '' ? undefined : Number(selection.customMultiplier),
+      })),
+    }
+
+    setIsMealSaving(true)
+    try {
+      await upsertMealLog(input)
+      const refreshed = await fetchMealLogs()
+      setMealLogs(refreshed)
+      setIsMealFormOpen(false)
+      setEditingMealIndex(null)
+    } catch (error) {
+      console.error('Supabaseへの食事記録の保存に失敗しました', error)
+      setMealFormSummaryError('保存に失敗しました。もう一度お試しください')
+    } finally {
+      setIsMealSaving(false)
+    }
+  }
+
+  const deleteMealLog = async (mealIndex: number) => {
+    const confirmed = window.confirm('この食事記録を本当に削除しますか？')
+    if (!confirmed) {
+      return
+    }
+
+    const target = mealLogs[mealIndex]
+    if (!target?.id) {
+      return
+    }
+
+    try {
+      await deleteMealLogRemote(target.id)
+      const refreshed = await fetchMealLogs()
+      setMealLogs(refreshed)
+    } catch (error) {
+      console.error('Supabaseからの食事記録の削除に失敗しました', error)
+      window.alert('削除に失敗しました。もう一度お試しください')
+      return
+    }
+
+    if (editingMealIndex === mealIndex) {
+      setIsMealFormOpen(false)
+      setEditingMealIndex(null)
+    }
+    if (editingMealIndex !== null && editingMealIndex > mealIndex) {
+      setEditingMealIndex(editingMealIndex - 1)
+    }
+  }
+
+  return (
+    <div className="calendar-detail__section">
+      <h4>食事記録</h4>
+      <button type="button" className="calendar-detail__button" onClick={() => openMealForm()}>
+        食事・PFCを記録
+      </button>
+
+      {selectedMealLogs.length > 0 && !isMealFormOpen ? (
+        <>
+          <div className="calendar-detail__meal-totals">
+            合計: {mealTotals.calories}kcal / P{mealTotals.protein}g F{mealTotals.fat}g C{mealTotals.carbohydrates}g
+          </div>
+          <div className="calendar-detail__log-list">
+            {selectedMealLogs.map(({ mealLog, index }) => (
+              <div key={`${selectedDate}-meal-${index}`} className="calendar-detail__meal-item">
+                <div className="calendar-detail__meal-head">
+                  <span>{getMealTypeLabel(mealLog.mealType)}</span>
+                  <div className="calendar-detail__log-actions">
+                    <button type="button" className="calendar-detail__edit-button" onClick={() => openMealForm(index)}>
+                      編集
+                    </button>
+                    <button type="button" className="calendar-detail__delete-button" onClick={() => deleteMealLog(index)}>
+                      削除
+                    </button>
+                  </div>
+                </div>
+                <div className="calendar-detail__meal-row">内容: {mealLog.foods.join('・')}</div>
+                <div className="calendar-detail__meal-row">
+                  カロリー: {mealLog.calories}kcal / P{mealLog.protein}g F{mealLog.fat}g C{mealLog.carbohydrates}g
+                </div>
+                {mealLog.notes ? <p className="calendar-detail__description">メモ: {mealLog.notes}</p> : null}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : isMealFormOpen ? (
+        <div className="calendar-detail__form">
+          {mealFormSummaryError ? <p className="calendar-detail__form-error">{mealFormSummaryError}</p> : null}
+          <label className="calendar-detail__field">
+            <span>食事タイプ</span>
+            <select value={mealFormState.mealType} onChange={(event) => handleMealFieldChange('mealType', event.target.value)}>
+              <option value="">選択してください</option>
+              <option value="breakfast">朝食</option>
+              <option value="lunch">昼食</option>
+              <option value="dinner">夕食</option>
+              <option value="snack">間食</option>
+              <option value="other">その他</option>
+            </select>
+            {mealFormErrors.mealType ? <p className="calendar-detail__error">{mealFormErrors.mealType}</p> : null}
+          </label>
+
+          <div className="calendar-detail__field calendar-detail__field--full">
+            <span>食材を追加</span>
+            <select
+              value=""
+              onChange={(event) => {
+                addFoodSelection(event.target.value)
+              }}
+            >
+              <option value="">選択してください</option>
+              {foodItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}（{item.calories}kcal）
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {mealFormState.selections.length > 0 ? (
+            <div className="calendar-detail__log-list">
+              {mealFormState.selections.map((selection) => {
+                const foodItem = foodItems.find((item) => item.id === selection.foodItemId)
+                return (
+                  <div key={selection.key} className="calendar-detail__meal-item">
+                    <div className="calendar-detail__meal-head">
+                      <span>{foodItem?.name ?? '不明な食材'}</span>
+                      <button
+                        type="button"
+                        className="calendar-detail__delete-button"
+                        onClick={() => removeFoodSelection(selection.key)}
+                      >
+                        削除
+                      </button>
+                    </div>
+                    <label className="calendar-detail__field">
+                      <span>倍率（空欄なら1倍）</span>
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={selection.customMultiplier}
+                        onChange={(event) => handleSelectionMultiplierChange(selection.key, event.target.value)}
+                        placeholder="1.0"
+                      />
+                    </label>
+                  </div>
+                )
+              })}
+            </div>
+          ) : null}
+          {mealFormErrors.selections ? <p className="calendar-detail__error">{mealFormErrors.selections}</p> : null}
+
+          <div className="calendar-detail__meal-totals">
+            合計（プレビュー）: {Math.round(mealFormPreviewTotals.calories)}kcal / P{Math.round(mealFormPreviewTotals.protein)}g F
+            {Math.round(mealFormPreviewTotals.fat)}g C{Math.round(mealFormPreviewTotals.carbohydrates)}g
+          </div>
+
+          <div className="calendar-detail__exercise-form">
+            <span>新しい食材をここで登録</span>
+            <label className="calendar-detail__field">
+              <span>食材名</span>
+              <input
+                type="text"
+                value={mealFormState.newFoodName}
+                onChange={(event) => handleNewFoodFieldChange('newFoodName', event.target.value)}
+                placeholder="例: ゆで卵"
+              />
+              {mealFormErrors.newFoodName ? <p className="calendar-detail__error">{mealFormErrors.newFoodName}</p> : null}
+            </label>
+            <div className="calendar-detail__inline-fields">
+              <label className="calendar-detail__field">
+                <span>カロリー (kcal)</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={mealFormState.newFoodCalories}
+                  onChange={(event) => handleNewFoodFieldChange('newFoodCalories', event.target.value)}
+                />
+              </label>
+              <label className="calendar-detail__field">
+                <span>タンパク質 (g)</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={mealFormState.newFoodProtein}
+                  onChange={(event) => handleNewFoodFieldChange('newFoodProtein', event.target.value)}
+                />
+              </label>
+            </div>
+            <div className="calendar-detail__inline-fields">
+              <label className="calendar-detail__field">
+                <span>脂質 (g)</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={mealFormState.newFoodFat}
+                  onChange={(event) => handleNewFoodFieldChange('newFoodFat', event.target.value)}
+                />
+              </label>
+              <label className="calendar-detail__field">
+                <span>炭水化物 (g)</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={mealFormState.newFoodCarbohydrates}
+                  onChange={(event) => handleNewFoodFieldChange('newFoodCarbohydrates', event.target.value)}
+                />
+              </label>
+            </div>
+            {mealFormErrors.newFoodCalories ? <p className="calendar-detail__error">{mealFormErrors.newFoodCalories}</p> : null}
+            <button type="button" className="calendar-detail__secondary-button" onClick={handleAddNewFoodItem}>
+              この食材を登録して追加
+            </button>
+          </div>
+
+          <label className="calendar-detail__field calendar-detail__field--full">
+            <span>メモ</span>
+            <textarea
+              value={mealFormState.notes}
+              onChange={(event) => handleMealFieldChange('notes', event.target.value)}
+              rows={3}
+              placeholder="今日の気づきや食事コメント"
+            />
+          </label>
+
+          <div className="calendar-detail__actions">
+            <button type="button" className="calendar-detail__button" onClick={saveMealLog} disabled={isMealSaving}>
+              {isMealSaving ? '保存中...' : '保存する'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="calendar-detail__empty">記録なし</p>
+      )}
+    </div>
+  )
+}

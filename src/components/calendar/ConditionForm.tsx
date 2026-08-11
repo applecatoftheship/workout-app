@@ -1,0 +1,247 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { DailyCondition, DateString, FatigueLevel } from '../../types'
+import { formatConditionSummary } from '../../utils/calendarHelpers'
+
+type ConditionFormState = {
+  weight: string
+  sleepHours: string
+  fatigue: FatigueLevel | ''
+  notes: string
+}
+
+type ConditionFormErrors = {
+  weight?: string
+  sleepHours?: string
+  fatigue?: string
+}
+
+const createEmptyConditionFormState = (): ConditionFormState => ({
+  weight: '',
+  sleepHours: '',
+  fatigue: '',
+  notes: '',
+})
+
+const createEmptyConditionFormErrors = (): ConditionFormErrors => ({})
+
+type ConditionFormProps = {
+  dailyConditions: DailyCondition[]
+  setDailyConditions: React.Dispatch<React.SetStateAction<DailyCondition[]>>
+  selectedDate: DateString
+  isConditionFormOpen: boolean
+  setIsConditionFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setIsFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setIsMealFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export function ConditionForm({
+  dailyConditions,
+  setDailyConditions,
+  selectedDate,
+  isConditionFormOpen,
+  setIsConditionFormOpen,
+  setIsFormOpen,
+  setIsMealFormOpen,
+}: ConditionFormProps) {
+  const [editingConditionIndex, setEditingConditionIndex] = useState<number | null>(null)
+  const [conditionFormState, setConditionFormState] = useState<ConditionFormState>(createEmptyConditionFormState())
+  const [conditionFormErrors, setConditionFormErrors] = useState<ConditionFormErrors>(createEmptyConditionFormErrors())
+  const [conditionFormSummaryError, setConditionFormSummaryError] = useState<string | null>(null)
+
+  const selectedCondition = useMemo(
+    () => dailyConditions.find((condition) => condition.date === selectedDate),
+    [dailyConditions, selectedDate],
+  )
+
+  useEffect(() => {
+    setIsConditionFormOpen(false)
+    setEditingConditionIndex(null)
+  }, [selectedDate, setIsConditionFormOpen])
+
+  const openConditionForm = (conditionIndex?: number) => {
+    const existingCondition = typeof conditionIndex === 'number' && conditionIndex >= 0 ? dailyConditions[conditionIndex] : null
+
+    setEditingConditionIndex(typeof conditionIndex === 'number' && conditionIndex >= 0 ? conditionIndex : null)
+    setConditionFormState(
+      existingCondition
+        ? {
+            weight: String(existingCondition.weight),
+            sleepHours: String(existingCondition.sleepHours),
+            fatigue: existingCondition.fatigue,
+            notes: existingCondition.notes ?? '',
+          }
+        : createEmptyConditionFormState(),
+    )
+    setConditionFormErrors(createEmptyConditionFormErrors())
+    setConditionFormSummaryError(null)
+    setIsFormOpen(false)
+    setIsMealFormOpen(false)
+    setIsConditionFormOpen(true)
+  }
+
+  const handleConditionFieldChange = (field: keyof ConditionFormState, value: string | FatigueLevel | '') => {
+    setConditionFormState((current) => ({ ...current, [field]: value }))
+  }
+
+  const validateConditionForm = () => {
+    const errors: ConditionFormErrors = {}
+    const weightValue = Number(conditionFormState.weight)
+    const sleepValue = Number(conditionFormState.sleepHours)
+
+    if (!Number.isFinite(weightValue) || weightValue <= 0) {
+      errors.weight = '体重は0より大きい数値で入力してください'
+    }
+    if (!Number.isFinite(sleepValue) || sleepValue < 0 || sleepValue > 24) {
+      errors.sleepHours = '睡眠時間は0以上24以下の数値で入力してください'
+    }
+    if (!conditionFormState.fatigue) {
+      errors.fatigue = '疲労度は必須です'
+    }
+
+    const hasErrors = Object.keys(errors).length > 0
+    if (hasErrors) {
+      setConditionFormSummaryError('入力内容にエラーがあります。各項目を確認してください')
+    } else {
+      setConditionFormSummaryError(null)
+    }
+
+    setConditionFormErrors(errors)
+    return !hasErrors
+  }
+
+  const saveCondition = () => {
+    if (!validateConditionForm()) {
+      return
+    }
+
+    const nextCondition = {
+      date: selectedDate,
+      weight: Number(conditionFormState.weight),
+      sleepHours: Number(conditionFormState.sleepHours),
+      fatigue: conditionFormState.fatigue as FatigueLevel,
+      notes: conditionFormState.notes.trim() || undefined,
+    }
+
+    setDailyConditions((current) => {
+      if (editingConditionIndex !== null) {
+        const updated = [...current]
+        updated[editingConditionIndex] = nextCondition
+        return updated
+      }
+
+      return [...current, nextCondition]
+    })
+
+    setIsConditionFormOpen(false)
+    setEditingConditionIndex(null)
+  }
+
+  const deleteCondition = () => {
+    if (!selectedCondition) {
+      return
+    }
+
+    const confirmed = window.confirm('この体調記録を本当に削除しますか？')
+    if (!confirmed) {
+      return
+    }
+
+    setDailyConditions((current) => current.filter((condition) => condition.date !== selectedDate))
+    setIsConditionFormOpen(false)
+    setEditingConditionIndex(null)
+  }
+
+  return (
+    <div className="calendar-detail__section">
+      <div className="calendar-detail__section-header">
+        <h4>体調</h4>
+        <button type="button" className="calendar-detail__secondary-button" onClick={() => openConditionForm()}>
+          体調を記録
+        </button>
+      </div>
+      {selectedCondition && !isConditionFormOpen ? (
+        <div className="calendar-detail__item">
+          <p>{formatConditionSummary(selectedCondition)}</p>
+          <div className="calendar-detail__condition-actions">
+            <button
+              type="button"
+              className="calendar-detail__edit-button"
+              onClick={() => {
+                const conditionIndex = dailyConditions.findIndex((condition) => condition.date === selectedDate)
+                if (conditionIndex >= 0) {
+                  openConditionForm(conditionIndex)
+                }
+              }}
+            >
+              編集
+            </button>
+            <button type="button" className="calendar-detail__delete-button" onClick={deleteCondition}>
+              削除
+            </button>
+          </div>
+          {selectedCondition.notes ? <p className="calendar-detail__description">メモ: {selectedCondition.notes}</p> : null}
+        </div>
+      ) : isConditionFormOpen ? (
+        <div className="calendar-detail__form">
+          {conditionFormSummaryError ? <p className="calendar-detail__form-error">{conditionFormSummaryError}</p> : null}
+          <label className="calendar-detail__field">
+            <span>体重 (kg)</span>
+            <input
+              type="number"
+              min="0.1"
+              step="0.1"
+              value={conditionFormState.weight}
+              onChange={(event) => handleConditionFieldChange('weight', event.target.value)}
+              placeholder="例: 64.8"
+            />
+            {conditionFormErrors.weight ? <p className="calendar-detail__error">{conditionFormErrors.weight}</p> : null}
+          </label>
+          <label className="calendar-detail__field">
+            <span>睡眠時間 (時間)</span>
+            <input
+              type="number"
+              min="0"
+              max="24"
+              step="0.1"
+              value={conditionFormState.sleepHours}
+              onChange={(event) => handleConditionFieldChange('sleepHours', event.target.value)}
+              placeholder="例: 7.0"
+            />
+            {conditionFormErrors.sleepHours ? <p className="calendar-detail__error">{conditionFormErrors.sleepHours}</p> : null}
+          </label>
+          <label className="calendar-detail__field">
+            <span>疲労度</span>
+            <select
+              value={conditionFormState.fatigue}
+              onChange={(event) => handleConditionFieldChange('fatigue', event.target.value as FatigueLevel | '')}
+            >
+              <option value="">選択してください</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+            {conditionFormErrors.fatigue ? <p className="calendar-detail__error">{conditionFormErrors.fatigue}</p> : null}
+          </label>
+          <label className="calendar-detail__field calendar-detail__field--full">
+            <span>体調メモ</span>
+            <textarea
+              rows={3}
+              value={conditionFormState.notes}
+              onChange={(event) => handleConditionFieldChange('notes', event.target.value)}
+              placeholder="今日の体調の特徴や感想"
+            />
+          </label>
+          <div className="calendar-detail__actions">
+            <button type="button" className="calendar-detail__button" onClick={saveCondition}>
+              保存する
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="calendar-detail__empty">記録なし</p>
+      )}
+    </div>
+  )
+}
