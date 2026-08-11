@@ -5,7 +5,6 @@ import type {
   MealLog,
   MonthlyProgram,
   ProgressRecord,
-  TrainingLog,
 } from './types'
 
 const dailyPrograms: DailyProgram[] = [
@@ -95,11 +94,6 @@ const monthlyPrograms: MonthlyProgram[] = [
   },
 ]
 
-// トレーニング実績のデータ構造は種目マスタ（exercises）を参照する形に変更されたため、
-// 静的サンプルとして有効な値を作れない。mockAppData.trainingLogs はどこからも参照されて
-// いないことを確認済みのため、空配列にしている。
-const trainingLogs: TrainingLog[] = []
-
 const mealLogs: MealLog[] = [
   {
     date: '2026-08-01',
@@ -135,7 +129,6 @@ const progressRecords: ProgressRecord[] = [
 
 export const mockAppData: AppDataModel = {
   monthlyPrograms,
-  trainingLogs,
   mealLogs,
   dailyConditions,
   progressRecords,

@@ -123,7 +123,6 @@ export interface ProgressRecord extends BaseRecord {
 
 export interface AppDataModel extends BaseRecord {
   monthlyPrograms: MonthlyProgram[];
-  trainingLogs: TrainingLog[];
   mealLogs: MealLog[];
   dailyConditions: DailyCondition[];
   progressRecords: ProgressRecord[];
