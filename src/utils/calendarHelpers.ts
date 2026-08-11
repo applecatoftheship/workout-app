@@ -1,4 +1,4 @@
-import type { DateString, DailyCondition, DailyProgram, Exercise, MealType, MonthlyProgram } from '../types'
+import type { DateString, DailyCondition, DailyProgram, MealType, MonthlyProgram, TrainingLogExercise } from '../types'
 
 export const weekDays = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -82,9 +82,22 @@ export function formatCardioSummary(cardio: DailyProgram['cardio']) {
   return `${cardio.durationMinutes}分 / ${cardio.intensity} / ${cardio.notes ?? 'メモなし'}`
 }
 
-export function formatTrainingLogItem(exercise: Exercise) {
-  const weight = exercise.targetWeight ? ` / ${exercise.targetWeight}` : ''
-  return `${exercise.name} ${exercise.sets}セット ${exercise.targetReps}${weight}${exercise.notes ? ` / ${exercise.notes}` : ''}`
+export function formatTrainingLogItem(exercise: TrainingLogExercise) {
+  const name = exercise.exercise?.name ?? '不明な種目'
+
+  if (exercise.sets.length === 0) {
+    return `${name}（記録なし）`
+  }
+
+  const setSummary = exercise.sets
+    .map((set) => {
+      const weightText = set.weight != null ? `${set.weight}kg` : '-'
+      const repsText = set.reps != null ? `${set.reps}回` : '-'
+      return `${weightText}×${repsText}`
+    })
+    .join(', ')
+
+  return `${name} ${exercise.sets.length}セット (${setSummary})`
 }
 
 export function formatConditionSummary(condition: DailyCondition) {

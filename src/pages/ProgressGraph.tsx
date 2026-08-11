@@ -55,7 +55,7 @@ export function ProgressGraph({
   const trainingByDate = useMemo(() => {
     const map = new Map<string, { sets: number; completed: boolean; hasLog: boolean }>()
     trainingLogs.forEach((log) => {
-      const sets = log.exercises.reduce((sum, exercise) => sum + exercise.sets, 0)
+      const sets = log.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0)
       const existing = map.get(log.date)
       map.set(log.date, {
         sets: (existing?.sets ?? 0) + sets,

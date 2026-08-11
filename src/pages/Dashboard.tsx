@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
+import { formatTrainingLogItem } from '../utils/calendarHelpers'
 import type { Goals } from '../api/goals'
-import type { DailyCondition, DailyProgram, DateString, MealLog, TrainingLog } from '../types'
+import type { DailyCondition, DailyProgram, DateString, MealLog, TrainingLog, TrainingLogExercise } from '../types'
 
 function formatExerciseList(exercises: Array<{ name: string; sets: number; targetReps: string; targetWeight?: string }>) {
   if (exercises.length === 0) {
@@ -15,6 +16,14 @@ function formatExerciseList(exercises: Array<{ name: string; sets: number; targe
       return `${exercise.name} ${exercise.sets}セット ${exercise.targetReps}${weightText}`
     })
     .join(' / ')
+}
+
+function formatLoggedExerciseList(exercises: TrainingLogExercise[]) {
+  if (exercises.length === 0) {
+    return '記録なし'
+  }
+
+  return exercises.map((exercise) => formatTrainingLogItem(exercise)).join(' / ')
 }
 
 function formatAggregatedMealInfo(mealLogs: MealLog[]) {
@@ -78,6 +87,11 @@ export function Dashboard({
   )
 
   const todayTrainingExercises = todayTrainingLogs.length > 0 ? todayTrainingLogs.flatMap((log) => log.exercises) : todayProgram?.exercises ?? []
+  const todayTrainingDetailText = todayTrainingLogs.length > 0
+    ? formatLoggedExerciseList(todayTrainingLogs.flatMap((log) => log.exercises))
+    : todayProgram
+    ? formatExerciseList(todayProgram.exercises)
+    : '記録なし'
   const trainingPlanSummary = todayTrainingLogs.length > 0
     ? `${todayTrainingExercises.length}種目 / ${todayTrainingLogs.some((log) => log.completed) ? '完了' : '未完了'}`
     : todayProgram
@@ -312,7 +326,7 @@ export function Dashboard({
             <div className="detail-list">
               <div className="detail-item">
                 <span className="detail-label">トレーニング内容</span>
-                <p>{todayTrainingLogs.length > 0 ? formatExerciseList(todayTrainingExercises) : todayProgram ? formatExerciseList(todayProgram.exercises) : '記録なし'}</p>
+                <p>{todayTrainingDetailText}</p>
               </div>
               <div className="detail-item">
                 <span className="detail-label">実績</span>

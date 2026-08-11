@@ -95,26 +95,10 @@ const monthlyPrograms: MonthlyProgram[] = [
   },
 ]
 
-const trainingLogs: TrainingLog[] = [
-  {
-    date: '2026-08-01',
-    exercises: [
-      {
-        name: 'ベンチプレス',
-        sets: 3,
-        targetReps: '8-10',
-        targetWeight: '60kg',
-        restSeconds: 90,
-      },
-    ],
-    cardio: {
-      durationMinutes: 20,
-      intensity: 'moderate',
-    },
-    notes: '無事完了',
-    completed: true,
-  },
-]
+// トレーニング実績のデータ構造は種目マスタ（exercises）を参照する形に変更されたため、
+// 静的サンプルとして有効な値を作れない。mockAppData.trainingLogs はどこからも参照されて
+// いないことを確認済みのため、空配列にしている。
+const trainingLogs: TrainingLog[] = []
 
 const mealLogs: MealLog[] = [
   {

@@ -190,6 +190,18 @@
   gap: 6px;
 }
 
+.exercise-name-input__register {
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-amber-soft);
+}
+
+.exercise-name-input__register .calendar-detail__description {
+  margin: 0 0 6px;
+  color: var(--color-amber-text);
+}
+
 @media (max-width: 480px) {
   .calendar-detail__inline-fields {
     grid-template-columns: 1fr;

@@ -19,6 +19,48 @@ export interface Exercise extends BaseRecord {
   notes?: string;
 }
 
+export type BodyPart = '胸' | '肩' | '腕' | '背' | '脚' | '腹' | '有酸素' | 'その他';
+export type EquipmentType = 'バーベル' | 'ダンベル' | 'マシン' | '自重' | 'その他';
+
+export interface ExerciseDefinition extends BaseRecord {
+  name: string;
+  bodyPart: BodyPart;
+  equipmentType?: EquipmentType;
+  isPreset: boolean;
+  userId?: string;
+}
+
+export interface TrainingSet extends BaseRecord {
+  setNumber: number;
+  weight?: number;
+  reps?: number;
+  isWarmup: boolean;
+}
+
+export interface TrainingLogExercise extends BaseRecord {
+  exerciseId: string;
+  orderIndex: number;
+  exercise?: ExerciseDefinition;
+  sets: TrainingSet[];
+}
+
+export interface TrainingTemplateExercise extends BaseRecord {
+  exerciseId: string;
+  exercise?: ExerciseDefinition;
+  orderIndex: number;
+  targetSets?: number;
+  targetReps?: string;
+  targetWeight?: number;
+  restSeconds?: number;
+}
+
+export interface TrainingTemplate extends BaseRecord {
+  name: string;
+  description?: string;
+  userId?: string;
+  exercises: TrainingTemplateExercise[];
+}
+
 export interface CardioPlan extends BaseRecord {
   durationMinutes: number;
   intensity: 'easy' | 'moderate' | 'hard';
@@ -46,7 +88,7 @@ export interface MonthlyProgram extends BaseRecord {
 
 export interface TrainingLog extends BaseRecord {
   date: DateString;
-  exercises: Exercise[];
+  exercises: TrainingLogExercise[];
   cardio?: CardioPlan | null;
   notes?: string;
   completed: boolean;
