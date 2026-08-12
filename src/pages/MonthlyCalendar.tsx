@@ -91,6 +91,18 @@ export function MonthlyCalendar({
     }
   }, [scheduleRangeStart, scheduleRangeEnd])
 
+  const refetchSchedules = () => {
+    if (!scheduleRangeStart || !scheduleRangeEnd) {
+      return
+    }
+
+    fetchTrainingSchedules(scheduleRangeStart, scheduleRangeEnd)
+      .then((data) => setSchedules(data))
+      .catch((error) => {
+        console.error('Supabaseからトレーニング予定の再取得に失敗しました', error)
+      })
+  }
+
   const schedulesByDate = useMemo(() => {
     const map = new Map<string, TrainingSchedule[]>()
     schedules.forEach((schedule) => {
@@ -202,6 +214,7 @@ export function MonthlyCalendar({
               selectedDate={selectedDate}
               isFormOpen={isFormOpen}
               setIsFormOpen={setIsFormOpen}
+              onScheduleCompleted={refetchSchedules}
             />
           ) : null}
 

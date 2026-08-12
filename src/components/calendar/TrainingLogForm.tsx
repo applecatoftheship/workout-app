@@ -81,9 +81,17 @@ type TrainingLogFormProps = {
   selectedDate: DateString
   isFormOpen: boolean
   setIsFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+  onScheduleCompleted?: () => void
 }
 
-export function TrainingLogForm({ trainingLogs, setTrainingLogs, selectedDate, isFormOpen, setIsFormOpen }: TrainingLogFormProps) {
+export function TrainingLogForm({
+  trainingLogs,
+  setTrainingLogs,
+  selectedDate,
+  isFormOpen,
+  setIsFormOpen,
+  onScheduleCompleted,
+}: TrainingLogFormProps) {
   const [editingLogIndex, setEditingLogIndex] = useState<number | null>(null)
   const [formState, setFormState] = useState<TrainingLogFormState>(createEmptyFormState())
   const [formErrors, setFormErrors] = useState<TrainingLogFormExerciseErrors[]>(createEmptyFormErrors())
@@ -430,9 +438,13 @@ export function TrainingLogForm({ trainingLogs, setTrainingLogs, selectedDate, i
     })
 
     if (nextLog.completed) {
-      completeScheduleForDate(selectedDate, appliedTemplateId ?? undefined).catch((error) => {
-        console.error('Supabaseへの予定の完了連動に失敗しました', error)
-      })
+      completeScheduleForDate(selectedDate, appliedTemplateId ?? undefined)
+        .then(() => {
+          onScheduleCompleted?.()
+        })
+        .catch((error) => {
+          console.error('Supabaseへの予定の完了連動に失敗しました', error)
+        })
     }
 
     setIsFormOpen(false)
