@@ -22,6 +22,7 @@
 }
 
 .bulk-import-modal__header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -48,10 +49,27 @@
 
 .bulk-import-modal__body {
   padding: 16px;
+  flex: 1 1 auto;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.bulk-import-modal__footer {
+  flex-shrink: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bulk-import-modal__textarea {
+  min-height: 100px;
+  resize: vertical;
+  box-sizing: border-box;
 }
 
 .bulk-import-modal__section {
@@ -133,15 +151,26 @@
   font-weight: 400;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .bulk-import-modal__overlay {
     padding: 0;
     align-items: stretch;
   }
 
   .bulk-import-modal {
-    max-width: none;
-    max-height: 100vh;
-    border-radius: 0;
+    margin: auto 0.75rem;
+    width: calc(100% - 1.5rem);
+    max-width: 32rem;
+    max-height: 80dvh;
+    border-radius: 1rem;
+  }
+
+  .bulk-import-modal__header {
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  }
+
+  .bulk-import-modal__prompt {
+    max-height: 9rem;
+    overflow-y: auto;
   }
 }

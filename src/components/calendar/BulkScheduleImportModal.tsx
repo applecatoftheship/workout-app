@@ -182,8 +182,14 @@ export function BulkScheduleImportModal({ isOpen, onClose, onImported }: BulkSch
   }
 
   return (
-    <div className="bulk-import-modal__overlay" role="dialog" aria-modal="true" aria-label="AI予定一括取り込み">
-      <div className="bulk-import-modal">
+    <div className="bulk-import-modal__overlay" role="presentation" onClick={onClose}>
+      <div
+        className="bulk-import-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="AI予定一括取り込み"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="bulk-import-modal__header">
           <h3>✨ AI予定一括取り込み</h3>
           <button type="button" className="bulk-import-modal__close" onClick={onClose} aria-label="閉じる">
@@ -206,7 +212,8 @@ export function BulkScheduleImportModal({ isOpen, onClose, onImported }: BulkSch
             <label className="calendar-detail__field calendar-detail__field--full">
               <span>AIの出力結果（JSON）を貼り付け</span>
               <textarea
-                rows={8}
+                className="bulk-import-modal__textarea"
+                rows={6}
                 value={jsonText}
                 onChange={(event) => {
                   setJsonText(event.target.value)
@@ -217,9 +224,6 @@ export function BulkScheduleImportModal({ isOpen, onClose, onImported }: BulkSch
               />
             </label>
             {parseError ? <p className="calendar-detail__form-error">{parseError}</p> : null}
-            <button type="button" className="calendar-detail__button" onClick={handleParse} disabled={!jsonText.trim()}>
-              解析してプレビュー
-            </button>
           </section>
 
           {parsedItems ? (
@@ -283,17 +287,25 @@ export function BulkScheduleImportModal({ isOpen, onClose, onImported }: BulkSch
               </div>
 
               {submitError ? <p className="calendar-detail__form-error">{submitError}</p> : null}
-
-              <div className="calendar-detail__actions">
-                <button type="button" className="calendar-detail__button" onClick={handleImport} disabled={isSubmitting}>
-                  {isSubmitting ? '登録中...' : `${parsedItems.length}件を登録する`}
-                </button>
-                <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSubmitting}>
-                  キャンセル
-                </button>
-              </div>
             </section>
           ) : null}
+        </div>
+
+        <div className="bulk-import-modal__footer">
+          {parsedItems ? (
+            <div className="calendar-detail__actions">
+              <button type="button" className="calendar-detail__button" onClick={handleImport} disabled={isSubmitting}>
+                {isSubmitting ? '登録中...' : `${parsedItems.length}件を登録する`}
+              </button>
+              <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSubmitting}>
+                キャンセル
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="calendar-detail__button" onClick={handleParse} disabled={!jsonText.trim()}>
+              解析してプレビュー
+            </button>
+          )}
         </div>
       </div>
     </div>
