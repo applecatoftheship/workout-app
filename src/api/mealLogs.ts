@@ -1,68 +1,14 @@
 import { supabase } from './client'
-import type { DateString, MealLog, MealType } from '../types'
+import { fetchFoodItems } from './foodItems'
+import type { DateString, MealLog, MealLogFoodItem, MealType } from '../types'
 
-// --- food_items ---
-
-export type FoodItem = {
-  id: string
-  name: string
-  calories: number
-  protein: number
-  fat: number
-  carbohydrates: number
-}
-
-type FoodItemRow = {
-  id: string
-  name: string
-  calories: number
-  protein: number
-  fat: number
-  carbohydrates: number
-}
-
-function rowToFoodItem(row: FoodItemRow): FoodItem {
-  return {
-    id: row.id,
-    name: row.name,
-    calories: row.calories,
-    protein: row.protein,
-    fat: row.fat,
-    carbohydrates: row.carbohydrates,
-  }
-}
-
-export async function fetchFoodItems(): Promise<FoodItem[]> {
-  const { data, error } = await supabase.from('food_items').select('*').order('name', { ascending: true })
-
-  if (error) {
-    throw error
-  }
-
-  return (data as FoodItemRow[]).map(rowToFoodItem)
-}
-
-export async function createFoodItem(input: {
-  name: string
-  calories: number
-  protein: number
-  fat: number
-  carbohydrates: number
-}): Promise<FoodItem> {
-  const { data, error } = await supabase.from('food_items').insert(input).select().single()
-
-  if (error) {
-    throw error
-  }
-
-  return rowToFoodItem(data as FoodItemRow)
-}
-
-// --- meal_logs ---
-
-export type MealLogFoodSelection = {
+export type MealLogFoodItemInput = {
   foodItemId: string
-  customMultiplier?: number
+  amount: number
+  calories: number
+  protein: number
+  fat: number
+  carbohydrates: number
 }
 
 export type MealLogInput = {
@@ -70,7 +16,7 @@ export type MealLogInput = {
   date: DateString
   mealType: MealType
   notes?: string
-  selections: MealLogFoodSelection[]
+  items: MealLogFoodItemInput[]
 }
 
 type MealLogRow = {
@@ -85,7 +31,11 @@ type MealLogRow = {
 type MealLogFoodItemRow = {
   meal_log_id: string
   food_item_id: string
-  custom_multiplier: number | null
+  amount: number | null
+  calories: number | null
+  protein: number | null
+  fat: number | null
+  carbohydrates: number | null
 }
 
 export async function fetchMealLogs(): Promise<MealLog[]> {
@@ -105,26 +55,19 @@ export async function fetchMealLogs(): Promise<MealLog[]> {
   }
 
   const foodItems = await fetchFoodItems()
-  const foodItemMap = new Map(foodItems.map((item) => [item.id, item]))
+  const foodItemMap = new Map(foodItems.map((item) => [item.id as string, item]))
 
   return (logRows as MealLogRow[]).map((row) => {
     const links = (linkRows as MealLogFoodItemRow[]).filter((link) => link.meal_log_id === row.id)
 
     const totals = links.reduce(
-      (acc, link) => {
-        const foodItem = foodItemMap.get(link.food_item_id)
-        if (!foodItem) {
-          return acc
-        }
-        const multiplier = link.custom_multiplier ?? 1
-        return {
-          calories: acc.calories + foodItem.calories * multiplier,
-          protein: acc.protein + foodItem.protein * multiplier,
-          fat: acc.fat + foodItem.fat * multiplier,
-          carbohydrates: acc.carbohydrates + foodItem.carbohydrates * multiplier,
-          foods: [...acc.foods, foodItem.name],
-        }
-      },
+      (acc, link) => ({
+        calories: acc.calories + (link.calories ?? 0),
+        protein: acc.protein + (link.protein ?? 0),
+        fat: acc.fat + (link.fat ?? 0),
+        carbohydrates: acc.carbohydrates + (link.carbohydrates ?? 0),
+        foods: [...acc.foods, foodItemMap.get(link.food_item_id)?.name ?? '不明な食材'],
+      }),
       { calories: 0, protein: 0, fat: 0, carbohydrates: 0, foods: [] as string[] },
     )
 
@@ -162,12 +105,16 @@ export async function upsertMealLog(input: MealLogInput): Promise<void> {
     throw deleteError
   }
 
-  if (input.selections.length > 0) {
+  if (input.items.length > 0) {
     const { error: insertError } = await supabase.from('meal_log_food_items').insert(
-      input.selections.map((selection) => ({
+      input.items.map((item) => ({
         meal_log_id: input.id,
-        food_item_id: selection.foodItemId,
-        custom_multiplier: selection.customMultiplier ?? null,
+        food_item_id: item.foodItemId,
+        amount: item.amount,
+        calories: item.calories,
+        protein: item.protein,
+        fat: item.fat,
+        carbohydrates: item.carbohydrates,
       })),
     )
 
@@ -185,18 +132,23 @@ export async function deleteMealLogRemote(id: string): Promise<void> {
   }
 }
 
-export async function fetchMealLogSelections(mealLogId: string): Promise<MealLogFoodSelection[]> {
-  const { data, error } = await supabase
-    .from('meal_log_food_items')
-    .select('food_item_id, custom_multiplier')
-    .eq('meal_log_id', mealLogId)
+export async function fetchMealLogItems(mealLogId: string): Promise<MealLogFoodItem[]> {
+  const { data, error } = await supabase.from('meal_log_food_items').select('*').eq('meal_log_id', mealLogId)
 
   if (error) {
     throw error
   }
 
-  return (data as { food_item_id: string; custom_multiplier: number | null }[]).map((row) => ({
+  const foodItems = await fetchFoodItems()
+  const foodItemMap = new Map(foodItems.map((item) => [item.id as string, item]))
+
+  return (data as MealLogFoodItemRow[]).map((row) => ({
     foodItemId: row.food_item_id,
-    customMultiplier: row.custom_multiplier ?? undefined,
+    foodItem: foodItemMap.get(row.food_item_id),
+    amount: row.amount ?? 0,
+    calories: row.calories ?? 0,
+    protein: row.protein ?? 0,
+    fat: row.fat ?? 0,
+    carbohydrates: row.carbohydrates ?? 0,
   }))
 }

@@ -1,20 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { DateString, MealLog, MealType } from '../../types'
+import type { DateString, FoodItem, MealLog, MealType } from '../../types'
 import { getMealTypeLabel } from '../../utils/calendarHelpers'
-import {
-  fetchFoodItems,
-  createFoodItem,
-  fetchMealLogSelections,
-  fetchMealLogs,
-  upsertMealLog,
-  deleteMealLogRemote,
-} from '../../api/mealLogs'
-import type { FoodItem, MealLogInput } from '../../api/mealLogs'
+import { fetchFoodItems, createFoodItem } from '../../api/foodItems'
+import { fetchMealLogItems, fetchMealLogs, upsertMealLog, deleteMealLogRemote } from '../../api/mealLogs'
+import type { MealLogInput } from '../../api/mealLogs'
 
 type MealLogFoodSelectionForm = {
   key: string
   foodItemId: string
-  customMultiplier: string
+  amount: string
 }
 
 type MealLogFormState = {
@@ -22,6 +16,8 @@ type MealLogFormState = {
   notes: string
   selections: MealLogFoodSelectionForm[]
   newFoodName: string
+  newFoodServingAmount: string
+  newFoodServingUnit: string
   newFoodCalories: string
   newFoodProtein: string
   newFoodFat: string
@@ -32,6 +28,7 @@ type MealLogFormErrors = {
   mealType?: string
   selections?: string
   newFoodName?: string
+  newFoodServingAmount?: string
   newFoodCalories?: string
   newFoodProtein?: string
   newFoodFat?: string
@@ -43,6 +40,8 @@ const createEmptyMealFormState = (): MealLogFormState => ({
   notes: '',
   selections: [],
   newFoodName: '',
+  newFoodServingAmount: '100',
+  newFoodServingUnit: 'g',
   newFoodCalories: '',
   newFoodProtein: '',
   newFoodFat: '',
@@ -55,6 +54,13 @@ let selectionKeyCounter = 0
 function createSelectionKey() {
   selectionKeyCounter += 1
   return `selection-${selectionKeyCounter}`
+}
+
+function resolveAmount(selectionAmount: string, foodItem: FoodItem | undefined) {
+  if (!foodItem) {
+    return 0
+  }
+  return selectionAmount.trim() === '' ? foodItem.servingAmount : Number(selectionAmount)
 }
 
 type MealLogFormProps = {
@@ -122,14 +128,14 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
 
     setMealFormState({ ...createEmptyMealFormState(), mealType: existingLog.mealType, notes: existingLog.notes ?? '' })
 
-    fetchMealLogSelections(existingLog.id)
-      .then((selections) => {
+    fetchMealLogItems(existingLog.id)
+      .then((items) => {
         setMealFormState((current) => ({
           ...current,
-          selections: selections.map((selection) => ({
+          selections: items.map((item) => ({
             key: createSelectionKey(),
-            foodItemId: selection.foodItemId,
-            customMultiplier: selection.customMultiplier != null ? String(selection.customMultiplier) : '',
+            foodItemId: item.foodItemId,
+            amount: String(item.amount),
           })),
         }))
       })
@@ -143,7 +149,14 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
   }
 
   const handleNewFoodFieldChange = (
-    field: 'newFoodName' | 'newFoodCalories' | 'newFoodProtein' | 'newFoodFat' | 'newFoodCarbohydrates',
+    field:
+      | 'newFoodName'
+      | 'newFoodServingAmount'
+      | 'newFoodServingUnit'
+      | 'newFoodCalories'
+      | 'newFoodProtein'
+      | 'newFoodFat'
+      | 'newFoodCarbohydrates',
     value: string,
   ) => {
     setMealFormState((current) => ({ ...current, [field]: value }))
@@ -155,7 +168,7 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
     }
     setMealFormState((current) => ({
       ...current,
-      selections: [...current.selections, { key: createSelectionKey(), foodItemId, customMultiplier: '' }],
+      selections: [...current.selections, { key: createSelectionKey(), foodItemId, amount: '' }],
     }))
   }
 
@@ -166,17 +179,17 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
     }))
   }
 
-  const handleSelectionMultiplierChange = (key: string, value: string) => {
+  const handleSelectionAmountChange = (key: string, value: string) => {
     setMealFormState((current) => ({
       ...current,
-      selections: current.selections.map((selection) =>
-        selection.key === key ? { ...selection, customMultiplier: value } : selection,
-      ),
+      selections: current.selections.map((selection) => (selection.key === key ? { ...selection, amount: value } : selection)),
     }))
   }
 
   const handleAddNewFoodItem = async () => {
     const name = mealFormState.newFoodName.trim()
+    const servingAmount = Number(mealFormState.newFoodServingAmount)
+    const servingUnit = mealFormState.newFoodServingUnit.trim()
     const calories = Number(mealFormState.newFoodCalories)
     const protein = Number(mealFormState.newFoodProtein)
     const fat = Number(mealFormState.newFoodFat)
@@ -186,24 +199,35 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
       setMealFormErrors((current) => ({ ...current, newFoodName: '食材名は必須です' }))
       return
     }
+    if (!Number.isFinite(servingAmount) || servingAmount <= 0 || !servingUnit) {
+      setMealFormErrors((current) => ({ ...current, newFoodServingAmount: '基準量は0より大きい数値、単位は必須です' }))
+      return
+    }
     if (![calories, protein, fat, carbohydrates].every((value) => Number.isFinite(value) && value >= 0)) {
       setMealFormErrors((current) => ({ ...current, newFoodCalories: 'カロリー・PFCは0以上の数値で入力してください' }))
       return
     }
 
     try {
-      const created = await createFoodItem({ name, calories, protein, fat, carbohydrates })
+      const created = await createFoodItem({ name, servingAmount, servingUnit, calories, protein, fat, carbohydrates })
       setFoodItems((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)))
       setMealFormState((current) => ({
         ...current,
-        selections: [...current.selections, { key: createSelectionKey(), foodItemId: created.id, customMultiplier: '' }],
+        selections: [...current.selections, { key: createSelectionKey(), foodItemId: created.id as string, amount: '' }],
         newFoodName: '',
+        newFoodServingAmount: '100',
+        newFoodServingUnit: 'g',
         newFoodCalories: '',
         newFoodProtein: '',
         newFoodFat: '',
         newFoodCarbohydrates: '',
       }))
-      setMealFormErrors((current) => ({ ...current, newFoodName: undefined, newFoodCalories: undefined }))
+      setMealFormErrors((current) => ({
+        ...current,
+        newFoodName: undefined,
+        newFoodServingAmount: undefined,
+        newFoodCalories: undefined,
+      }))
     } catch (error) {
       console.error('Supabaseへの食材登録に失敗しました', error)
       setMealFormErrors((current) => ({ ...current, newFoodName: '食材の登録に失敗しました' }))
@@ -217,13 +241,13 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
         if (!foodItem) {
           return totals
         }
-        const multiplier = selection.customMultiplier.trim() === '' ? 1 : Number(selection.customMultiplier)
-        const safeMultiplier = Number.isFinite(multiplier) ? multiplier : 1
+        const amountValue = resolveAmount(selection.amount, foodItem)
+        const ratio = Number.isFinite(amountValue) ? amountValue / foodItem.servingAmount : 1
         return {
-          calories: totals.calories + foodItem.calories * safeMultiplier,
-          protein: totals.protein + foodItem.protein * safeMultiplier,
-          fat: totals.fat + foodItem.fat * safeMultiplier,
-          carbohydrates: totals.carbohydrates + foodItem.carbohydrates * safeMultiplier,
+          calories: totals.calories + foodItem.calories * ratio,
+          protein: totals.protein + foodItem.protein * ratio,
+          fat: totals.fat + foodItem.fat * ratio,
+          carbohydrates: totals.carbohydrates + foodItem.carbohydrates * ratio,
         }
       },
       { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
@@ -240,10 +264,10 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
       errors.selections = '少なくとも1つの食材を選択してください'
     }
     for (const selection of mealFormState.selections) {
-      if (selection.customMultiplier.trim() !== '') {
-        const multiplierValue = Number(selection.customMultiplier)
-        if (!Number.isFinite(multiplierValue) || multiplierValue <= 0) {
-          errors.selections = '倍率は0より大きい数値で入力してください'
+      if (selection.amount.trim() !== '') {
+        const amountValue = Number(selection.amount)
+        if (!Number.isFinite(amountValue) || amountValue <= 0) {
+          errors.selections = '摂取量は0より大きい数値で入力してください'
         }
       }
     }
@@ -267,15 +291,31 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
     const existingLog = editingMealIndex !== null ? mealLogs[editingMealIndex] : null
     const id = existingLog?.id ?? crypto.randomUUID()
 
+    const items = mealFormState.selections
+      .map((selection) => {
+        const foodItem = foodItems.find((item) => item.id === selection.foodItemId)
+        if (!foodItem) {
+          return null
+        }
+        const amountValue = resolveAmount(selection.amount, foodItem)
+        const ratio = amountValue / foodItem.servingAmount
+        return {
+          foodItemId: selection.foodItemId,
+          amount: amountValue,
+          calories: Math.round(foodItem.calories * ratio * 10) / 10,
+          protein: Math.round(foodItem.protein * ratio * 10) / 10,
+          fat: Math.round(foodItem.fat * ratio * 10) / 10,
+          carbohydrates: Math.round(foodItem.carbohydrates * ratio * 10) / 10,
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+
     const input: MealLogInput = {
       id,
       date: selectedDate,
       mealType: mealFormState.mealType as MealType,
       notes: mealFormState.notes.trim() || undefined,
-      selections: mealFormState.selections.map((selection) => ({
-        foodItemId: selection.foodItemId,
-        customMultiplier: selection.customMultiplier.trim() === '' ? undefined : Number(selection.customMultiplier),
-      })),
+      items,
     }
 
     setIsMealSaving(true)
@@ -385,7 +425,7 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
               <option value="">選択してください</option>
               {foodItems.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name}（{item.calories}kcal）
+                  {item.name}（基準 {item.servingAmount}{item.servingUnit} = {item.calories}kcal）
                 </option>
               ))}
             </select>
@@ -408,14 +448,16 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
                       </button>
                     </div>
                     <label className="calendar-detail__field">
-                      <span>倍率（空欄なら1倍）</span>
+                      <span>
+                        摂取量（基準: {foodItem ? `${foodItem.servingAmount}${foodItem.servingUnit}` : '-'} / 空欄なら基準量のまま）
+                      </span>
                       <input
                         type="number"
                         min="0.1"
                         step="0.1"
-                        value={selection.customMultiplier}
-                        onChange={(event) => handleSelectionMultiplierChange(selection.key, event.target.value)}
-                        placeholder="1.0"
+                        value={selection.amount}
+                        onChange={(event) => handleSelectionAmountChange(selection.key, event.target.value)}
+                        placeholder={foodItem ? String(foodItem.servingAmount) : ''}
                       />
                     </label>
                   </div>
@@ -442,6 +484,34 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
               />
               {mealFormErrors.newFoodName ? <p className="calendar-detail__error">{mealFormErrors.newFoodName}</p> : null}
             </label>
+            <div className="calendar-detail__inline-fields">
+              <label className="calendar-detail__field">
+                <span>基準量</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={mealFormState.newFoodServingAmount}
+                  onChange={(event) => handleNewFoodFieldChange('newFoodServingAmount', event.target.value)}
+                  placeholder="100"
+                />
+              </label>
+              <label className="calendar-detail__field">
+                <span>単位</span>
+                <input
+                  type="text"
+                  value={mealFormState.newFoodServingUnit}
+                  onChange={(event) => handleNewFoodFieldChange('newFoodServingUnit', event.target.value)}
+                  placeholder="g / 個 / 食分 など"
+                />
+              </label>
+            </div>
+            {mealFormErrors.newFoodServingAmount ? (
+              <p className="calendar-detail__error">{mealFormErrors.newFoodServingAmount}</p>
+            ) : null}
+            <p className="calendar-detail__description">
+              下のカロリー・PFCは「基準量あたり」の値を入力してください（例: 卵1個なら基準量1・単位「個」）
+            </p>
             <div className="calendar-detail__inline-fields">
               <label className="calendar-detail__field">
                 <span>カロリー (kcal)</span>

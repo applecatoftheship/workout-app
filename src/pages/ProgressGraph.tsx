@@ -53,12 +53,17 @@ export function ProgressGraph({
   )
 
   const trainingByDate = useMemo(() => {
-    const map = new Map<string, { sets: number; completed: boolean; hasLog: boolean }>()
+    const map = new Map<string, { sets: number; volume: number; completed: boolean; hasLog: boolean }>()
     trainingLogs.forEach((log) => {
       const sets = log.exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0)
+      const volume = log.exercises.reduce(
+        (sum, exercise) => sum + exercise.sets.reduce((setSum, set) => setSum + (set.weight ?? 0) * (set.reps ?? 0), 0),
+        0,
+      )
       const existing = map.get(log.date)
       map.set(log.date, {
         sets: (existing?.sets ?? 0) + sets,
+        volume: (existing?.volume ?? 0) + volume,
         completed: (existing?.completed ?? false) || log.completed,
         hasLog: true,
       })
@@ -70,7 +75,7 @@ export function ProgressGraph({
     () =>
       periodDates.map((date) => ({
         date,
-        ...(trainingByDate.get(date) ?? { sets: 0, completed: false, hasLog: false }),
+        ...(trainingByDate.get(date) ?? { sets: 0, volume: 0, completed: false, hasLog: false }),
       })),
     [periodDates, trainingByDate],
   )
@@ -78,6 +83,7 @@ export function ProgressGraph({
   const trainingGoal = period === 'week' ? weeklyTrainingGoal : monthlyTrainingGoal
   const trainingCount = periodTrainingDays.filter((day) => day.hasLog).length
   const totalSets = periodTrainingDays.reduce((sum, day) => sum + day.sets, 0)
+  const totalVolume = periodTrainingDays.reduce((sum, day) => sum + day.volume, 0)
   const achievementRate = trainingGoal > 0 ? Math.min(100, Math.round((trainingCount / trainingGoal) * 100)) : 0
 
   return (
@@ -124,6 +130,7 @@ export function ProgressGraph({
             trainingGoal={trainingGoal}
             trainingCount={trainingCount}
             totalSets={totalSets}
+            totalVolume={totalVolume}
             achievementRate={achievementRate}
           />
         ) : null}

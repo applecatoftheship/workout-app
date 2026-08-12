@@ -105,6 +105,27 @@ export interface MealLog extends BaseRecord {
   notes?: string;
 }
 
+export interface FoodItem extends BaseRecord {
+  name: string;
+  servingAmount: number;
+  servingUnit: string;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbohydrates: number;
+  isDeleted?: boolean;
+}
+
+export interface MealLogFoodItem extends BaseRecord {
+  foodItemId: string;
+  foodItem?: FoodItem;
+  amount: number;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbohydrates: number;
+}
+
 export interface DailyCondition extends BaseRecord {
   date: DateString;
   weight: number;

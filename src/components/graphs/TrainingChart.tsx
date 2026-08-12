@@ -1,12 +1,13 @@
 import { formatShortDate } from '../../utils/chartHelpers'
 
-type TrainingDay = { date: string; sets: number; completed: boolean; hasLog: boolean }
+type TrainingDay = { date: string; sets: number; volume: number; completed: boolean; hasLog: boolean }
 
 type TrainingChartProps = {
   periodTrainingDays: TrainingDay[]
   trainingGoal: number
   trainingCount: number
   totalSets: number
+  totalVolume: number
   achievementRate: number
 }
 
@@ -15,6 +16,7 @@ export function TrainingChart({
   trainingGoal,
   trainingCount,
   totalSets,
+  totalVolume,
   achievementRate,
 }: TrainingChartProps) {
   const hasAnyLog = periodTrainingDays.some((day) => day.hasLog)
@@ -34,6 +36,10 @@ export function TrainingChart({
         <div className="progress-graph__metric">
           <span className="progress-graph__metric-label">総セット数</span>
           <strong>{totalSets}セット</strong>
+        </div>
+        <div className="progress-graph__metric">
+          <span className="progress-graph__metric-label">総ボリューム</span>
+          <strong>{Math.round(totalVolume)}kg</strong>
         </div>
       </div>
 
