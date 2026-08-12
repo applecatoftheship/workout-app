@@ -28,7 +28,6 @@ type MealLogFormState = {
 
 const QUICK_FOOD_EMOJIS = ['🍚', '🥩', '🥦', '🍞', '🍜', '🍎', '🥛', '🍽️']
 const DEFAULT_FOOD_EMOJI = '🍽️'
-const ALL_CATEGORIES = 'all'
 const UNCATEGORIZED = 'uncategorized'
 
 type MealLogFormErrors = {
@@ -88,7 +87,7 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
   const [mealFormSummaryError, setMealFormSummaryError] = useState<string | null>(null)
   const [foodItems, setFoodItems] = useState<FoodItem[]>([])
   const [isMealSaving, setIsMealSaving] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES)
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
 
   useEffect(() => {
     fetchFoodItems()
@@ -120,7 +119,7 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
   useEffect(() => {
     setIsMealFormOpen(false)
     setEditingMealIndex(null)
-    setSelectedCategory(ALL_CATEGORIES)
+    setSelectedCategory('')
   }, [selectedDate, setIsMealFormOpen])
 
   const foodCategories = useMemo(
@@ -132,8 +131,8 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
   )
 
   const categoryFilteredFoodItems = useMemo(() => {
-    if (selectedCategory === ALL_CATEGORIES) {
-      return foodItems
+    if (!selectedCategory) {
+      return []
     }
     if (selectedCategory === UNCATEGORIZED) {
       return foodItems.filter((item) => !item.category)
@@ -151,6 +150,7 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
     setEditingMealIndex(typeof mealIndex === 'number' ? mealIndex : null)
     setMealFormErrors(createEmptyMealFormErrors())
     setMealFormSummaryError(null)
+    setSelectedCategory('')
     setIsFormOpen(false)
     setIsMealFormOpen(true)
 
@@ -464,17 +464,8 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
           </label>
 
           <div className="calendar-detail__field calendar-detail__field--full">
-            <span>カテゴリで絞り込み</span>
+            <span>食材のジャンルを選択</span>
             <div className="calendar-detail__category-filter">
-              <button
-                type="button"
-                className={`calendar-detail__category-chip${
-                  selectedCategory === ALL_CATEGORIES ? ' calendar-detail__category-chip--active' : ''
-                }`}
-                onClick={() => handleCategoryChange(ALL_CATEGORIES)}
-              >
-                すべて
-              </button>
               {foodCategories.map((category) => (
                 <button
                   key={category}
@@ -494,29 +485,32 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
                 }`}
                 onClick={() => handleCategoryChange(UNCATEGORIZED)}
               >
-                未分類
+                その他 / 未分類
               </button>
             </div>
           </div>
 
-          <div className="calendar-detail__field calendar-detail__field--full">
-            <span>食材を追加</span>
-            <select
-              key={selectedCategory}
-              value=""
-              onChange={(event) => {
-                addFoodSelection(event.target.value)
-              }}
-            >
-              <option value="">選択してください</option>
-              {categoryFilteredFoodItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.emoji ?? DEFAULT_FOOD_EMOJI} {item.name}
-                  {item.category ? `［${item.category}］` : ''}（基準 {item.servingAmount}{item.servingUnit} = {item.calories}kcal）
-                </option>
-              ))}
-            </select>
-          </div>
+          {selectedCategory ? (
+            <div className="calendar-detail__field calendar-detail__field--full">
+              <span>食材を追加</span>
+              <select
+                key={selectedCategory}
+                value=""
+                onChange={(event) => {
+                  addFoodSelection(event.target.value)
+                }}
+              >
+                <option value="">選択してください</option>
+                {categoryFilteredFoodItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.emoji ?? DEFAULT_FOOD_EMOJI} {item.name} ({item.servingAmount}{item.servingUnit} = {item.calories}kcal)
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <p className="calendar-detail__description">上のジャンルを選択すると、食材の候補が表示されます</p>
+          )}
 
           {mealFormState.selections.length > 0 ? (
             <div className="calendar-detail__log-list">
