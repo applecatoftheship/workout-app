@@ -6,6 +6,7 @@ import { TrainingLogForm } from '../components/calendar/TrainingLogForm'
 import { MealLogForm } from '../components/calendar/MealLogForm'
 import { ConditionForm } from '../components/calendar/ConditionForm'
 import { ScheduleForm } from '../components/calendar/ScheduleForm'
+import { BulkScheduleImportModal } from '../components/calendar/BulkScheduleImportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { weekDays, toDateKey, formatMonthLabel, getScheduleDayIcon } from '../utils/calendarHelpers'
 
@@ -35,6 +36,7 @@ export function MonthlyCalendar({
   const [isMealFormOpen, setIsMealFormOpen] = useState(false)
   const [isConditionFormOpen, setIsConditionFormOpen] = useState(false)
   const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(false)
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
 
   const year = displayDate.getFullYear()
@@ -140,6 +142,12 @@ export function MonthlyCalendar({
         </div>
       </div>
 
+      <div className="calendar-card__toolbar">
+        <button type="button" className="calendar-nav__button" onClick={() => setIsBulkImportOpen(true)}>
+          ✨ AI予定一括取り込み
+        </button>
+      </div>
+
       <div className="calendar-weekdays" aria-label="曜日">
         {weekDays.map((day) => (
           <div key={day} className="calendar-weekday">
@@ -214,7 +222,7 @@ export function MonthlyCalendar({
               selectedDate={selectedDate}
               isFormOpen={isFormOpen}
               setIsFormOpen={setIsFormOpen}
-              onScheduleCompleted={refetchSchedules}
+              onScheduleUpdated={refetchSchedules}
             />
           ) : null}
 
@@ -252,6 +260,12 @@ export function MonthlyCalendar({
           ) : null}
         </div>
       </div>
+
+      <BulkScheduleImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onImported={refetchSchedules}
+      />
     </section>
   )
 }

@@ -1,6 +1,5 @@
 export type DateString = `${number}${number}${number}${number}-${number}${number}-${number}${number}`;
 
-export type ProgramType = 'strength' | 'cardio' | 'mobility' | 'rest' | 'recovery';
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
 export type FatigueLevel = 1 | 2 | 3 | 4 | 5;
 
@@ -8,15 +7,6 @@ export interface BaseRecord {
   id?: string;
   createdAt?: DateString;
   updatedAt?: DateString;
-}
-
-export interface Exercise extends BaseRecord {
-  name: string;
-  sets: number;
-  targetReps: string;
-  targetWeight?: string;
-  restSeconds?: number;
-  notes?: string;
 }
 
 export type BodyPart = '胸' | '肩' | '腕' | '背' | '脚' | '腹' | '有酸素' | 'その他';
@@ -67,25 +57,6 @@ export interface CardioPlan extends BaseRecord {
   notes?: string;
 }
 
-export interface DailyProgram extends BaseRecord {
-  date: DateString;
-  type: ProgramType;
-  title: string;
-  description: string;
-  exercises: Exercise[];
-  cardio?: CardioPlan | null;
-  notes?: string;
-}
-
-export interface MonthlyProgram extends BaseRecord {
-  year: number;
-  month: number;
-  title: string;
-  description: string;
-  goals: string[];
-  dailyPrograms: DailyProgram[];
-}
-
 export interface TrainingLog extends BaseRecord {
   date: DateString;
   exercises: TrainingLogExercise[];
@@ -134,14 +105,6 @@ export interface DailyCondition extends BaseRecord {
   notes?: string;
 }
 
-export interface ProgressRecord extends BaseRecord {
-  date: DateString;
-  weight: number;
-  bodyFat?: number;
-  waist?: number;
-  notes?: string;
-}
-
 export type TrainingScheduleStatus = 'scheduled' | 'completed' | 'cancelled';
 
 export interface TrainingSchedule extends BaseRecord {
@@ -152,11 +115,4 @@ export interface TrainingSchedule extends BaseRecord {
   emoji: string;
   status: TrainingScheduleStatus;
   notes?: string | null;
-}
-
-export interface AppDataModel extends BaseRecord {
-  monthlyPrograms: MonthlyProgram[];
-  mealLogs: MealLog[];
-  dailyConditions: DailyCondition[];
-  progressRecords: ProgressRecord[];
 }

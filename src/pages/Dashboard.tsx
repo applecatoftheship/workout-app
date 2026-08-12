@@ -1,21 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { formatTrainingLogItem } from '../utils/calendarHelpers'
+import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import type { Goals } from '../api/goals'
-import type { DailyCondition, DailyProgram, DateString, MealLog, TrainingLog, TrainingLogExercise } from '../types'
+import type { DailyCondition, DateString, MealLog, TrainingLog, TrainingLogExercise, TrainingSchedule } from '../types'
 
-function formatExerciseList(exercises: Array<{ name: string; sets: number; targetReps: string; targetWeight?: string }>) {
-  if (exercises.length === 0) {
+function formatScheduleList(schedules: TrainingSchedule[]) {
+  if (schedules.length === 0) {
     return '記録なし'
   }
 
-  return exercises
-    .map((exercise) => {
-      const weightText = exercise.targetWeight ? ` / ${exercise.targetWeight}` : ''
-      return `${exercise.name} ${exercise.sets}セット ${exercise.targetReps}${weightText}`
-    })
-    .join(' / ')
+  return schedules.map((schedule) => `${schedule.emoji} ${schedule.title}`).join(' / ')
 }
 
 function formatLoggedExerciseList(exercises: TrainingLogExercise[]) {
@@ -54,7 +50,6 @@ type DashboardProps = {
   today: Date
   todayString: DateString
   formattedDate: string
-  todayProgram: DailyProgram | undefined
   setActiveView: React.Dispatch<React.SetStateAction<'dashboard' | 'calendar' | 'progress'>>
 }
 
@@ -67,11 +62,29 @@ export function Dashboard({
   today,
   todayString,
   formattedDate,
-  todayProgram,
   setActiveView,
 }: DashboardProps) {
   const [isTodayDetailOpen, setIsTodayDetailOpen] = useState(false)
   const [isNutritionOpen, setIsNutritionOpen] = useState(false)
+  const [todaySchedules, setTodaySchedules] = useState<TrainingSchedule[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchTrainingSchedules(todayString, todayString)
+      .then((data) => {
+        if (isMounted) {
+          setTodaySchedules(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから本日の予定の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [todayString])
 
   const todayTrainingLogs = useMemo(
     () => trainingLogs.filter((log) => log.date === todayString),
@@ -86,18 +99,18 @@ export function Dashboard({
     [mealLogs],
   )
 
-  const todayTrainingExercises = todayTrainingLogs.length > 0 ? todayTrainingLogs.flatMap((log) => log.exercises) : todayProgram?.exercises ?? []
+  const todayLoggedExercises = todayTrainingLogs.flatMap((log) => log.exercises)
   const todayTrainingDetailText = todayTrainingLogs.length > 0
-    ? formatLoggedExerciseList(todayTrainingLogs.flatMap((log) => log.exercises))
-    : todayProgram
-    ? formatExerciseList(todayProgram.exercises)
+    ? formatLoggedExerciseList(todayLoggedExercises)
+    : todaySchedules.length > 0
+    ? formatScheduleList(todaySchedules)
     : '記録なし'
   const trainingPlanSummary = todayTrainingLogs.length > 0
-    ? `${todayTrainingExercises.length}種目 / ${todayTrainingLogs.some((log) => log.completed) ? '完了' : '未完了'}`
-    : todayProgram
-    ? `${todayProgram.title} / ${todayProgram.description}`
+    ? `${todayLoggedExercises.length}種目 / ${todayTrainingLogs.some((log) => log.completed) ? '完了' : '未完了'}`
+    : todaySchedules.length > 0
+    ? formatScheduleList(todaySchedules)
     : '記録なし'
-  const trainingPlanBadge = todayTrainingLogs.length > 0 ? '実績あり' : todayProgram ? todayProgram.type : '休息'
+  const trainingPlanBadge = todayTrainingLogs.length > 0 ? '実績あり' : todaySchedules.length > 0 ? '予定あり' : '休息'
   const todayTrainingSummary = todayTrainingLogs.length > 0
     ? `${todayTrainingLogs.some((log) => log.completed) ? '完了' : '未完了'} / ${todayTrainingLogs
         .map((log) => log.notes ?? 'メモなし')

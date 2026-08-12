@@ -47,6 +47,11 @@
   font-weight: 500;
 }
 
+.calendar-card__toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .calendar-weekdays,
 .calendar-grid {
   display: grid;

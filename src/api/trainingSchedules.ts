@@ -117,6 +117,19 @@ export async function deleteSchedule(id: string): Promise<void> {
   }
 }
 
+export async function deleteSchedulesInRange(startDate: string, endDate: string): Promise<void> {
+  const { error } = await supabase
+    .from('training_schedules')
+    .delete()
+    .eq('user_id', DEFAULT_USER_ID)
+    .gte('scheduled_date', startDate)
+    .lte('scheduled_date', endDate)
+
+  if (error) {
+    throw error
+  }
+}
+
 export async function completeScheduleForDate(date: string, templateId?: string): Promise<void> {
   const { data, error } = await supabase
     .from('training_schedules')

@@ -3,7 +3,6 @@ import './App.css'
 import { MonthlyCalendar } from './pages/MonthlyCalendar'
 import { ProgressGraph } from './pages/ProgressGraph'
 import { Dashboard } from './pages/Dashboard'
-import { mockAppData } from './mockData'
 import { fetchDailyConditions, syncDailyConditions } from './api/dailyConditions'
 import { fetchGoals, upsertGoals } from './api/goals'
 import { fetchTrainingLogs, syncTrainingLogs } from './api/trainingLogs'
@@ -29,10 +28,6 @@ const formattedDate = new Intl.DateTimeFormat('ja-JP', {
   day: 'numeric',
   weekday: 'short',
 }).format(today)
-
-const todayProgram = mockAppData.monthlyPrograms
-  .flatMap((program) => program.dailyPrograms)
-  .find((program) => program.date === todayString)
 
 function App() {
   const [activeView, setActiveView] = useState<'dashboard' | 'calendar' | 'progress'>('dashboard')
@@ -206,7 +201,6 @@ function App() {
           today={today}
           todayString={todayString}
           formattedDate={formattedDate}
-          todayProgram={todayProgram}
           setActiveView={setActiveView}
         />
       )}
