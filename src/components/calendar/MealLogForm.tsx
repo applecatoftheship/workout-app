@@ -28,6 +28,8 @@ type MealLogFormState = {
 
 const QUICK_FOOD_EMOJIS = ['🍚', '🥩', '🥦', '🍞', '🍜', '🍎', '🥛', '🍽️']
 const DEFAULT_FOOD_EMOJI = '🍽️'
+const ALL_CATEGORIES = 'all'
+const UNCATEGORIZED = 'uncategorized'
 
 type MealLogFormErrors = {
   mealType?: string
@@ -86,6 +88,7 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
   const [mealFormSummaryError, setMealFormSummaryError] = useState<string | null>(null)
   const [foodItems, setFoodItems] = useState<FoodItem[]>([])
   const [isMealSaving, setIsMealSaving] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES)
 
   useEffect(() => {
     fetchFoodItems()
@@ -117,7 +120,30 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
   useEffect(() => {
     setIsMealFormOpen(false)
     setEditingMealIndex(null)
+    setSelectedCategory(ALL_CATEGORIES)
   }, [selectedDate, setIsMealFormOpen])
+
+  const foodCategories = useMemo(
+    () =>
+      Array.from(new Set(foodItems.map((item) => item.category).filter((category): category is string => Boolean(category)))).sort(
+        (a, b) => a.localeCompare(b, 'ja'),
+      ),
+    [foodItems],
+  )
+
+  const categoryFilteredFoodItems = useMemo(() => {
+    if (selectedCategory === ALL_CATEGORIES) {
+      return foodItems
+    }
+    if (selectedCategory === UNCATEGORIZED) {
+      return foodItems.filter((item) => !item.category)
+    }
+    return foodItems.filter((item) => item.category === selectedCategory)
+  }, [foodItems, selectedCategory])
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category)
+  }
 
   const openMealForm = (mealIndex?: number) => {
     const existingLog = typeof mealIndex === 'number' ? mealLogs[mealIndex] : null
@@ -438,15 +464,52 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
           </label>
 
           <div className="calendar-detail__field calendar-detail__field--full">
+            <span>カテゴリで絞り込み</span>
+            <div className="calendar-detail__category-filter">
+              <button
+                type="button"
+                className={`calendar-detail__category-chip${
+                  selectedCategory === ALL_CATEGORIES ? ' calendar-detail__category-chip--active' : ''
+                }`}
+                onClick={() => handleCategoryChange(ALL_CATEGORIES)}
+              >
+                すべて
+              </button>
+              {foodCategories.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  className={`calendar-detail__category-chip${
+                    selectedCategory === category ? ' calendar-detail__category-chip--active' : ''
+                  }`}
+                  onClick={() => handleCategoryChange(category)}
+                >
+                  {category}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`calendar-detail__category-chip${
+                  selectedCategory === UNCATEGORIZED ? ' calendar-detail__category-chip--active' : ''
+                }`}
+                onClick={() => handleCategoryChange(UNCATEGORIZED)}
+              >
+                未分類
+              </button>
+            </div>
+          </div>
+
+          <div className="calendar-detail__field calendar-detail__field--full">
             <span>食材を追加</span>
             <select
+              key={selectedCategory}
               value=""
               onChange={(event) => {
                 addFoodSelection(event.target.value)
               }}
             >
               <option value="">選択してください</option>
-              {foodItems.map((item) => (
+              {categoryFilteredFoodItems.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.emoji ?? DEFAULT_FOOD_EMOJI} {item.name}
                   {item.category ? `［${item.category}］` : ''}（基準 {item.servingAmount}{item.servingUnit} = {item.calories}kcal）

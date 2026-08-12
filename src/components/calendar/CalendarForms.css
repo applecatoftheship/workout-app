@@ -184,6 +184,30 @@
   gap: 6px;
 }
 
+.calendar-detail__category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.calendar-detail__category-chip {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.calendar-detail__category-chip--active {
+  border-color: var(--color-pitch);
+  background: var(--color-pitch);
+  color: #f6f5f0;
+}
+
 .calendar-detail__actions {
   display: flex;
   flex-direction: column;
