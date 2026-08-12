@@ -77,6 +77,14 @@ export function areaPathFor(values: number[], min: number, range: number) {
   return `M ${firstX},${bottomY} L ${points.join(' L ')} L ${lastX},${bottomY} Z`
 }
 
+export function shouldShowLabel(index: number, total: number, maxLabels = 8) {
+  if (total <= maxLabels) {
+    return true
+  }
+  const step = Math.ceil(total / maxLabels)
+  return index % step === 0 || index === total - 1
+}
+
 export function buildAxisTicks(min: number, range: number, decimals: number) {
   const tickCount = 4
   return Array.from({ length: tickCount }, (_, i) => {

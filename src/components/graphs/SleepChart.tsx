@@ -1,5 +1,5 @@
 import type { DailyCondition } from '../../types'
-import { formatShortDate } from '../../utils/chartHelpers'
+import { formatShortDate, shouldShowLabel } from '../../utils/chartHelpers'
 
 type SleepChartProps = {
   periodConditions: DailyCondition[]
@@ -16,7 +16,10 @@ export function SleepChart({ periodConditions, targetSleepHours }: SleepChartPro
   return (
     <div className="progress-graph__chart-wrapper">
       <p className="progress-graph__goal-note">目標 {targetSleepHours.toFixed(1)}時間</p>
-      <div className="progress-graph__bars-wrapper">
+      <div
+        className="progress-graph__bars-wrapper"
+        style={{ gridTemplateColumns: `repeat(${periodConditions.length}, 1fr)` }}
+      >
         {periodConditions.map((condition, index) => (
           <div key={condition.date} className="progress-graph__bar-column">
             <div
@@ -25,7 +28,9 @@ export function SleepChart({ periodConditions, targetSleepHours }: SleepChartPro
             >
               <span>{sleepValues[index].toFixed(1)}</span>
             </div>
-            <span className="progress-graph__bar-label">{formatShortDate(condition.date)}</span>
+            <span className="progress-graph__bar-label">
+              {shouldShowLabel(index, periodConditions.length) ? formatShortDate(condition.date) : ''}
+            </span>
           </div>
         ))}
       </div>

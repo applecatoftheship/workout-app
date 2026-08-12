@@ -9,6 +9,7 @@ import {
   computeScale,
   formatShortDate,
   pointsFor,
+  shouldShowLabel,
 } from '../../utils/chartHelpers'
 
 type FatigueChartProps = {
@@ -45,8 +46,10 @@ export function FatigueChart({ periodConditions }: FatigueChartProps) {
         })}
       </svg>
       <div className="progress-graph__labels">
-        {periodConditions.map((condition) => (
-          <span key={condition.date}>{formatShortDate(condition.date)}</span>
+        {periodConditions.map((condition, index) => (
+          <span key={condition.date}>
+            {shouldShowLabel(index, periodConditions.length) ? formatShortDate(condition.date) : ''}
+          </span>
         ))}
       </div>
     </div>

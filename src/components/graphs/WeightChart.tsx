@@ -9,6 +9,7 @@ import {
   computeScale,
   formatShortDate,
   pointsFor,
+  shouldShowLabel,
   toDateKey,
   valueToY,
 } from '../../utils/chartHelpers'
@@ -83,8 +84,10 @@ export function WeightChart({ periodConditions, targetWeight, periodEnd, periodE
         <span className="progress-graph__legend-item"><span className="progress-graph__legend-dot progress-graph__legend-dot--target" />目標</span>
       </div>
       <div className="progress-graph__labels">
-        {periodConditions.map((condition) => (
-          <span key={condition.date}>{formatShortDate(condition.date)}</span>
+        {periodConditions.map((condition, index) => (
+          <span key={condition.date}>
+            {shouldShowLabel(index, periodConditions.length) ? formatShortDate(condition.date) : ''}
+          </span>
         ))}
       </div>
       <div className="progress-graph__metrics">

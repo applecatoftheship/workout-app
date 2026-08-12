@@ -1,4 +1,4 @@
-import { formatShortDate } from '../../utils/chartHelpers'
+import { formatShortDate, shouldShowLabel } from '../../utils/chartHelpers'
 
 type TrainingDay = { date: string; sets: number; volume: number; completed: boolean; hasLog: boolean }
 
@@ -48,8 +48,11 @@ export function TrainingChart({
       </div>
 
       {hasAnyLog ? (
-        <div className="progress-graph__bars-wrapper">
-          {periodTrainingDays.map((day) => (
+        <div
+          className="progress-graph__bars-wrapper"
+          style={{ gridTemplateColumns: `repeat(${periodTrainingDays.length}, 1fr)` }}
+        >
+          {periodTrainingDays.map((day, index) => (
             <div key={day.date} className="progress-graph__bar-column">
               <div
                 className={`progress-graph__bar ${
@@ -63,7 +66,9 @@ export function TrainingChart({
               >
                 {day.sets > 0 ? <span>{day.sets}</span> : null}
               </div>
-              <span className="progress-graph__bar-label">{formatShortDate(day.date)}</span>
+              <span className="progress-graph__bar-label">
+                {shouldShowLabel(index, periodTrainingDays.length) ? formatShortDate(day.date) : ''}
+              </span>
             </div>
           ))}
         </div>
