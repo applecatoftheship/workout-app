@@ -142,6 +142,18 @@ export interface ProgressRecord extends BaseRecord {
   notes?: string;
 }
 
+export type TrainingScheduleStatus = 'scheduled' | 'completed' | 'cancelled';
+
+export interface TrainingSchedule extends BaseRecord {
+  userId: string;
+  scheduledDate: DateString;
+  templateId?: string | null;
+  title: string;
+  emoji: string;
+  status: TrainingScheduleStatus;
+  notes?: string | null;
+}
+
 export interface AppDataModel extends BaseRecord {
   monthlyPrograms: MonthlyProgram[];
   mealLogs: MealLog[];

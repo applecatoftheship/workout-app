@@ -1,22 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { mockAppData } from '../mockData'
-import type { DailyCondition, DateString, MealLog, TrainingLog } from '../types'
+import type { DailyCondition, DateString, MealLog, TrainingLog, TrainingSchedule } from '../types'
 import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
 import { TrainingLogForm } from '../components/calendar/TrainingLogForm'
 import { MealLogForm } from '../components/calendar/MealLogForm'
 import { ConditionForm } from '../components/calendar/ConditionForm'
-import {
-  weekDays,
-  toDateKey,
-  formatMonthLabel,
-  getProgramIcon,
-  getProgramLabel,
-  getProgramSummary,
-  formatExerciseSummary,
-  formatCardioSummary,
-  getProgramForDate,
-} from '../utils/calendarHelpers'
+import { ScheduleForm } from '../components/calendar/ScheduleForm'
+import { fetchTrainingSchedules } from '../api/trainingSchedules'
+import { weekDays, toDateKey, formatMonthLabel, getScheduleDayIcon } from '../utils/calendarHelpers'
 
 type MonthlyCalendarProps = {
   trainingLogs: TrainingLog[]
@@ -36,19 +27,18 @@ export function MonthlyCalendar({
   setDailyConditions,
 }: MonthlyCalendarProps) {
   const today = new Date()
+  const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate())
   const [displayDate, setDisplayDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
-  const [selectedDate, setSelectedDate] = useState<DateString>(toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate()))
-  const [activeDetailTab, setActiveDetailTab] = useState<'training' | 'condition' | 'meal'>('training')
+  const [selectedDate, setSelectedDate] = useState<DateString>(todayKey)
+  const [activeDetailTab, setActiveDetailTab] = useState<'training' | 'schedule' | 'condition' | 'meal'>('training')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isMealFormOpen, setIsMealFormOpen] = useState(false)
   const [isConditionFormOpen, setIsConditionFormOpen] = useState(false)
+  const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(false)
+  const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
 
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
-  const monthlyProgram = useMemo(
-    () => mockAppData.monthlyPrograms.find((program) => program.year === year && program.month === month + 1),
-    [month, year],
-  )
 
   const calendarDays = useMemo(() => {
     const firstDay = new Date(year, month, 1)
@@ -59,7 +49,6 @@ export function MonthlyCalendar({
       date: Date
       dateKey: DateString
       isCurrentMonth: boolean
-      programs: ReturnType<typeof getProgramForDate>
     }> = []
 
     for (let index = 0; index < 42; index += 1) {
@@ -71,16 +60,46 @@ export function MonthlyCalendar({
         date: currentDate,
         dateKey,
         isCurrentMonth: currentDate.getMonth() === month,
-        programs: getProgramForDate(monthlyProgram, dateKey),
       })
     }
 
     return days
-  }, [month, monthlyProgram, year])
+  }, [month, year])
 
-  const selectedPrograms = useMemo(() => {
-    return getProgramForDate(monthlyProgram, selectedDate)
-  }, [monthlyProgram, selectedDate])
+  const scheduleRangeStart = calendarDays[0]?.dateKey
+  const scheduleRangeEnd = calendarDays[calendarDays.length - 1]?.dateKey
+
+  useEffect(() => {
+    if (!scheduleRangeStart || !scheduleRangeEnd) {
+      return
+    }
+
+    let isMounted = true
+
+    fetchTrainingSchedules(scheduleRangeStart, scheduleRangeEnd)
+      .then((data) => {
+        if (isMounted) {
+          setSchedules(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseからトレーニング予定の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [scheduleRangeStart, scheduleRangeEnd])
+
+  const schedulesByDate = useMemo(() => {
+    const map = new Map<string, TrainingSchedule[]>()
+    schedules.forEach((schedule) => {
+      const list = map.get(schedule.scheduledDate) ?? []
+      list.push(schedule)
+      map.set(schedule.scheduledDate, list)
+    })
+    return map
+  }, [schedules])
 
   useEffect(() => {
     setActiveDetailTab('training')
@@ -120,10 +139,9 @@ export function MonthlyCalendar({
       <div className="calendar-grid">
         {calendarDays.map((day) => {
           const isSelected = selectedDate === day.dateKey
-          const isToday =
-            day.date.getFullYear() === today.getFullYear() &&
-            day.date.getMonth() === today.getMonth() &&
-            day.date.getDate() === today.getDate()
+          const isToday = day.dateKey === todayKey
+          const daySchedules = schedulesByDate.get(day.dateKey) ?? []
+          const icon = getScheduleDayIcon(daySchedules, day.dateKey, todayKey)
 
           return (
             <button
@@ -133,9 +151,7 @@ export function MonthlyCalendar({
               onClick={() => setSelectedDate(day.dateKey)}
             >
               <span className="calendar-day__number">{day.date.getDate()}</span>
-              <span className="calendar-day__content">
-                {day.programs.length > 0 ? getProgramIcon(day.programs[0]) : ''}
-              </span>
+              <span className="calendar-day__content">{icon}</span>
             </button>
           )
         })}
@@ -148,24 +164,6 @@ export function MonthlyCalendar({
         </div>
 
         <div className="calendar-detail__group">
-          <div className="calendar-detail__section">
-            <h4>トレーニング予定</h4>
-            {selectedPrograms.length === 0 ? (
-              <p className="calendar-detail__empty">記録なし</p>
-            ) : (
-              selectedPrograms.map((program) => (
-                <div key={`${selectedDate}-${program.title}`} className="calendar-detail__item">
-                  <strong>{getProgramLabel(program)}</strong>
-                  <p>{getProgramSummary(program)}</p>
-                  {program.description ? <p className="calendar-detail__description">{program.description}</p> : null}
-                  <p className="calendar-detail__description">種目: {formatExerciseSummary(program.exercises)}</p>
-                  <p className="calendar-detail__description">有酸素: {formatCardioSummary(program.cardio)}</p>
-                  {program.notes ? <p className="calendar-detail__description">メモ: {program.notes}</p> : null}
-                </div>
-              ))
-            )}
-          </div>
-
           <div className="calendar-detail__tabs">
             <button
               type="button"
@@ -173,6 +171,13 @@ export function MonthlyCalendar({
               onClick={() => setActiveDetailTab('training')}
             >
               トレーニング
+            </button>
+            <button
+              type="button"
+              className={`calendar-detail__tab ${activeDetailTab === 'schedule' ? 'calendar-detail__tab--active' : ''}`}
+              onClick={() => setActiveDetailTab('schedule')}
+            >
+              予定
             </button>
             <button
               type="button"
@@ -197,6 +202,16 @@ export function MonthlyCalendar({
               selectedDate={selectedDate}
               isFormOpen={isFormOpen}
               setIsFormOpen={setIsFormOpen}
+            />
+          ) : null}
+
+          {activeDetailTab === 'schedule' ? (
+            <ScheduleForm
+              schedules={schedules}
+              setSchedules={setSchedules}
+              selectedDate={selectedDate}
+              isScheduleFormOpen={isScheduleFormOpen}
+              setIsScheduleFormOpen={setIsScheduleFormOpen}
             />
           ) : null}
 

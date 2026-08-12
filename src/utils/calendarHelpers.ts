@@ -1,4 +1,4 @@
-import type { DateString, DailyCondition, DailyProgram, MealType, MonthlyProgram, TrainingLogExercise } from '../types'
+import type { DateString, DailyCondition, MealType, TrainingLogExercise, TrainingSchedule } from '../types'
 
 export const weekDays = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -13,73 +13,21 @@ export function formatMonthLabel(date: Date) {
   }).format(date)
 }
 
-export function getProgramIcon(program: DailyProgram) {
-  if (program.type === 'rest' || program.type === 'recovery') {
-    return '💤'
-  }
-  if (program.type === 'cardio') {
-    return '🏃'
-  }
-  if (program.type === 'mobility') {
-    return '🧘'
-  }
-  return '💪'
-}
-
-export function getProgramLabel(program: DailyProgram) {
-  if (program.type === 'rest' || program.type === 'recovery') {
-    return '休養日'
+export function getScheduleDayIcon(daySchedules: TrainingSchedule[], dateKey: string, todayKey: string) {
+  if (daySchedules.length === 0) {
+    return ''
   }
 
-  if (program.type === 'cardio') {
-    return '有酸素'
+  if (daySchedules.some((schedule) => schedule.status === 'completed')) {
+    return '✅'
   }
 
-  if (program.type === 'mobility') {
-    return '可動域'
+  if (daySchedules.some((schedule) => schedule.status === 'cancelled' || (schedule.status === 'scheduled' && dateKey < todayKey))) {
+    return '⚠️'
   }
 
-  return program.title
-}
-
-export function getProgramSummary(program: DailyProgram) {
-  if (program.type === 'rest' || program.type === 'recovery') {
-    return '休養日'
-  }
-
-  if (!program.exercises.length && !program.cardio) {
-    return program.title
-  }
-
-  const parts = [program.title]
-
-  if (program.exercises.length > 0) {
-    parts.push(`${program.exercises.length}種目`)
-  }
-
-  if (program.cardio) {
-    parts.push(`${program.cardio.durationMinutes}分`)
-  }
-
-  return parts.join('・')
-}
-
-export function formatExerciseSummary(exercises: DailyProgram['exercises']) {
-  if (exercises.length === 0) {
-    return '記録なし'
-  }
-
-  return exercises
-    .map((exercise) => `${exercise.name} ${exercise.sets}セット ${exercise.targetReps}`)
-    .join(' / ')
-}
-
-export function formatCardioSummary(cardio: DailyProgram['cardio']) {
-  if (!cardio) {
-    return '記録なし'
-  }
-
-  return `${cardio.durationMinutes}分 / ${cardio.intensity} / ${cardio.notes ?? 'メモなし'}`
+  const nextScheduled = daySchedules.find((schedule) => schedule.status === 'scheduled')
+  return nextScheduled?.emoji || '🏋️'
 }
 
 export function formatTrainingLogItem(exercise: TrainingLogExercise) {
@@ -117,12 +65,4 @@ export function getMealTypeLabel(mealType: MealType) {
     default:
       return 'その他'
   }
-}
-
-export function getProgramForDate(programs: MonthlyProgram | undefined, dateKey: DateString) {
-  if (!programs) {
-    return []
-  }
-
-  return programs.dailyPrograms.filter((program) => program.date === dateKey)
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchExercises } from '../../api/trainingLogs'
+import { completeScheduleForDate } from '../../api/trainingSchedules'
 import type { TrainingTemplateInput } from '../../api/trainingTemplates'
 import { formatTrainingLogItem } from '../../utils/calendarHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
@@ -88,6 +89,7 @@ export function TrainingLogForm({ trainingLogs, setTrainingLogs, selectedDate, i
   const [formErrors, setFormErrors] = useState<TrainingLogFormExerciseErrors[]>(createEmptyFormErrors())
   const [formSummaryError, setFormSummaryError] = useState<string | null>(null)
   const [exercises, setExercises] = useState<ExerciseDefinition[]>([])
+  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchExercises()
@@ -141,6 +143,7 @@ export function TrainingLogForm({ trainingLogs, setTrainingLogs, selectedDate, i
     })
     setFormErrors(createEmptyFormErrors(nextExercises.length))
     setFormSummaryError(null)
+    setAppliedTemplateId(null)
     setIsFormOpen(true)
   }
 
@@ -255,6 +258,7 @@ export function TrainingLogForm({ trainingLogs, setTrainingLogs, selectedDate, i
     setFormState((current) => ({ ...current, exercises: nextExercises }))
     setFormErrors(createEmptyFormErrors(nextExercises.length))
     setFormSummaryError(null)
+    setAppliedTemplateId(template.id ?? null)
   }
 
   const currentExerciseTargets: TrainingTemplateInput['exercises'] = useMemo(
@@ -424,6 +428,12 @@ export function TrainingLogForm({ trainingLogs, setTrainingLogs, selectedDate, i
 
       return [...current, nextLog]
     })
+
+    if (nextLog.completed) {
+      completeScheduleForDate(selectedDate, appliedTemplateId ?? undefined).catch((error) => {
+        console.error('Supabaseへの予定の完了連動に失敗しました', error)
+      })
+    }
 
     setIsFormOpen(false)
     setEditingLogIndex(null)

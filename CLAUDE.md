@@ -25,17 +25,19 @@
 src/
   api/            client.ts, dailyConditions.ts, goals.ts,
                   trainingLogs.ts（種目マスタ・実績・DEFAULT_USER_ID）,
-                  trainingTemplates.ts, foodItems.ts, mealLogs.ts
+                  trainingTemplates.ts, trainingSchedules.ts, foodItems.ts, mealLogs.ts
   utils/          calendarHelpers.ts, chartHelpers.ts
   pages/          Dashboard(.css), MonthlyCalendar(.css), ProgressGraph(.css)
   components/
     GoalPanel(.css)
-    calendar/     TrainingLogForm.tsx, MealLogForm.tsx, ConditionForm.tsx,
+    calendar/     TrainingLogForm.tsx, MealLogForm.tsx, ConditionForm.tsx, ScheduleForm.tsx,
                   ExerciseNameInput.tsx, TrainingTemplateSection.tsx, CalendarForms.css
     graphs/       TrainingChart, WeightChart, SleepChart, FatigueChart, ChartCommon.css
   App.tsx / App.css   状態管理・データ取得・ビュー切替のみ
   types.ts        全ドメイン型を集約
-  mockData.ts     monthlyPrograms（表示に使用中）以外は未使用（下記参照）
+  mockData.ts     monthlyPrograms は Dashboard.tsx の当日予定フォールバック
+                  （todayProgram）にのみ使用中。MonthlyCalendar.tsx は
+                  training_schedules 経由の表示に移行済み（下記参照）
 ```
 
 `TrainingLogForm.tsx`・`MealLogForm.tsx`は目安の300行を超えているが、
@@ -61,6 +63,8 @@ src/
   （本プロジェクト全体で一貫している最重要ルール）
 - 破壊的変更・大規模なリファクタリングの前には、内容を説明して承認を得る。
 - 既存の動作を壊す可能性がある変更は、影響範囲を明示する。
+- ブラウザでの動作確認（claude-in-chrome使用）はコーディング作業と別セッションで行う。
+  実装完了後は一度セッションを区切り、動作確認は新規セッションで行うこと。
 
 ## デザイントークン
 
@@ -97,20 +101,34 @@ protein/fat/carbohydrates）を追加。保存時点の食材データで栄養�
 いずれもSQL実行済み・動作確認済み。SQL全文と設計判断の理由は
 `.claude/references/sql-migrations.md` / `.claude/references/architecture-history.md` 参照。
 
+**予定（2026年8月12日 基礎インフラ構築、SQL未実行）**：`training_schedules`
+（1日複数件可、`scheduled_date`単体のUNIQUE制約なし。`template_id`は
+`training_templates`への任意参照）。API層は`src/api/trainingSchedules.ts`、
+UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレンダー
+セルのアイコンは完了✅／未実施警告⚠️／予定絵文字（既定🏋️）を状態から算出
+（`getScheduleDayIcon`, src/utils/calendarHelpers.ts）。`TrainingLogForm.tsx`
+でトレーニング実績を完了として保存すると`completeScheduleForDate`を呼び、
+当日の`scheduled`な予定を1件（テンプレート一致優先、なければ最古）自動で
+`completed`にする。**SQLはまだSupabaseで未実行**のため、実行するまで
+`training_schedules`関連の読み書きは失敗する。SQL全文は
+`.claude/references/sql-migrations.md`参照。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
 
-1. 「トレーニング予定」が静的モックデータ
-   mockData.ts のハードコードデータ（3日分のみ）を表示している。
-   Supabase の training_schedules テーブルとは未接続。
-   当日の実績記録がない場合、このモックデータにフォールバックする。
+1. Dashboard.tsx の「今日の予定」表示が静的モックデータのまま
+   MonthlyCalendar.tsx は training_schedules 接続済みだが、
+   Dashboard.tsx の todayProgram（当日実績がない場合のフォールバック表示）
+   は mockData.ts のハードコードデータ（3日分のみ）を参照したまま。
+   今回のタスクではDashboard.tsxの改修は指示範囲外のため未着手。
 
-2. 予定の置き場所が3箇所に分散
-   - mockData.ts（静的・表示に使用中、3日分のみ）
-   - training_schedules テーブル（空・未接続）
-   - training_templates（トレーニング側テンプレートとして機能するが、
-     「予定」表示（カレンダー上のトレーニング予定欄）とはまだ連携していない）
+2. 予定の置き場所がまだ2箇所に分散
+   - training_schedules テーブル（MonthlyCalendar.tsxで接続済み。ただしSQL未実行）
+   - training_templates（`training_schedules.template_id`で参照可能になったが、
+     テンプレート内容を予定に自動反映する機能はまだない。予定作成時に
+     テンプレートを選ぶとタイトル等が自動入力されるわけではなく、
+     あくまで実績保存時の自動完了判定に使われるのみ）
 
 3. 食材マスタ（food_items）既存61件の基準量が一律 100g
    開発優先のため、既存61件は一律 `serving_amount=100, serving_unit='g'` で
@@ -150,9 +168,10 @@ protein/fat/carbohydrates）を追加。保存時点の食材データで栄養�
 - トレーニング：完了（種目マスタ・training_sets・テンプレート・UI）
 - 食事：完了（基準量・論理削除・スナップショット保存・UI、SQL実行・動作確認済み）
   残作業は技術的負債3番（既存食材の基準量個別修正）と9番（削除UI）
-- 予定：未着手。メニューテンプレート方式で実装する方針だが、
-  トレーニング予定のカレンダー表示（mockData依存）とtraining_templatesの
-  連携はまだ行っていない
+- 予定：基礎インフラ実装済み（training_schedules接続・絵文字表示・
+  実績完了自動連動）。**SQL未実行のためSupabase側の反映待ち**（人間の実行後、
+  動作確認が必要）。残作業はDashboard.tsxのtodayProgramフォールバック
+  （技術的負債1番）とtraining_templatesとの内容連携（技術的負債2番）
 
 データ件数は都度Supabaseで確認する（このファイルでは追跡しない）。
 

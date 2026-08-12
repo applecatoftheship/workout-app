@@ -198,3 +198,33 @@ FROM food_items fi
 WHERE mlfi.food_item_id = fi.id
   AND mlfi.calories IS NULL;
 ```
+
+## 2026-08-12 (3): 予定機能の基礎インフラ（training_schedules新設）
+
+**未実行（Supabase SQL Editorでの実行待ち）**。1日複数件の予定登録を許可する
+ため `scheduled_date` 単体へのUNIQUE制約は付けていない。
+
+```sql
+create table training_schedules (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null default '00000000-0000-0000-0000-000000000002',
+  scheduled_date  date not null,
+  template_id     uuid references training_templates(id) on delete set null,
+  title           text not null,
+  emoji           text default '🏋️',
+  status          text not null default 'scheduled'
+                    check (status in ('scheduled', 'completed', 'cancelled')),
+  notes           text,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
+);
+
+create index idx_training_schedules_user_date on training_schedules(user_id, scheduled_date);
+
+alter table training_schedules enable row level security;
+
+create policy "Allow public access for dev" on training_schedules
+  for all using (true) with check (true);
+
+grant all on training_schedules to anon, authenticated, service_role;
+```
