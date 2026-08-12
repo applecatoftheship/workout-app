@@ -31,14 +31,15 @@ src/
   components/
     GoalPanel(.css)
     calendar/     TrainingLogForm.tsx, MealLogForm.tsx, ConditionForm.tsx, ScheduleForm.tsx,
-                  ExerciseNameInput.tsx, TrainingTemplateSection.tsx, CalendarForms.css
+                  BulkScheduleImportModal(.css), ExerciseNameInput.tsx,
+                  TrainingTemplateSection.tsx, CalendarForms.css
     graphs/       TrainingChart, WeightChart, SleepChart, FatigueChart, ChartCommon.css
   App.tsx / App.css   状態管理・データ取得・ビュー切替のみ
   types.ts        全ドメイン型を集約
-  mockData.ts     monthlyPrograms は Dashboard.tsx の当日予定フォールバック
-                  （todayProgram）にのみ使用中。MonthlyCalendar.tsx は
-                  training_schedules 経由の表示に移行済み（下記参照）
 ```
+
+`mockData.ts`は2026年8月12日に完全削除。Dashboard.tsxの当日予定フォールバックは
+training_schedulesからの直接取得に置き換え済み（下記参照）。
 
 `TrainingLogForm.tsx`・`MealLogForm.tsx`は目安の300行を超えているが、
 一体の機能を分割すると追跡しづらくなるため1ファイルにまとめている
@@ -101,36 +102,40 @@ protein/fat/carbohydrates）を追加。保存時点の食材データで栄養�
 いずれもSQL実行済み・動作確認済み。SQL全文と設計判断の理由は
 `.claude/references/sql-migrations.md` / `.claude/references/architecture-history.md` 参照。
 
-**予定（2026年8月12日 基礎インフラ構築、SQL未実行）**：`training_schedules`
+**予定（2026年8月12日 基礎インフラ構築、SQL実行済み・動作確認済み）**：`training_schedules`
 （1日複数件可、`scheduled_date`単体のUNIQUE制約なし。`template_id`は
 `training_templates`への任意参照）。API層は`src/api/trainingSchedules.ts`、
 UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレンダー
-セルのアイコンは完了✅／未実施警告⚠️／予定絵文字（既定🏋️）を状態から算出
-（`getScheduleDayIcon`, src/utils/calendarHelpers.ts）。`TrainingLogForm.tsx`
-でトレーニング実績を完了として保存すると`completeScheduleForDate`を呼び、
-当日の`scheduled`な予定を1件（テンプレート一致優先、なければ最古）自動で
-`completed`にする。**SQLはまだSupabaseで未実行**のため、実行するまで
-`training_schedules`関連の読み書きは失敗する。SQL全文は
+セルのアイコンは完了✅／未実施警告⚠️（cancelled含む）／予定絵文字（既定🏋️）を
+状態から算出（`getScheduleDayIcon`, src/utils/calendarHelpers.ts）。
+`TrainingLogForm.tsx`でトレーニング実績を完了として保存すると
+`completeScheduleForDate`を呼び、当日の`scheduled`な予定を1件（テンプレート
+一致優先、なければ最古）自動で`completed`にする。完了後は
+`onScheduleUpdated`コールバック経由でMonthlyCalendar側のスケジュール一覧を
+即時再取得し、リロードなしでカレンダーアイコンに反映する。
+
+**予定ステップ2（2026年8月12日 実装済み）**：AIプロンプト生成＆JSON一括取り込み
+（`BulkScheduleImportModal.tsx`）。MonthlyCalendarヘッダーの「✨ AI予定一括
+取り込み」ボタンから開く。ChatGPT/Gemini等に渡すプロンプトのコピー、JSON
+貼り付け＆バリデーション（scheduledDate/title必須チェック）、
+`training_templates`とのtemplateName自動紐付け（`.trim()`一致）、
+プレビュー、追加登録／上書き登録（対象期間の既存予定を削除してから挿入、
+`deleteSchedulesInRange`）の一括登録に対応。SQL全文は
 `.claude/references/sql-migrations.md`参照。
 
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
 
-1. Dashboard.tsx の「今日の予定」表示が静的モックデータのまま
-   MonthlyCalendar.tsx は training_schedules 接続済みだが、
-   Dashboard.tsx の todayProgram（当日実績がない場合のフォールバック表示）
-   は mockData.ts のハードコードデータ（3日分のみ）を参照したまま。
-   今回のタスクではDashboard.tsxの改修は指示範囲外のため未着手。
-
-2. 予定の置き場所がまだ2箇所に分散
-   - training_schedules テーブル（MonthlyCalendar.tsxで接続済み。ただしSQL未実行）
+1. 予定の置き場所がまだ2箇所に分散
+   - training_schedules テーブル（MonthlyCalendar.tsx・Dashboard.tsxで接続済み）
    - training_templates（`training_schedules.template_id`で参照可能になったが、
      テンプレート内容を予定に自動反映する機能はまだない。予定作成時に
      テンプレートを選ぶとタイトル等が自動入力されるわけではなく、
-     あくまで実績保存時の自動完了判定に使われるのみ）
+     あくまで実績保存時の自動完了判定・AI一括取り込み時のtemplateName
+     紐付けに使われるのみ）
 
-3. 食材マスタ（food_items）既存61件の基準量が一律 100g
+2. 食材マスタ（food_items）既存61件の基準量が一律 100g
    開発優先のため、既存61件は一律 `serving_amount=100, serving_unit='g'` で
    初期化している。「卵1個」「プロテイン1食分30g」のような個数/単位系の
    食材も、DB上は一時的に「100g」として記録された状態になっている。
@@ -138,26 +143,27 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
    修正する必要がある。新規登録する食材は登録フォームで基準量・単位を
    指定できるため、この問題は蓄積しない。
 
-4. user_id が未整備なテーブルが残っている
+3. user_id が未整備なテーブルが残っている
    training_logs のみ対応済み。meal_logs・daily_conditions・goals は
    user_id を持たず、マルチユーザー化の際にまとめて対応が必要。
 
-5. goals が固定ID1行の上書き運用
+4. goals が固定ID1行の上書き運用
    月ごとの目標履歴が残らない。
 
-6. 未使用の型・データが残存
+5. 未使用の型・データが残存
    ProgressRecord（体脂肪率・ウエスト）と TrainingLog.cardio は完全未使用。
-   mockData.ts の mealLogs/dailyConditions/progressRecords にサンプルデータが
-   あるが、どこからも参照されていない。
+   mockData.ts本体・DailyProgram/MonthlyProgram等の旧型定義は削除済み
+   （2026年8月12日）。ProgressRecordはtypes.tsからも削除済み。
+   TrainingLog.cardio（CardioPlan型）のみ未使用のまま残存。
 
-7. ルーティングが存在しない
+6. ルーティングが存在しない
    useState による表示切替のみ。URLが変わらないため、
    PWAとして「戻る」操作が機能しない。
 
-8. エラーハンドリングが薄い
+7. エラーハンドリングが薄い
    Supabase の読み書き失敗時、console.error のみで画面表示なし。
 
-9. food_items の論理削除UIが未実装
+8. food_items の論理削除UIが未実装
    `deleteFoodItem`（is_deleted論理削除）はAPI層に用意したが、
    呼び出すUI（食材削除ボタン等）がまだ存在しない。
 
@@ -167,11 +173,11 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
 
 - トレーニング：完了（種目マスタ・training_sets・テンプレート・UI）
 - 食事：完了（基準量・論理削除・スナップショット保存・UI、SQL実行・動作確認済み）
-  残作業は技術的負債3番（既存食材の基準量個別修正）と9番（削除UI）
-- 予定：基礎インフラ実装済み（training_schedules接続・絵文字表示・
-  実績完了自動連動）。**SQL未実行のためSupabase側の反映待ち**（人間の実行後、
-  動作確認が必要）。残作業はDashboard.tsxのtodayProgramフォールバック
-  （技術的負債1番）とtraining_templatesとの内容連携（技術的負債2番）
+  残作業は技術的負債2番（既存食材の基準量個別修正）と8番（削除UI）
+- 予定：ステップ1（基礎インフラ：training_schedules接続・絵文字表示・
+  実績完了自動連動）・ステップ2（AI予定一括取り込み）とも実装・SQL実行・
+  動作確認済み。Dashboard.tsxの当日予定表示もtraining_schedules直接取得に
+  移行済み。残作業はtraining_templatesとの内容連携（技術的負債1番）
 
 データ件数は都度Supabaseで確認する（このファイルでは追跡しない）。
 
