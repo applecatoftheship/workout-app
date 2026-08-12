@@ -84,6 +84,8 @@ export interface FoodItem extends BaseRecord {
   protein: number;
   fat: number;
   carbohydrates: number;
+  category?: string | null;
+  emoji?: string | null;
   isDeleted?: boolean;
 }
 

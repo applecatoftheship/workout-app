@@ -10,6 +10,8 @@ type FoodItemRow = {
   protein: number
   fat: number
   carbohydrates: number
+  category: string | null
+  emoji: string | null
   is_deleted: boolean
 }
 
@@ -23,6 +25,8 @@ function rowToFoodItem(row: FoodItemRow): FoodItem {
     protein: row.protein,
     fat: row.fat,
     carbohydrates: row.carbohydrates,
+    category: row.category ?? undefined,
+    emoji: row.emoji ?? undefined,
     isDeleted: row.is_deleted,
   }
 }
@@ -49,6 +53,8 @@ export async function createFoodItem(input: {
   protein: number
   fat: number
   carbohydrates: number
+  category?: string
+  emoji?: string
 }): Promise<FoodItem> {
   const { data, error } = await supabase
     .from('food_items')
@@ -60,6 +66,8 @@ export async function createFoodItem(input: {
       protein: input.protein,
       fat: input.fat,
       carbohydrates: input.carbohydrates,
+      category: input.category ?? null,
+      emoji: input.emoji ?? null,
     })
     .select()
     .single()

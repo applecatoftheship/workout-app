@@ -22,7 +22,12 @@ type MealLogFormState = {
   newFoodProtein: string
   newFoodFat: string
   newFoodCarbohydrates: string
+  newFoodCategory: string
+  newFoodEmoji: string
 }
+
+const QUICK_FOOD_EMOJIS = ['🍚', '🥩', '🥦', '🍞', '🍜', '🍎', '🥛', '🍽️']
+const DEFAULT_FOOD_EMOJI = '🍽️'
 
 type MealLogFormErrors = {
   mealType?: string
@@ -46,6 +51,8 @@ const createEmptyMealFormState = (): MealLogFormState => ({
   newFoodProtein: '',
   newFoodFat: '',
   newFoodCarbohydrates: '',
+  newFoodCategory: '',
+  newFoodEmoji: '',
 })
 
 const createEmptyMealFormErrors = (): MealLogFormErrors => ({})
@@ -156,7 +163,9 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
       | 'newFoodCalories'
       | 'newFoodProtein'
       | 'newFoodFat'
-      | 'newFoodCarbohydrates',
+      | 'newFoodCarbohydrates'
+      | 'newFoodCategory'
+      | 'newFoodEmoji',
     value: string,
   ) => {
     setMealFormState((current) => ({ ...current, [field]: value }))
@@ -194,6 +203,8 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
     const protein = Number(mealFormState.newFoodProtein)
     const fat = Number(mealFormState.newFoodFat)
     const carbohydrates = Number(mealFormState.newFoodCarbohydrates)
+    const category = mealFormState.newFoodCategory.trim() || undefined
+    const emoji = mealFormState.newFoodEmoji.trim() || undefined
 
     if (!name) {
       setMealFormErrors((current) => ({ ...current, newFoodName: '食材名は必須です' }))
@@ -209,7 +220,17 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
     }
 
     try {
-      const created = await createFoodItem({ name, servingAmount, servingUnit, calories, protein, fat, carbohydrates })
+      const created = await createFoodItem({
+        name,
+        servingAmount,
+        servingUnit,
+        calories,
+        protein,
+        fat,
+        carbohydrates,
+        category,
+        emoji,
+      })
       setFoodItems((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)))
       setMealFormState((current) => ({
         ...current,
@@ -221,6 +242,8 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
         newFoodProtein: '',
         newFoodFat: '',
         newFoodCarbohydrates: '',
+        newFoodCategory: '',
+        newFoodEmoji: '',
       }))
       setMealFormErrors((current) => ({
         ...current,
@@ -425,7 +448,8 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
               <option value="">選択してください</option>
               {foodItems.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name}（基準 {item.servingAmount}{item.servingUnit} = {item.calories}kcal）
+                  {item.emoji ?? DEFAULT_FOOD_EMOJI} {item.name}
+                  {item.category ? `［${item.category}］` : ''}（基準 {item.servingAmount}{item.servingUnit} = {item.calories}kcal）
                 </option>
               ))}
             </select>
@@ -438,7 +462,15 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
                 return (
                   <div key={selection.key} className="calendar-detail__meal-item">
                     <div className="calendar-detail__meal-head">
-                      <span>{foodItem?.name ?? '不明な食材'}</span>
+                      <span>
+                        {foodItem?.emoji ?? DEFAULT_FOOD_EMOJI} {foodItem?.name ?? '不明な食材'}
+                        {foodItem?.category ? (
+                          <>
+                            {' '}
+                            <span className="calendar-detail__badge">{foodItem.category}</span>
+                          </>
+                        ) : null}
+                      </span>
                       <button
                         type="button"
                         className="calendar-detail__delete-button"
@@ -483,6 +515,37 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
                 placeholder="例: ゆで卵"
               />
               {mealFormErrors.newFoodName ? <p className="calendar-detail__error">{mealFormErrors.newFoodName}</p> : null}
+            </label>
+            <label className="calendar-detail__field">
+              <span>絵文字（任意）</span>
+              <input
+                type="text"
+                value={mealFormState.newFoodEmoji}
+                onChange={(event) => handleNewFoodFieldChange('newFoodEmoji', event.target.value)}
+                maxLength={4}
+                placeholder={DEFAULT_FOOD_EMOJI}
+              />
+            </label>
+            <div className="calendar-detail__inline-fields">
+              {QUICK_FOOD_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className="calendar-detail__secondary-button"
+                  onClick={() => handleNewFoodFieldChange('newFoodEmoji', emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <label className="calendar-detail__field">
+              <span>カテゴリ（任意）</span>
+              <input
+                type="text"
+                value={mealFormState.newFoodCategory}
+                onChange={(event) => handleNewFoodFieldChange('newFoodCategory', event.target.value)}
+                placeholder="例: 主食 / 主菜 / 副菜 / 果物"
+              />
             </label>
             <div className="calendar-detail__inline-fields">
               <label className="calendar-detail__field">
