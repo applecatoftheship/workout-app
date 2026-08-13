@@ -98,12 +98,16 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
   const [isDishModalOpen, setIsDishModalOpen] = useState(false)
   const [isDeletingDish, setIsDeletingDish] = useState(false)
 
-  useEffect(() => {
+  const loadFoodItems = () => {
     fetchFoodItems()
       .then(setFoodItems)
       .catch((error) => {
         console.error('Supabaseから食材一覧の取得に失敗しました', error)
       })
+  }
+
+  useEffect(() => {
+    loadFoodItems()
   }, [])
 
   const loadDishes = () => {
@@ -549,7 +553,7 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
           </div>
 
           {inputMode === 'food' ? (
-            <GenreFoodPicker key={pickerResetKey} foodItems={foodItems} onSelect={addFoodSelection} />
+            <GenreFoodPicker key={pickerResetKey} foodItems={foodItems} onSelect={addFoodSelection} onFoodItemDeleted={loadFoodItems} />
           ) : (
             <>
               <div className="calendar-detail__field calendar-detail__field--full">
@@ -804,6 +808,7 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
         setIsDishModalOpen(false)
       }}
       foodItems={foodItems}
+      onFoodItemDeleted={loadFoodItems}
     />
     </>
   )

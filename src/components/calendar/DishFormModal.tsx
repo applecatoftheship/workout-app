@@ -24,9 +24,10 @@ type DishFormModalProps = {
   onClose: () => void
   onSaved: () => void
   foodItems: FoodItem[]
+  onFoodItemDeleted: () => void
 }
 
-export function DishFormModal({ isOpen, onClose, onSaved, foodItems }: DishFormModalProps) {
+export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemDeleted }: DishFormModalProps) {
   const [name, setName] = useState('')
   const [items, setItems] = useState<DishItemForm[]>([])
   const [pickerResetKey, setPickerResetKey] = useState(0)
@@ -146,7 +147,7 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems }: DishFormM
             <input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="例: 親子丼" />
           </label>
 
-          <GenreFoodPicker key={pickerResetKey} foodItems={foodItems} onSelect={addItem} />
+          <GenreFoodPicker key={pickerResetKey} foodItems={foodItems} onSelect={addItem} onFoodItemDeleted={onFoodItemDeleted} />
 
           {items.length > 0 ? (
             <div className="calendar-detail__log-list">
