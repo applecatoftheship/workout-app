@@ -172,6 +172,14 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
   配列で返し、同日に複数種別があれば横並び表示する（既存の`getScheduleDayIcon`は
   そのまま内部で利用しているため他の呼び出し元への影響はない）。
 
+- **サッカー記録の活動時間からの自動入力**：「練習」選択時、ウォーキング/ランニングの
+  メニュー選択が可能に（`soccer_logs.training_menu`列を追加）。フットサル/サッカー/
+  ウォーキング/ランニングは、活動時間の入力のみで走行距離・スプリント回数・
+  最高速度が自動計算され、入力欄は手入力不可（disabled）になる。計算式は
+  Compendium of Physical Activitiesのアマチュア想定値に基づく固定レート
+  （`AUTO_FILL_RATES`・`TRAINING_MENU_RATES`、`src/utils/soccerCalorieHelpers.ts`）。
+  「その他」は従来通り全項目手入力のまま。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
