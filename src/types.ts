@@ -150,6 +150,7 @@ export interface SoccerLog extends BaseRecord {
   userId?: string;
   date: DateString;
   activityType: string;
+  trainingMenu?: string;
   durationMinutes?: number;
   distanceKm?: number;
   sprintCount?: number;

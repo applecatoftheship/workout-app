@@ -7,6 +7,7 @@ type SoccerLogRow = {
   user_id: string | null
   log_date: string
   activity_type: string
+  training_menu: string | null
   duration_minutes: number | null
   distance_km: number | null
   sprint_count: number | null
@@ -22,6 +23,7 @@ function rowToSoccerLog(row: SoccerLogRow): SoccerLog {
     userId: row.user_id ?? undefined,
     date: row.log_date as DateString,
     activityType: row.activity_type,
+    trainingMenu: row.training_menu ?? undefined,
     durationMinutes: row.duration_minutes ?? undefined,
     distanceKm: row.distance_km ?? undefined,
     sprintCount: row.sprint_count ?? undefined,
@@ -35,6 +37,7 @@ function rowToSoccerLog(row: SoccerLogRow): SoccerLog {
 export type SoccerLogInput = {
   date: DateString
   activityType: string
+  trainingMenu?: string
   durationMinutes?: number
   distanceKm?: number
   sprintCount?: number
@@ -48,6 +51,7 @@ function inputToRow(input: SoccerLogInput) {
     user_id: DEFAULT_USER_ID,
     log_date: input.date,
     activity_type: input.activityType,
+    training_menu: input.trainingMenu ?? null,
     duration_minutes: input.durationMinutes ?? null,
     distance_km: input.distanceKm ?? null,
     sprint_count: input.sprintCount ?? null,

@@ -355,3 +355,29 @@ create policy "Allow public access for dev" on soccer_logs
 - カレンダーの日付セルアイコンは、`getScheduleDayIcon`を`getDayIcons`でラップし、
   トレーニング予定アイコンとサッカー⚽アイコンを配列で返す形に変更（`src/utils/calendarHelpers.ts`）。
   既存の`getScheduleDayIcon`自体はそのまま残しているため、他の呼び出し元への影響はない。
+
+## 2026年8月13日: soccer_logsにtraining_menu列を追加（活動時間からの自動入力機能）
+
+**未実行（Supabase SQL Editorでの実行待ち）**。実装指示書「サッカー・競技記録機能 拡張：
+活動時間からの自動入力 実装指示（追補v2）」の4節に基づく。「練習」選択時のみ
+「ウォーキング」「ランニング」のメニューを保存するための列を追加する。
+
+```sql
+alter table soccer_logs add column if not exists training_menu text;
+```
+
+grant/RLSは既存の`soccer_logs`に対して設定済みのため、列追加のみで問題ない
+（列単位のRLSではないため追加のRLS設定は不要）。
+
+### 実装メモ
+
+- `activity_type`が「練習」の場合のみ`training_menu`に値（'ウォーキング'/'ランニング'）が入る。
+  それ以外の`activity_type`では常に`null`。
+- 消費カロリー推定のMET値は、`src/utils/soccerCalorieHelpers.ts`の`MET_VALUES`（旧: 活動種別ごとの
+  固定値）を廃止し、`AUTO_FILL_RATES`（サッカー/フットサル）・`TRAINING_MENU_RATES`
+  （ウォーキング/ランニング）内の`met`に統合。`estimateCaloriesBurned`は
+  `activityType`ではなく`met`（数値）を直接受け取るシグネチャに変更し、呼び出し元
+  （`SoccerLogForm.tsx`）で`resolveMet(activityType, trainingMenu)`により解決したMET値を渡す。
+- 走行距離・スプリント回数・最高速度は、サッカー/フットサル選択時、または練習でメニュー選択後は
+  活動時間から自動計算され、入力欄は`disabled`（手入力不可）になる。「その他」選択時、または
+  練習でメニュー未選択の場合は従来通り手入力可能（`resolveAutoFillRates`が`null`を返す）。

@@ -2,14 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import type { DateString, SoccerLog } from '../../types'
 import { createOrUpdateSoccerLog, deleteSoccerLog } from '../../api/soccerLogs'
 import { fetchRecentWeight } from '../../api/dailyConditions'
-import { MET_VALUES, estimateCaloriesBurned } from '../../utils/soccerCalorieHelpers'
+import {
+  ACTIVITY_TYPE_PRESETS,
+  TRAINING_MENUS,
+  calculateAutoFillValues,
+  estimateCaloriesBurned,
+  resolveAutoFillRates,
+  resolveMet,
+} from '../../utils/soccerCalorieHelpers'
 
-const ACTIVITY_PRESETS = Object.keys(MET_VALUES)
+const ACTIVITY_PRESETS = ACTIVITY_TYPE_PRESETS
 const OTHER_ACTIVITY = 'その他'
+const TRAINING_ACTIVITY = '練習'
 
 type SoccerLogFormState = {
   selectedPreset: string
   customActivityType: string
+  trainingMenu: string
   durationMinutes: string
   distanceKm: string
   sprintCount: string
@@ -30,6 +39,7 @@ type SoccerLogFormErrors = {
 const createEmptyFormState = (): SoccerLogFormState => ({
   selectedPreset: '',
   customActivityType: '',
+  trainingMenu: '',
   durationMinutes: '',
   distanceKm: '',
   sprintCount: '',
@@ -43,6 +53,7 @@ function formStateFromLog(log: SoccerLog): SoccerLogFormState {
   return {
     selectedPreset: isPreset ? log.activityType : OTHER_ACTIVITY,
     customActivityType: isPreset ? '' : log.activityType,
+    trainingMenu: log.trainingMenu ?? '',
     durationMinutes: log.durationMinutes !== undefined ? String(log.durationMinutes) : '',
     distanceKm: log.distanceKm !== undefined ? String(log.distanceKm) : '',
     sprintCount: log.sprintCount !== undefined ? String(log.sprintCount) : '',
@@ -102,12 +113,27 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
   }
 
   const activityType = formState.selectedPreset === OTHER_ACTIVITY ? formState.customActivityType.trim() : formState.selectedPreset
+  const isTrainingSelected = formState.selectedPreset === TRAINING_ACTIVITY
+  const trainingMenuValue = isTrainingSelected ? formState.trainingMenu : ''
 
   const durationValue = Number(formState.durationMinutes)
-  const estimatedCalories =
-    activityType && Number.isFinite(durationValue) && durationValue > 0 && recentWeight
-      ? estimateCaloriesBurned(activityType, durationValue, recentWeight)
-      : null
+  const hasValidDuration = Number.isFinite(durationValue) && durationValue > 0
+
+  const autoFillRates = resolveAutoFillRates(activityType, trainingMenuValue || null)
+  const isAutoFilled = Boolean(autoFillRates)
+  const showSprintAndSpeedFields = !autoFillRates || autoFillRates.maxSpeedKmh !== null
+  const autoFillValues = autoFillRates && hasValidDuration ? calculateAutoFillValues(durationValue, autoFillRates) : null
+
+  const displayDistanceKm = isAutoFilled ? (autoFillValues ? String(autoFillValues.distanceKm) : '') : formState.distanceKm
+  const displaySprintCount = isAutoFilled ? (autoFillValues ? String(autoFillValues.sprintCount) : '') : formState.sprintCount
+  const displayMaxSpeedKmh = isAutoFilled
+    ? autoFillRates?.maxSpeedKmh != null
+      ? String(autoFillRates.maxSpeedKmh)
+      : ''
+    : formState.maxSpeedKmh
+
+  const met = resolveMet(activityType, trainingMenuValue || null)
+  const estimatedCalories = met !== null && hasValidDuration && recentWeight ? estimateCaloriesBurned(met, durationValue, recentWeight) : null
 
   const validateForm = () => {
     const errors: SoccerLogFormErrors = {}
@@ -118,14 +144,16 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
     if (!validateOptionalPositiveNumber(formState.durationMinutes)) {
       errors.durationMinutes = '活動時間は0以上の数値で入力してください'
     }
-    if (!validateOptionalPositiveNumber(formState.distanceKm)) {
-      errors.distanceKm = '走行距離は0以上の数値で入力してください'
-    }
-    if (!validateOptionalPositiveNumber(formState.sprintCount)) {
-      errors.sprintCount = 'スプリント回数は0以上の数値で入力してください'
-    }
-    if (!validateOptionalPositiveNumber(formState.maxSpeedKmh)) {
-      errors.maxSpeedKmh = '最高速度は0以上の数値で入力してください'
+    if (!isAutoFilled) {
+      if (!validateOptionalPositiveNumber(formState.distanceKm)) {
+        errors.distanceKm = '走行距離は0以上の数値で入力してください'
+      }
+      if (!validateOptionalPositiveNumber(formState.sprintCount)) {
+        errors.sprintCount = 'スプリント回数は0以上の数値で入力してください'
+      }
+      if (!validateOptionalPositiveNumber(formState.maxSpeedKmh)) {
+        errors.maxSpeedKmh = '最高速度は0以上の数値で入力してください'
+      }
     }
     if (!validateOptionalPositiveNumber(formState.caloriesBurned)) {
       errors.caloriesBurned = '消費カロリーは0以上の数値で入力してください'
@@ -150,10 +178,11 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
       const saved = await createOrUpdateSoccerLog({
         date: selectedDate,
         activityType,
+        trainingMenu: isTrainingSelected ? formState.trainingMenu || undefined : undefined,
         durationMinutes: parseOptionalNumber(formState.durationMinutes),
-        distanceKm: parseOptionalNumber(formState.distanceKm),
-        sprintCount: parseOptionalNumber(formState.sprintCount),
-        maxSpeedKmh: parseOptionalNumber(formState.maxSpeedKmh),
+        distanceKm: parseOptionalNumber(displayDistanceKm),
+        sprintCount: showSprintAndSpeedFields ? parseOptionalNumber(displaySprintCount) : undefined,
+        maxSpeedKmh: showSprintAndSpeedFields ? parseOptionalNumber(displayMaxSpeedKmh) : undefined,
         caloriesBurned: parseOptionalNumber(formState.caloriesBurned),
         notes: formState.notes.trim() || undefined,
       })
@@ -204,6 +233,7 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
         <div className="calendar-detail__item">
           <p>
             ⚽ {selectedLog.activityType}
+            {selectedLog.trainingMenu ? `（${selectedLog.trainingMenu}）` : ''}
             {selectedLog.durationMinutes !== undefined ? ` / ${selectedLog.durationMinutes}分` : ''}
             {selectedLog.caloriesBurned !== undefined ? ` / ${selectedLog.caloriesBurned}kcal` : ''}
           </p>
@@ -249,6 +279,22 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
                 placeholder="例: ビーチサッカー"
               />
             ) : null}
+            {isTrainingSelected ? (
+              <div className="calendar-detail__category-filter">
+                {TRAINING_MENUS.map((menu) => (
+                  <button
+                    key={menu}
+                    type="button"
+                    className={`calendar-detail__category-chip${
+                      formState.trainingMenu === menu ? ' calendar-detail__category-chip--active' : ''
+                    }`}
+                    onClick={() => handleFieldChange('trainingMenu', menu)}
+                  >
+                    {menu}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {formErrors.activityType ? <p className="calendar-detail__error">{formErrors.activityType}</p> : null}
           </div>
 
@@ -270,37 +316,47 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
               type="number"
               min="0"
               step="0.1"
-              value={formState.distanceKm}
+              value={displayDistanceKm}
               onChange={(event) => handleFieldChange('distanceKm', event.target.value)}
-              placeholder="例: 8.5"
+              placeholder={isAutoFilled ? '活動時間から自動計算' : '例: 8.5'}
+              disabled={isAutoFilled}
+              readOnly={isAutoFilled}
             />
             {formErrors.distanceKm ? <p className="calendar-detail__error">{formErrors.distanceKm}</p> : null}
           </label>
 
-          <label className="calendar-detail__field">
-            <span>スプリント回数（任意）</span>
-            <input
-              type="number"
-              min="0"
-              value={formState.sprintCount}
-              onChange={(event) => handleFieldChange('sprintCount', event.target.value)}
-              placeholder="例: 15"
-            />
-            {formErrors.sprintCount ? <p className="calendar-detail__error">{formErrors.sprintCount}</p> : null}
-          </label>
+          {showSprintAndSpeedFields ? (
+            <>
+              <label className="calendar-detail__field">
+                <span>スプリント回数（任意）</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={displaySprintCount}
+                  onChange={(event) => handleFieldChange('sprintCount', event.target.value)}
+                  placeholder={isAutoFilled ? '活動時間から自動計算' : '例: 15'}
+                  disabled={isAutoFilled}
+                  readOnly={isAutoFilled}
+                />
+                {formErrors.sprintCount ? <p className="calendar-detail__error">{formErrors.sprintCount}</p> : null}
+              </label>
 
-          <label className="calendar-detail__field">
-            <span>最高速度（km/h・任意）</span>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={formState.maxSpeedKmh}
-              onChange={(event) => handleFieldChange('maxSpeedKmh', event.target.value)}
-              placeholder="例: 24.3"
-            />
-            {formErrors.maxSpeedKmh ? <p className="calendar-detail__error">{formErrors.maxSpeedKmh}</p> : null}
-          </label>
+              <label className="calendar-detail__field">
+                <span>最高速度（km/h・任意）</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={displayMaxSpeedKmh}
+                  onChange={(event) => handleFieldChange('maxSpeedKmh', event.target.value)}
+                  placeholder={isAutoFilled ? '固定値' : '例: 24.3'}
+                  disabled={isAutoFilled}
+                  readOnly={isAutoFilled}
+                />
+                {formErrors.maxSpeedKmh ? <p className="calendar-detail__error">{formErrors.maxSpeedKmh}</p> : null}
+              </label>
+            </>
+          ) : null}
 
           <label className="calendar-detail__field calendar-detail__field--full">
             <span>消費カロリー（kcal）</span>
@@ -315,6 +371,8 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
               <p className="calendar-detail__description">
                 推定: 約{estimatedCalories}kcal（体重{recentWeight}kg換算）。入力すればそちらを優先して保存します
               </p>
+            ) : isTrainingSelected && !formState.trainingMenu ? (
+              <p className="calendar-detail__description">メニューを選択すると推定値が表示されます</p>
             ) : recentWeight === null ? (
               <p className="calendar-detail__description">体重記録がないため推定値は計算されません。手入力してください</p>
             ) : null}
