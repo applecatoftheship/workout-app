@@ -184,6 +184,26 @@
   gap: 6px;
 }
 
+.calendar-detail__select-with-action {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.calendar-detail__select-with-action select {
+  flex: 1;
+  min-width: 0;
+}
+
+.calendar-detail__select-with-action .calendar-detail__delete-button {
+  flex-shrink: 0;
+}
+
+.calendar-detail__select-with-action .calendar-detail__delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .calendar-detail__category-filter {
   display: flex;
   flex-wrap: wrap;

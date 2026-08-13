@@ -99,6 +99,33 @@ export interface MealLogFoodItem extends BaseRecord {
   carbohydrates: number;
 }
 
+export interface Dish extends BaseRecord {
+  name: string;
+  userId?: string;
+}
+
+export interface DishFoodItem {
+  dishId: string;
+  foodItemId: string;
+  foodItem?: FoodItem;
+  amount: number;
+  unit: string;
+}
+
+export interface MealSize extends BaseRecord {
+  name: string;
+  multiplier: number;
+  sortOrder: number;
+}
+
+export interface DishWithDetails extends Dish {
+  items: DishFoodItem[];
+  totalCalories: number;
+  totalProtein: number;
+  totalFat: number;
+  totalCarbohydrates: number;
+}
+
 export interface DailyCondition extends BaseRecord {
   date: DateString;
   weight: number;

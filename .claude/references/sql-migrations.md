@@ -228,3 +228,78 @@ create policy "Allow public access for dev" on training_schedules
 
 grant all on training_schedules to anon, authenticated, service_role;
 ```
+
+## 2026-08-13: dishes・meal_sizes UI実装（既存テーブルへのgrant/RLS/制約整備）
+
+**未実行（Supabase SQL Editorでの実行待ち）**。`dishes`・`dish_food_items`・`meal_sizes`の
+3テーブル自体は別セッションで作成済みとの申告のため`CREATE TABLE`は含まない。ここでは
+実装指示書の「0. 実装前の確認事項」に基づき、grant/RLS/制約の整備と`dish_food_items`への
+カラム追加・`meal_sizes`の初期データ投入のみを行う。
+
+このプロジェクトからは直接Supabaseへ接続できず現状の制約・ポリシーを確認できないため、
+以下はすべて「既にあれば安全にスキップ、なければ追加」の冪等な書き方にしている
+（`deleteDish`実装側も、FK制約のCASCADE有無に依存しない2段階手動削除を採用したため、
+このSQLでのFK追加が仮に失敗してもアプリの動作には影響しない）。
+
+```sql
+-- ===== 1. dish_food_items へ量・単位カラムを追加 =====
+alter table dish_food_items add column if not exists amount numeric not null default 100;
+alter table dish_food_items add column if not exists unit text not null default 'g';
+
+-- ===== 2. meal_sizes.name の一意制約（初期データのon conflictに必要） =====
+do $$
+begin
+  begin
+    alter table meal_sizes add constraint meal_sizes_name_key unique (name);
+  exception
+    when duplicate_object then
+      raise notice 'meal_sizes_name_key は既に存在するためスキップしました';
+    when unique_violation then
+      raise notice 'meal_sizes.name に重複データがあるため一意制約を追加できませんでした。手動でのデータ整理が必要です';
+  end;
+end $$;
+
+-- ===== 3. dish_food_items.dish_id の外部キー制約（ON DELETE CASCADE） =====
+-- deleteDish実装は本制約の有無に依存しない2段階手動削除のため、
+-- 万一この制約追加が失敗（別名の制約が既に存在する等）してもnoticeを出して先に進む
+do $$
+begin
+  begin
+    alter table dish_food_items
+      add constraint dish_food_items_dish_id_fkey
+      foreign key (dish_id) references dishes(id) on delete cascade;
+  exception
+    when duplicate_object then
+      raise notice 'dish_food_items_dish_id_fkey は既に存在するためスキップしました';
+    when others then
+      raise notice '外部キー制約を追加できませんでした（%）。deleteDish側の2段階削除で担保されるため実害はありません', sqlerrm;
+  end;
+end $$;
+
+-- ===== 4. grant・RLS（training_schedulesと同一パターンに統一） =====
+grant all on dishes, dish_food_items, meal_sizes to anon, authenticated, service_role;
+
+alter table dishes enable row level security;
+alter table dish_food_items enable row level security;
+alter table meal_sizes enable row level security;
+
+drop policy if exists "Allow public access for dev" on dishes;
+create policy "Allow public access for dev" on dishes
+  for all using (true) with check (true);
+
+drop policy if exists "Allow public access for dev" on dish_food_items;
+create policy "Allow public access for dev" on dish_food_items
+  for all using (true) with check (true);
+
+drop policy if exists "Allow public access for dev" on meal_sizes;
+create policy "Allow public access for dev" on meal_sizes
+  for all using (true) with check (true);
+
+-- ===== 5. meal_sizes 初期データ投入 =====
+insert into public.meal_sizes (name, multiplier, sort_order) values
+  ('小盛', 0.7, 1),
+  ('並盛', 1.0, 2),
+  ('大盛', 1.5, 3),
+  ('特盛', 2.0, 4)
+on conflict (name) do nothing;
+```
