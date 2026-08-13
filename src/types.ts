@@ -145,3 +145,15 @@ export interface TrainingSchedule extends BaseRecord {
   status: TrainingScheduleStatus;
   notes?: string | null;
 }
+
+export interface SoccerLog extends BaseRecord {
+  userId?: string;
+  date: DateString;
+  activityType: string;
+  durationMinutes?: number;
+  distanceKm?: number;
+  sprintCount?: number;
+  maxSpeedKmh?: number;
+  caloriesBurned?: number;
+  notes?: string;
+}

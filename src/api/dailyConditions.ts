@@ -25,6 +25,22 @@ function rowToDailyCondition(row: DailyConditionRow): DailyCondition {
   }
 }
 
+export async function fetchRecentWeight(beforeDate: DateString): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('daily_conditions')
+    .select('weight')
+    .lte('log_date', beforeDate)
+    .order('log_date', { ascending: false })
+    .limit(1)
+
+  if (error) {
+    throw error
+  }
+
+  const rows = data as { weight: number | null }[]
+  return rows[0]?.weight ?? null
+}
+
 export async function fetchDailyConditions(): Promise<DailyCondition[]> {
   const { data, error } = await supabase
     .from('daily_conditions')

@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { DailyCondition, DateString, MealLog, TrainingLog, TrainingSchedule } from '../types'
+import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../types'
 import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
 import { TrainingLogForm } from '../components/calendar/TrainingLogForm'
 import { MealLogForm } from '../components/calendar/MealLogForm'
 import { ConditionForm } from '../components/calendar/ConditionForm'
 import { ScheduleForm } from '../components/calendar/ScheduleForm'
+import { SoccerLogForm } from '../components/calendar/SoccerLogForm'
 import { BulkScheduleImportModal } from '../components/calendar/BulkScheduleImportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
-import { weekDays, toDateKey, formatMonthLabel, getScheduleDayIcon } from '../utils/calendarHelpers'
+import { fetchSoccerLogs } from '../api/soccerLogs'
+import { weekDays, toDateKey, formatMonthLabel, getDayIcons } from '../utils/calendarHelpers'
 
 type MonthlyCalendarProps = {
   trainingLogs: TrainingLog[]
@@ -31,13 +33,15 @@ export function MonthlyCalendar({
   const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate())
   const [displayDate, setDisplayDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState<DateString>(todayKey)
-  const [activeDetailTab, setActiveDetailTab] = useState<'training' | 'schedule' | 'condition' | 'meal'>('training')
+  const [activeDetailTab, setActiveDetailTab] = useState<'training' | 'schedule' | 'condition' | 'meal' | 'soccer'>('training')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isMealFormOpen, setIsMealFormOpen] = useState(false)
   const [isConditionFormOpen, setIsConditionFormOpen] = useState(false)
   const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(false)
+  const [isSoccerFormOpen, setIsSoccerFormOpen] = useState(false)
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
+  const [soccerLogs, setSoccerLogs] = useState<SoccerLog[]>([])
 
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
@@ -116,6 +120,38 @@ export function MonthlyCalendar({
   }, [schedules])
 
   useEffect(() => {
+    if (!scheduleRangeStart || !scheduleRangeEnd) {
+      return
+    }
+
+    let isMounted = true
+
+    fetchSoccerLogs(scheduleRangeStart, scheduleRangeEnd)
+      .then((data) => {
+        if (isMounted) {
+          setSoccerLogs(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseからサッカー記録の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [scheduleRangeStart, scheduleRangeEnd])
+
+  const soccerLogsByDate = useMemo(() => {
+    const map = new Map<string, SoccerLog[]>()
+    soccerLogs.forEach((log) => {
+      const list = map.get(log.date) ?? []
+      list.push(log)
+      map.set(log.date, list)
+    })
+    return map
+  }, [soccerLogs])
+
+  useEffect(() => {
     setActiveDetailTab('training')
   }, [selectedDate])
 
@@ -161,7 +197,8 @@ export function MonthlyCalendar({
           const isSelected = selectedDate === day.dateKey
           const isToday = day.dateKey === todayKey
           const daySchedules = schedulesByDate.get(day.dateKey) ?? []
-          const icon = getScheduleDayIcon(daySchedules, day.dateKey, todayKey)
+          const daySoccerLogs = soccerLogsByDate.get(day.dateKey) ?? []
+          const icons = getDayIcons(daySchedules, daySoccerLogs, day.dateKey, todayKey)
 
           return (
             <button
@@ -171,7 +208,7 @@ export function MonthlyCalendar({
               onClick={() => setSelectedDate(day.dateKey)}
             >
               <span className="calendar-day__number">{day.date.getDate()}</span>
-              <span className="calendar-day__content">{icon}</span>
+              <span className="calendar-day__content">{icons.join(' ')}</span>
             </button>
           )
         })}
@@ -212,6 +249,13 @@ export function MonthlyCalendar({
               onClick={() => setActiveDetailTab('meal')}
             >
               食事
+            </button>
+            <button
+              type="button"
+              className={`calendar-detail__tab ${activeDetailTab === 'soccer' ? 'calendar-detail__tab--active' : ''}`}
+              onClick={() => setActiveDetailTab('soccer')}
+            >
+              サッカー
             </button>
           </div>
 
@@ -256,6 +300,16 @@ export function MonthlyCalendar({
               isMealFormOpen={isMealFormOpen}
               setIsMealFormOpen={setIsMealFormOpen}
               setIsFormOpen={setIsFormOpen}
+            />
+          ) : null}
+
+          {activeDetailTab === 'soccer' ? (
+            <SoccerLogForm
+              soccerLogs={soccerLogs}
+              setSoccerLogs={setSoccerLogs}
+              selectedDate={selectedDate}
+              isSoccerFormOpen={isSoccerFormOpen}
+              setIsSoccerFormOpen={setIsSoccerFormOpen}
             />
           ) : null}
         </div>

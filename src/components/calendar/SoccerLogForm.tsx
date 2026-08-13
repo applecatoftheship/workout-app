@@ -1,0 +1,348 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { DateString, SoccerLog } from '../../types'
+import { createOrUpdateSoccerLog, deleteSoccerLog } from '../../api/soccerLogs'
+import { fetchRecentWeight } from '../../api/dailyConditions'
+import { MET_VALUES, estimateCaloriesBurned } from '../../utils/soccerCalorieHelpers'
+
+const ACTIVITY_PRESETS = Object.keys(MET_VALUES)
+const OTHER_ACTIVITY = 'その他'
+
+type SoccerLogFormState = {
+  selectedPreset: string
+  customActivityType: string
+  durationMinutes: string
+  distanceKm: string
+  sprintCount: string
+  maxSpeedKmh: string
+  caloriesBurned: string
+  notes: string
+}
+
+type SoccerLogFormErrors = {
+  activityType?: string
+  durationMinutes?: string
+  distanceKm?: string
+  sprintCount?: string
+  maxSpeedKmh?: string
+  caloriesBurned?: string
+}
+
+const createEmptyFormState = (): SoccerLogFormState => ({
+  selectedPreset: '',
+  customActivityType: '',
+  durationMinutes: '',
+  distanceKm: '',
+  sprintCount: '',
+  maxSpeedKmh: '',
+  caloriesBurned: '',
+  notes: '',
+})
+
+function formStateFromLog(log: SoccerLog): SoccerLogFormState {
+  const isPreset = ACTIVITY_PRESETS.includes(log.activityType)
+  return {
+    selectedPreset: isPreset ? log.activityType : OTHER_ACTIVITY,
+    customActivityType: isPreset ? '' : log.activityType,
+    durationMinutes: log.durationMinutes !== undefined ? String(log.durationMinutes) : '',
+    distanceKm: log.distanceKm !== undefined ? String(log.distanceKm) : '',
+    sprintCount: log.sprintCount !== undefined ? String(log.sprintCount) : '',
+    maxSpeedKmh: log.maxSpeedKmh !== undefined ? String(log.maxSpeedKmh) : '',
+    caloriesBurned: log.caloriesBurned !== undefined ? String(log.caloriesBurned) : '',
+    notes: log.notes ?? '',
+  }
+}
+
+function validateOptionalPositiveNumber(value: string): boolean {
+  if (value.trim() === '') {
+    return true
+  }
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) && numberValue >= 0
+}
+
+type SoccerLogFormProps = {
+  soccerLogs: SoccerLog[]
+  setSoccerLogs: React.Dispatch<React.SetStateAction<SoccerLog[]>>
+  selectedDate: DateString
+  isSoccerFormOpen: boolean
+  setIsSoccerFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSoccerFormOpen, setIsSoccerFormOpen }: SoccerLogFormProps) {
+  const [formState, setFormState] = useState<SoccerLogFormState>(createEmptyFormState())
+  const [formErrors, setFormErrors] = useState<SoccerLogFormErrors>({})
+  const [formSummaryError, setFormSummaryError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [recentWeight, setRecentWeight] = useState<number | null>(null)
+
+  const selectedLog = useMemo(() => soccerLogs.find((log) => log.date === selectedDate), [soccerLogs, selectedDate])
+
+  useEffect(() => {
+    setIsSoccerFormOpen(false)
+  }, [selectedDate, setIsSoccerFormOpen])
+
+  useEffect(() => {
+    fetchRecentWeight(selectedDate)
+      .then(setRecentWeight)
+      .catch((error) => {
+        console.error('Supabaseから直近の体重記録の取得に失敗しました', error)
+        setRecentWeight(null)
+      })
+  }, [selectedDate])
+
+  const openForm = () => {
+    setFormState(selectedLog ? formStateFromLog(selectedLog) : createEmptyFormState())
+    setFormErrors({})
+    setFormSummaryError(null)
+    setIsSoccerFormOpen(true)
+  }
+
+  const handleFieldChange = (field: keyof SoccerLogFormState, value: string) => {
+    setFormState((current) => ({ ...current, [field]: value }))
+  }
+
+  const activityType = formState.selectedPreset === OTHER_ACTIVITY ? formState.customActivityType.trim() : formState.selectedPreset
+
+  const durationValue = Number(formState.durationMinutes)
+  const estimatedCalories =
+    activityType && Number.isFinite(durationValue) && durationValue > 0 && recentWeight
+      ? estimateCaloriesBurned(activityType, durationValue, recentWeight)
+      : null
+
+  const validateForm = () => {
+    const errors: SoccerLogFormErrors = {}
+
+    if (!activityType) {
+      errors.activityType = '活動種別を選択してください'
+    }
+    if (!validateOptionalPositiveNumber(formState.durationMinutes)) {
+      errors.durationMinutes = '活動時間は0以上の数値で入力してください'
+    }
+    if (!validateOptionalPositiveNumber(formState.distanceKm)) {
+      errors.distanceKm = '走行距離は0以上の数値で入力してください'
+    }
+    if (!validateOptionalPositiveNumber(formState.sprintCount)) {
+      errors.sprintCount = 'スプリント回数は0以上の数値で入力してください'
+    }
+    if (!validateOptionalPositiveNumber(formState.maxSpeedKmh)) {
+      errors.maxSpeedKmh = '最高速度は0以上の数値で入力してください'
+    }
+    if (!validateOptionalPositiveNumber(formState.caloriesBurned)) {
+      errors.caloriesBurned = '消費カロリーは0以上の数値で入力してください'
+    }
+
+    const hasErrors = Object.keys(errors).length > 0
+    setFormSummaryError(hasErrors ? '入力内容にエラーがあります。各項目を確認してください' : null)
+    setFormErrors(errors)
+    return !hasErrors
+  }
+
+  const parseOptionalNumber = (value: string) => (value.trim() === '' ? undefined : Number(value))
+
+  const saveSoccerLog = async () => {
+    if (!validateForm()) {
+      return
+    }
+
+    setIsSaving(true)
+    setFormSummaryError(null)
+    try {
+      const saved = await createOrUpdateSoccerLog({
+        date: selectedDate,
+        activityType,
+        durationMinutes: parseOptionalNumber(formState.durationMinutes),
+        distanceKm: parseOptionalNumber(formState.distanceKm),
+        sprintCount: parseOptionalNumber(formState.sprintCount),
+        maxSpeedKmh: parseOptionalNumber(formState.maxSpeedKmh),
+        caloriesBurned: parseOptionalNumber(formState.caloriesBurned),
+        notes: formState.notes.trim() || undefined,
+      })
+
+      setSoccerLogs((current) => {
+        const exists = current.some((log) => log.date === saved.date)
+        return exists ? current.map((log) => (log.date === saved.date ? saved : log)) : [...current, saved]
+      })
+      setIsSoccerFormOpen(false)
+    } catch (error) {
+      console.error('Supabaseへのサッカー記録の保存に失敗しました', error)
+      setFormSummaryError('保存に失敗しました。もう一度お試しください')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const removeSoccerLog = async () => {
+    if (!selectedLog?.id) {
+      return
+    }
+
+    const confirmed = window.confirm('このサッカー記録を本当に削除しますか？')
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await deleteSoccerLog(selectedLog.id)
+      setSoccerLogs((current) => current.filter((log) => log.date !== selectedDate))
+      setIsSoccerFormOpen(false)
+    } catch (error) {
+      console.error('Supabaseからのサッカー記録の削除に失敗しました', error)
+      window.alert('削除に失敗しました。もう一度お試しください')
+    }
+  }
+
+  return (
+    <div className="calendar-detail__section">
+      <div className="calendar-detail__section-header">
+        <h4>サッカー</h4>
+        <button type="button" className="calendar-detail__secondary-button" onClick={openForm}>
+          {selectedLog ? '記録を編集' : '記録を追加'}
+        </button>
+      </div>
+
+      {selectedLog && !isSoccerFormOpen ? (
+        <div className="calendar-detail__item">
+          <p>
+            ⚽ {selectedLog.activityType}
+            {selectedLog.durationMinutes !== undefined ? ` / ${selectedLog.durationMinutes}分` : ''}
+            {selectedLog.caloriesBurned !== undefined ? ` / ${selectedLog.caloriesBurned}kcal` : ''}
+          </p>
+          {selectedLog.distanceKm !== undefined ? <p className="calendar-detail__description">走行距離: {selectedLog.distanceKm}km</p> : null}
+          {selectedLog.sprintCount !== undefined ? (
+            <p className="calendar-detail__description">スプリント: {selectedLog.sprintCount}回</p>
+          ) : null}
+          {selectedLog.maxSpeedKmh !== undefined ? (
+            <p className="calendar-detail__description">最高速度: {selectedLog.maxSpeedKmh}km/h</p>
+          ) : null}
+          {selectedLog.notes ? <p className="calendar-detail__description">メモ: {selectedLog.notes}</p> : null}
+          <div className="calendar-detail__condition-actions">
+            <button type="button" className="calendar-detail__delete-button" onClick={removeSoccerLog}>
+              削除
+            </button>
+          </div>
+        </div>
+      ) : isSoccerFormOpen ? (
+        <div className="calendar-detail__form">
+          {formSummaryError ? <p className="calendar-detail__form-error">{formSummaryError}</p> : null}
+
+          <div className="calendar-detail__field calendar-detail__field--full">
+            <span>活動種別</span>
+            <div className="calendar-detail__category-filter">
+              {[...ACTIVITY_PRESETS, OTHER_ACTIVITY].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`calendar-detail__category-chip${
+                    formState.selectedPreset === preset ? ' calendar-detail__category-chip--active' : ''
+                  }`}
+                  onClick={() => handleFieldChange('selectedPreset', preset)}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            {formState.selectedPreset === OTHER_ACTIVITY ? (
+              <input
+                type="text"
+                value={formState.customActivityType}
+                onChange={(event) => handleFieldChange('customActivityType', event.target.value)}
+                placeholder="例: ビーチサッカー"
+              />
+            ) : null}
+            {formErrors.activityType ? <p className="calendar-detail__error">{formErrors.activityType}</p> : null}
+          </div>
+
+          <label className="calendar-detail__field">
+            <span>活動時間（分）</span>
+            <input
+              type="number"
+              min="0"
+              value={formState.durationMinutes}
+              onChange={(event) => handleFieldChange('durationMinutes', event.target.value)}
+              placeholder="例: 90"
+            />
+            {formErrors.durationMinutes ? <p className="calendar-detail__error">{formErrors.durationMinutes}</p> : null}
+          </label>
+
+          <label className="calendar-detail__field">
+            <span>走行距離（km・任意）</span>
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={formState.distanceKm}
+              onChange={(event) => handleFieldChange('distanceKm', event.target.value)}
+              placeholder="例: 8.5"
+            />
+            {formErrors.distanceKm ? <p className="calendar-detail__error">{formErrors.distanceKm}</p> : null}
+          </label>
+
+          <label className="calendar-detail__field">
+            <span>スプリント回数（任意）</span>
+            <input
+              type="number"
+              min="0"
+              value={formState.sprintCount}
+              onChange={(event) => handleFieldChange('sprintCount', event.target.value)}
+              placeholder="例: 15"
+            />
+            {formErrors.sprintCount ? <p className="calendar-detail__error">{formErrors.sprintCount}</p> : null}
+          </label>
+
+          <label className="calendar-detail__field">
+            <span>最高速度（km/h・任意）</span>
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={formState.maxSpeedKmh}
+              onChange={(event) => handleFieldChange('maxSpeedKmh', event.target.value)}
+              placeholder="例: 24.3"
+            />
+            {formErrors.maxSpeedKmh ? <p className="calendar-detail__error">{formErrors.maxSpeedKmh}</p> : null}
+          </label>
+
+          <label className="calendar-detail__field calendar-detail__field--full">
+            <span>消費カロリー（kcal）</span>
+            <input
+              type="number"
+              min="0"
+              value={formState.caloriesBurned}
+              onChange={(event) => handleFieldChange('caloriesBurned', event.target.value)}
+              placeholder={estimatedCalories !== null ? `推定: 約${estimatedCalories}kcal` : '手入力してください'}
+            />
+            {estimatedCalories !== null ? (
+              <p className="calendar-detail__description">
+                推定: 約{estimatedCalories}kcal（体重{recentWeight}kg換算）。入力すればそちらを優先して保存します
+              </p>
+            ) : recentWeight === null ? (
+              <p className="calendar-detail__description">体重記録がないため推定値は計算されません。手入力してください</p>
+            ) : null}
+            {formErrors.caloriesBurned ? <p className="calendar-detail__error">{formErrors.caloriesBurned}</p> : null}
+          </label>
+
+          <label className="calendar-detail__field calendar-detail__field--full">
+            <span>メモ</span>
+            <textarea
+              rows={3}
+              value={formState.notes}
+              onChange={(event) => handleFieldChange('notes', event.target.value)}
+              placeholder="今日のプレーの感想など"
+            />
+          </label>
+
+          <div className="calendar-detail__actions">
+            <button type="button" className="calendar-detail__button" onClick={saveSoccerLog} disabled={isSaving}>
+              {isSaving ? '保存中...' : '保存する'}
+            </button>
+            <button type="button" className="calendar-detail__secondary-button" onClick={() => setIsSoccerFormOpen(false)}>
+              キャンセル
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="calendar-detail__empty">記録なし</p>
+      )}
+    </div>
+  )
+}

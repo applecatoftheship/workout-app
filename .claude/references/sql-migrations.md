@@ -303,3 +303,55 @@ insert into public.meal_sizes (name, multiplier, sort_order) values
   ('特盛', 2.0, 4)
 on conflict (name) do nothing;
 ```
+
+## 2026-08-13: soccer_logs テーブル新設（サッカー・競技記録機能）
+
+**未実行（Supabase SQL Editorでの実行待ち）**。実装指示書「サッカー・競技記録機能 実装指示書（v1）」
+の1節に基づく。このプロジェクトからは直接Supabaseへ接続できずテーブルの存在を確認できないため、
+`create table if not exists`・`drop policy if exists`による冪等な書き方にしている
+（`dishes`実装時と同一パターン）。実行前に以下のSQLで既存有無・列構成を確認してから進めること。
+
+```sql
+select column_name, data_type from information_schema.columns where table_name = 'soccer_logs';
+```
+
+`calories_burned`はMET方式による推定値をDBに保存せず、手入力値のみを保存する設計
+（`dishes`の栄養計算値をDBに保存しない方針と同様）。推定値の算出ロジックは
+`src/utils/soccerCalorieHelpers.ts`参照。
+
+```sql
+-- ===== 1. soccer_logs テーブル新規作成 =====
+create table if not exists soccer_logs (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid,
+  log_date          date not null,
+  activity_type     text not null,
+  duration_minutes  numeric,
+  distance_km       numeric,
+  sprint_count      integer,
+  max_speed_kmh     numeric,
+  calories_burned   numeric,
+  notes             text,
+  created_at        timestamptz default now(),
+  unique(user_id, log_date)
+);
+
+-- ===== 2. grant・RLS（training_schedules・dishesと同一パターンに統一） =====
+grant all on soccer_logs to anon, authenticated, service_role;
+
+alter table soccer_logs enable row level security;
+
+drop policy if exists "Allow public access for dev" on soccer_logs;
+create policy "Allow public access for dev" on soccer_logs
+  for all using (true) with check (true);
+```
+
+### 実装メモ
+
+- `src/api/soccerLogs.ts`が`createOrUpdateSoccerLog`で`upsert(..., { onConflict: 'user_id,log_date' })`
+  を使うため、`unique(user_id, log_date)`制約が必須（上記CREATE TABLEに含まれている）。
+- 体重取得は新規ファイルを作らず`src/api/dailyConditions.ts`に`fetchRecentWeight(beforeDate)`を追加した
+  （指示書0-3で「既存ファイルへの追加」を許容する記載があったため、テーブル所有ファイルに合わせた）。
+- カレンダーの日付セルアイコンは、`getScheduleDayIcon`を`getDayIcons`でラップし、
+  トレーニング予定アイコンとサッカー⚽アイコンを配列で返す形に変更（`src/utils/calendarHelpers.ts`）。
+  既存の`getScheduleDayIcon`自体はそのまま残しているため、他の呼び出し元への影響はない。

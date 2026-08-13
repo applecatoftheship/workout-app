@@ -1,4 +1,4 @@
-import type { DateString, DailyCondition, MealType, TrainingLogExercise, TrainingSchedule } from '../types'
+import type { DateString, DailyCondition, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule } from '../types'
 
 export const weekDays = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -28,6 +28,21 @@ export function getScheduleDayIcon(daySchedules: TrainingSchedule[], dateKey: st
 
   const nextScheduled = daySchedules.find((schedule) => schedule.status === 'scheduled')
   return nextScheduled?.emoji || '🏋️'
+}
+
+export function getDayIcons(daySchedules: TrainingSchedule[], daySoccerLogs: SoccerLog[], dateKey: string, todayKey: string) {
+  const icons: string[] = []
+
+  const scheduleIcon = getScheduleDayIcon(daySchedules, dateKey, todayKey)
+  if (scheduleIcon) {
+    icons.push(scheduleIcon)
+  }
+
+  if (daySoccerLogs.length > 0) {
+    icons.push('⚽')
+  }
+
+  return icons
 }
 
 export function formatTrainingLogItem(exercise: TrainingLogExercise) {
