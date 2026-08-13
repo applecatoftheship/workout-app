@@ -16,23 +16,25 @@
 - PWA：vite-plugin-pwa
 - リポジトリ：applecatoftheship/workout-app
 
-## 現在のファイル構成（2026年8月12日時点）
+## 現在のファイル構成（2026年8月13日時点）
 
 画面（pages）・フォーム/グラフ部品（components）・API層（api）・
 ユーティリティ（utils）・型定義（types.ts）に分離済み。
 
 ```
 src/
-  api/            client.ts, dailyConditions.ts, goals.ts,
+  api/            client.ts, dailyConditions.ts, dishes.ts, goals.ts,
                   trainingLogs.ts（種目マスタ・実績・DEFAULT_USER_ID）,
-                  trainingTemplates.ts, trainingSchedules.ts, foodItems.ts, mealLogs.ts
-  utils/          calendarHelpers.ts, chartHelpers.ts
+                  trainingTemplates.ts, trainingSchedules.ts, foodItems.ts, mealLogs.ts,
+                  soccerLogs.ts
+  utils/          calendarHelpers.ts, chartHelpers.ts, soccerCalorieHelpers.ts
   pages/          Dashboard(.css), MonthlyCalendar(.css), ProgressGraph(.css)
   components/
     GoalPanel(.css)
     calendar/     TrainingLogForm.tsx, MealLogForm.tsx, ConditionForm.tsx, ScheduleForm.tsx,
                   BulkScheduleImportModal(.css), ExerciseNameInput.tsx,
-                  TrainingTemplateSection.tsx, CalendarForms.css
+                  TrainingTemplateSection.tsx, DishFormModal(.tsx/.css),
+                  GenreFoodPicker.tsx, SoccerLogForm.tsx, CalendarForms.css
     graphs/       TrainingChart, WeightChart, SleepChart, FatigueChart, ChartCommon.css
   App.tsx / App.css   状態管理・データ取得・ビュー切替のみ
   types.ts        全ドメイン型を集約
@@ -57,6 +59,11 @@ training_schedulesからの直接取得に置き換え済み（下記参照）�
   破壊的な変更を行う前は必ず確認を取ること。
 - 実行済みSQLは `.claude/references/sql-migrations.md` に日付付きで記録している。
   今後は `migrations/` ディレクトリへの保存に切り替える予定。
+- 初期データを `insert ... on conflict (name) do nothing` で投入する場合、
+  名前が異なる旧データとは重複を検知できず共存してしまう
+  （2026年8月13日、meal_sizesで実際に発生：新4件と旧4件が両方残り、
+  ドロップダウンに8件表示される状態になった）。投入前に対象カラムへの
+  一意制約が効いているか、旧データの有無を確認すること。
 
 ### 開発方針
 
@@ -66,6 +73,15 @@ training_schedulesからの直接取得に置き換え済み（下記参照）�
 - 既存の動作を壊す可能性がある変更は、影響範囲を明示する。
 - ブラウザでの動作確認（claude-in-chrome使用）はコーディング作業と別セッションで行う。
   実装完了後は一度セッションを区切り、動作確認は新規セッションで行うこと。
+
+### デプロイ確認
+
+- コミットしてもpushし忘れると、Vercelには反映されないままになる
+  （2026年8月13日、dishes実装時に発生：ローカルでは動作確認できたのに
+  本番ではタブ自体が表示されず、原因調査に時間がかかった。実体は
+  「コミットが作られていただけでpushされていなかった」だった）。
+  push指示を受けたら実行後に `git branch -vv` で `origin/main` との
+  同期状況（ahead/behindが無いこと）を確認すること。
 
 ## デザイントークン
 
@@ -123,6 +139,39 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
 `deleteSchedulesInRange`）の一括登録に対応。SQL全文は
 `.claude/references/sql-migrations.md`参照。
 
+## 2026年8月13日の変更点
+
+- **食材マスタの栄養成分是正**：food_items既存データの一部でカロリー・PFC値が
+  実態と乖離していた異常値（例：パスタ2275kcal等）を修正。下記の技術的負債
+  2番（基準量serving_amountが一律100gの問題）とは別の対応であり、
+  基準量・単位の個別修正は引き続き未着手。
+
+- **dishes・meal_sizes UI実装完了**：`dishes`（料理名）・`dish_food_items`
+  （料理に含まれる食材・分量）・`meal_sizes`（サイズ倍率マスタ）の3テーブルは
+  別セッションで作成済みのものに対し、grant/RLS/カラム追加のSQL整備とUI実装を
+  実施（SQL全文は`.claude/references/sql-migrations.md`参照）。API層は
+  `src/api/dishes.ts`。UIは`DishFormModal.tsx`（複数食材を組み合わせた料理の
+  登録・削除）・`GenreFoodPicker.tsx`（ジャンル→食材の2段階選択、
+  `MealLogForm.tsx`と共通化）。`MealLogForm.tsx`の「料理から選択」タブで、
+  登録済み料理をサイズ倍率（小盛×0.7/並盛×1.0/大盛×1.5/特盛×2.0）に応じて
+  食材ごとの量に展開し、`meal_log_food_items`へ個別食材として保存する
+  （料理単位の1レコードとしてではない）。栄養値は保存時点のfood_itemsデータで
+  都度計算するのみでDBに冗長保存しない方針は、食事のスナップショット設計と同様。
+
+- **soccer_logs新設によるサッカー活動記録機能**：活動種別（練習/フットサル/
+  サッカー/その他自由入力）・活動時間・走行距離・スプリント回数・最高速度・
+  消費カロリー・メモを1日1件（`unique(user_id, log_date)`）で記録。消費カロリーは
+  手入力値のみDB保存し、未入力時はMET方式（`src/utils/soccerCalorieHelpers.ts`、
+  Compendium of Physical Activities準拠。フットサルのみ直接の文献値がなく
+  練習とサッカーの中間値として推定）でUI表示のみ推定する（DBへの冗長保存は
+  しない、dishesの栄養計算と同じ方針）。体重は`daily_conditions`から指定日以前で
+  直近の記録を`fetchRecentWeight`（`src/api/dailyConditions.ts`に追加）で取得。
+  API層は`src/api/soccerLogs.ts`、UIは`SoccerLogForm.tsx`
+  （`MonthlyCalendar.tsx`の5番目のタブ「サッカー」）。カレンダーセルのアイコンは
+  `getDayIcons`（`src/utils/calendarHelpers.ts`）が予定アイコンとサッカー⚽を
+  配列で返し、同日に複数種別があれば横並び表示する（既存の`getScheduleDayIcon`は
+  そのまま内部で利用しているため他の呼び出し元への影響はない）。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
@@ -172,12 +221,17 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
 作業順序：土台整備 → トレーニング → 食事 → 予定
 
 - トレーニング：完了（種目マスタ・training_sets・テンプレート・UI）
-- 食事：完了（基準量・論理削除・スナップショット保存・UI、SQL実行・動作確認済み）
-  残作業は技術的負債2番（既存食材の基準量個別修正）と8番（削除UI）
+- 食事：完了（基準量・論理削除・スナップショット保存・UI、SQL実行・動作確認済み）。
+  料理（dishes・meal_sizes、サイズ倍率つきPFC計算）のUIも2026年8月13日に
+  実装・動作確認済み。残作業は技術的負債2番（既存食材の基準量個別修正）と
+  8番（食材の削除UI）
 - 予定：ステップ1（基礎インフラ：training_schedules接続・絵文字表示・
   実績完了自動連動）・ステップ2（AI予定一括取り込み）とも実装・SQL実行・
   動作確認済み。Dashboard.tsxの当日予定表示もtraining_schedules直接取得に
   移行済み。残作業はtraining_templatesとの内容連携（技術的負債1番）
+- サッカー：2026年8月13日にsoccer_logs新設・UI実装・SQL実行・動作確認済み
+  （活動種別・活動時間・走行距離・スプリント回数・最高速度の記録、
+  MET方式による消費カロリー推定）。特に残作業なし
 
 データ件数は都度Supabaseで確認する（このファイルでは追跡しない）。
 
