@@ -180,6 +180,15 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
   （`AUTO_FILL_RATES`・`TRAINING_MENU_RATES`、`src/utils/soccerCalorieHelpers.ts`）。
   「その他」は従来通り全項目手入力のまま。
 
+- **food_itemsの論理削除UIを追加**：`deleteFoodItem`（is_deleted論理削除）はAPI層に
+  用意済みだったが呼び出すUIが未実装だった（下記の技術的負債にあった項目、解消）。
+  `GenreFoodPicker.tsx`（`MealLogForm.tsx`・`DishFormModal.tsx`共通の食材選択部品）に
+  「削除する食材」ドロップダウン＋削除ボタンを追加し、`window.confirm`確認後に
+  論理削除する。共有コンポーネント経由のため、どちらの画面から削除しても
+  もう一方の食材選択にも即座に反映される（`onFoodItemDeleted`コールバックで
+  親の`loadFoodItems`を再実行）。既存の「食材を追加」ドロップダウン（選択即追加）
+  とは別の独立したドロップダウンとして実装し、既存の追加フローの挙動は変更していない。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
@@ -220,10 +229,6 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
 7. エラーハンドリングが薄い
    Supabase の読み書き失敗時、console.error のみで画面表示なし。
 
-8. food_items の論理削除UIが未実装
-   `deleteFoodItem`（is_deleted論理削除）はAPI層に用意したが、
-   呼び出すUI（食材削除ボタン等）がまだ存在しない。
-
 ## 進行中の計画（現在地）
 
 作業順序：土台整備 → トレーニング → 食事 → 予定
@@ -231,8 +236,8 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
 - トレーニング：完了（種目マスタ・training_sets・テンプレート・UI）
 - 食事：完了（基準量・論理削除・スナップショット保存・UI、SQL実行・動作確認済み）。
   料理（dishes・meal_sizes、サイズ倍率つきPFC計算）のUIも2026年8月13日に
-  実装・動作確認済み。残作業は技術的負債2番（既存食材の基準量個別修正）と
-  8番（食材の削除UI）
+  実装・動作確認済み。食材の論理削除UIも2026年8月13日に実装・動作確認済み。
+  残作業は技術的負債2番（既存食材の基準量個別修正）のみ
 - 予定：ステップ1（基礎インフラ：training_schedules接続・絵文字表示・
   実績完了自動連動）・ステップ2（AI予定一括取り込み）とも実装・SQL実行・
   動作確認済み。Dashboard.tsxの当日予定表示もtraining_schedules直接取得に
