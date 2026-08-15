@@ -150,6 +150,7 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
     }
 
     setGoals({
+      yearMonth: goals.yearMonth,
       targetWeight: Number(goalFormState.targetWeight),
       targetSleepHours: Number(goalFormState.targetSleepHours),
       weeklyTrainingGoal: Number(goalFormState.weeklyTrainingGoal),

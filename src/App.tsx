@@ -9,7 +9,7 @@ import type { AppView } from './components/BottomNav'
 import { RecordSheet } from './components/RecordSheet'
 import type { RecordType } from './components/RecordSheet'
 import { fetchDailyConditions, syncDailyConditions } from './api/dailyConditions'
-import { fetchGoals, upsertGoals } from './api/goals'
+import { fetchGoalsByMonth, upsertGoals } from './api/goals'
 import { fetchTrainingLogs, syncTrainingLogs } from './api/trainingLogs'
 import { fetchMealLogs } from './api/mealLogs'
 import { useTheme } from './hooks/useTheme'
@@ -21,7 +21,12 @@ type PendingRecordRequest = {
   requestId: number
 }
 
+const today = new Date()
+const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}` as DateString
+const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+
 const defaultGoals: Goals = {
+  yearMonth: currentYearMonth,
   targetWeight: 65,
   targetSleepHours: 7.5,
   weeklyTrainingGoal: 3,
@@ -31,9 +36,6 @@ const defaultGoals: Goals = {
   dailyFatGoal: 60,
   dailyCarbohydrateGoal: 250,
 }
-
-const today = new Date()
-const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}` as DateString
 const formattedDate = new Intl.DateTimeFormat('ja-JP', {
   month: 'long',
   day: 'numeric',
@@ -88,7 +90,7 @@ function App() {
   useEffect(() => {
     let isMounted = true
 
-    fetchGoals()
+    fetchGoalsByMonth(currentYearMonth)
       .then((data) => {
         if (isMounted && data) {
           setGoals(data)
