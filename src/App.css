@@ -7,28 +7,10 @@
   gap: 12px;
 }
 
-.hero-card,
 .panel-card,
 .link-card {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-}
-
-.hero-card {
-  background: var(--color-ink);
-  color: #f6f5f0;
-  padding: 16px 18px;
-  position: relative;
-}
-
-.hero-card::before {
-  content: '';
-  display: block;
-  width: 32px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--color-pitch);
-  margin-bottom: 12px;
 }
 
 .panel-card {

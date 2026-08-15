@@ -101,3 +101,39 @@ export function ScheduleIcon({ strokeWidth = 2, className }: IconProps) {
     </svg>
   )
 }
+
+export function WeightIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M9.5 13a2.5 2.5 0 0 1 5 0" />
+      <path d="M10 6.5h4l.6-2.5H9.4Z" />
+    </svg>
+  )
+}
+
+export function SleepIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" />
+    </svg>
+  )
+}
+
+export function FatigueIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <path d="M13 2 4 14h6l-1 8 9-12h-6Z" />
+    </svg>
+  )
+}
+
+export function HistoryIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v4h4" />
+      <path d="M12 8v4l3 2" />
+    </svg>
+  )
+}

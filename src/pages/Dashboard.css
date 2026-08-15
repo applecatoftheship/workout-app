@@ -1,132 +1,158 @@
-.hero-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
+.dashboard-header {
+  padding: 4px 2px 2px;
 }
 
-.eyebrow {
+.dashboard-header .eyebrow {
   margin: 0 0 2px;
-  font-size: 0.68rem;
+  font-size: var(--font-size-caption);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--color-hero-muted);
+  color: var(--color-text-muted);
 }
 
-.hero-card h1 {
+.dashboard-header h1 {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: 1.5rem;
+  font-family: var(--font-base);
+  font-weight: 600;
+  font-size: 1.4rem;
   line-height: 1.2;
-  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
 }
 
-.status-pill,
-.chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  padding: 5px 10px;
-  white-space: nowrap;
+.panel-card__title {
+  margin: 0 0 10px;
+  font-size: var(--font-size-title);
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
-.status-pill {
-  background: var(--color-pitch);
-  color: #d8f2e4;
-}
+/* カロリーリング */
 
-.summary-card {
-  background: var(--color-ink-soft);
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-}
-
-.summary-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.summary-card h2,
-.panel-card h2 {
-  margin: 0;
-  font-size: 0.88rem;
-  font-weight: 500;
-}
-
-.chip {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--color-hero-muted);
-}
-
-.summary-card__body {
-  margin: 0;
-  color: #cdd6d0;
-  font-size: 0.86rem;
-  line-height: 1.45;
-}
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.status-overview {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.status-card {
-  background: var(--color-surface);
-  border-left: 3px solid var(--color-border);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding: 10px 12px;
+.calorie-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.status-card:nth-child(1) { border-left-color: var(--color-pitch); }
-.status-card:nth-child(2) { border-left-color: var(--color-amber); }
-.status-card:nth-child(3) { border-left-color: var(--color-amber); }
-.status-card:nth-child(4) { border-left-color: var(--color-red); }
-
-.status-card__header {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 8px;
 }
 
-.status-card__label {
-  font-size: 0.72rem;
-  font-weight: 500;
+.calorie-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 180px;
+  height: 180px;
+}
+
+.calorie-ring__center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.calorie-ring__value {
+  font-size: var(--font-size-metric-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.calorie-ring__goal {
+  font-size: var(--font-size-body-sm);
   color: var(--color-text-secondary);
 }
 
-.status-card__value {
-  font-family: var(--font-mono);
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--color-text);
+.calorie-ring__pfc {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-lg);
+  margin-top: 10px;
 }
 
-.status-card__detail,
-.status-card__note {
+.pfc-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.pfc-dot__marker {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.pfc-dot__marker--protein {
+  background: var(--color-accent);
+}
+
+.pfc-dot__marker--fat {
+  background: var(--color-warning);
+}
+
+.pfc-dot__marker--carb {
+  background: var(--color-data);
+}
+
+/* 今日の運動 */
+
+.exercise-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exercise-block__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.exercise-block__title {
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.exercise-block__list {
   margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.74rem;
-  line-height: 1.3;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exercise-block__list li {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.exercise-block__divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 12px 0;
+}
+
+.exercise-block__soccer-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.exercise-block__soccer-stats span {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .status-chip {
@@ -135,77 +161,181 @@
   justify-content: center;
   border-radius: 999px;
   padding: 3px 8px;
-  font-size: 0.66rem;
+  font-size: var(--font-size-caption);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .status-chip--good {
-  background: var(--color-pitch-soft);
-  color: var(--color-pitch-text);
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
 }
 
 .status-chip--warning {
-  background: var(--color-amber-soft);
-  color: var(--color-amber-text);
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
 }
 
 .status-chip--alert {
-  background: var(--color-red-soft);
-  color: var(--color-red-text);
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
 }
 
-.status-chip--neutral {
-  background: var(--color-surface-muted);
+/* 週間ストリップ */
+
+.week-strip__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.week-strip__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 34px;
+  height: 34px;
+  margin: 0 auto;
+  border-radius: 10px;
+  background: var(--color-bg-elevated);
+  position: relative;
+}
+
+.week-strip__cell--today {
+  background: var(--color-accent);
+}
+
+.week-strip__day-label {
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+.week-strip__cell--today .week-strip__day-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.week-strip__date {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.week-strip__cell--today .week-strip__date {
+  color: #ffffff;
+}
+
+.week-strip__icons {
+  position: absolute;
+  bottom: -6px;
+  font-size: 9px;
+  line-height: 1;
+}
+
+/* 統計カード */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stat-card {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-card__icon {
+  width: 18px;
+  height: 18px;
   color: var(--color-text-secondary);
 }
 
-.status-progress,
-.status-progress__fill {
-  width: 100%;
+.stat-card__label {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
 }
 
-.status-progress {
-  height: 5px;
+.stat-card__value {
+  font-size: var(--font-size-metric);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.stat-card__note {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+}
+
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
   border-radius: 999px;
-  background: var(--color-surface-muted);
-  overflow: hidden;
+  padding: 2px 7px;
+  font-size: var(--font-size-caption);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
-.status-progress__fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--color-pitch);
+.trend-badge--good {
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
 }
 
-.metric-card {
-  border-radius: 10px;
-  padding: 8px 10px;
+.trend-badge--warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+.trend-badge--alert {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}
+
+.trend-badge--neutral {
+  background: var(--color-bg-base);
+  color: var(--color-text-muted);
+}
+
+/* 目標ストリップ */
+
+.goal-strip__header {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-height: 56px;
-  background: var(--color-ink-soft);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-.metric-card.primary,
-.metric-card.secondary,
-.metric-card.accent {
-  background: var(--color-ink-soft);
-  color: #f6f5f0;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
 }
 
-.metric-label {
-  font-size: 0.62rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--color-hero-muted);
+.goal-strip__header .panel-card__title {
+  margin: 0;
 }
 
-.metric-card strong {
-  font-family: var(--font-mono);
-  font-size: 0.95rem;
-  font-weight: 500;
+.goal-strip__rate {
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
 }
+
+.goal-strip__text {
+  margin: 0 0 8px;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+/* 今日の内容・食事PFCアコーディオン */
 
 .detail-list {
   display: flex;
@@ -217,30 +347,22 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   padding: 8px 10px;
-  background: var(--color-bg);
+  background: var(--color-bg-base);
 }
 
 .detail-label {
   display: block;
   font-size: 0.68rem;
   font-weight: 500;
-  color: var(--color-pitch-text);
+  color: var(--color-accent-text);
   margin-bottom: 2px;
 }
 
 .detail-item p {
   margin: 0;
-  color: var(--color-text);
+  color: var(--color-text-primary);
   font-size: 0.82rem;
   line-height: 1.4;
-}
-
-.nutrition-section {
-  margin-top: 12px;
-}
-
-.nutrition-section .panel-card__header {
-  margin-bottom: 8px;
 }
 
 .nutrition-grid {
@@ -250,7 +372,7 @@
 }
 
 .nutrition-card {
-  background: var(--color-bg);
+  background: var(--color-bg-base);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 10px;
@@ -266,29 +388,29 @@
 }
 
 .nutrition-card__value {
-  font-family: var(--font-mono);
   font-size: 0.82rem;
-  color: var(--color-text);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .nutrition-card__rate {
-  font-family: var(--font-mono);
   font-size: 1rem;
   font-weight: 500;
-  color: var(--color-pitch-text);
+  color: var(--color-accent-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .nutrition-progress {
   width: 100%;
   height: 5px;
   border-radius: 999px;
-  background: var(--color-surface-muted);
+  background: var(--color-bg-elevated);
   overflow: hidden;
 }
 
 .nutrition-progress__fill {
   height: 100%;
-  background: var(--color-pitch);
+  background: var(--color-accent);
   border-radius: 999px;
 }
 
@@ -298,6 +420,8 @@
   font-size: 0.85rem;
 }
 
+/* クイックリンク */
+
 .links-section {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -305,7 +429,7 @@
 }
 
 .link-card {
-  background: var(--color-surface);
+  background: var(--color-bg-surface);
   border: 0;
   padding: 10px 8px;
   text-align: center;
@@ -323,7 +447,7 @@
 }
 
 .link-card strong {
-  color: var(--color-text);
+  color: var(--color-text-primary);
   font-size: 0.7rem;
   font-weight: 500;
 }
@@ -333,22 +457,14 @@
 }
 
 @media (min-width: 700px) {
-  .hero-card {
-    padding: 20px 22px;
-  }
-
-  .metrics-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .status-overview {
+  .stats-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 380px) {
-  .status-overview,
-  .metrics-grid {
-    gap: 6px;
+  .stats-grid,
+  .week-strip__grid {
+    gap: 5px;
   }
 }
