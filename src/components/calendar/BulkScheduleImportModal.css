@@ -13,7 +13,7 @@
 .bulk-import-modal {
   width: 100%;
   max-width: 560px;
-  background: var(--color-surface);
+  background: var(--color-bg-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   display: flex;
@@ -32,7 +32,7 @@
 
 .bulk-import-modal__header h3 {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-base);
   font-size: 1rem;
   font-weight: 500;
 }
@@ -95,13 +95,13 @@
   margin: 0;
   padding: 10px;
   border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
+  background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
-  font-family: var(--font-mono);
+  font-family: var(--font-base);
   font-size: 0.72rem;
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .bulk-import-modal__table-wrapper {
@@ -125,7 +125,7 @@
 }
 
 .bulk-import-modal__table th {
-  background: var(--color-surface-muted);
+  background: var(--color-bg-elevated);
   color: var(--color-text-secondary);
   font-weight: 500;
 }
@@ -135,11 +135,11 @@
 }
 
 .bulk-import-modal__template-match {
-  color: var(--color-pitch-text);
+  color: var(--color-accent-text);
 }
 
 .bulk-import-modal__template-nomatch {
-  color: var(--color-amber-text);
+  color: var(--color-warning-text);
 }
 
 .bulk-import-modal__radio {
@@ -147,7 +147,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.8rem;
-  color: var(--color-text);
+  color: var(--color-text-primary);
   font-weight: 400;
 }
 

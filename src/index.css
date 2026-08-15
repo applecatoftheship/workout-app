@@ -10,30 +10,32 @@
    * 新トークンへのエイリアスとして残している。既存CSSファイルはこの旧名を
    * 参照したままだが、値は新パレット（オレンジ/ティール）を指すため配色は
    * 即座に新パレットへ移行する。旧名の参照自体は、各画面がPhase 3〜5で
-   * リデザインされる際に新トークン名へ順次置き換えて削除する予定。
-   * 例外：--color-ink / --color-ink-soft / --color-hero-muted は
+   * リデザインされる際に新トークン名へ順次置き換えて削除する予定
+   * （2026年8月16日、技術的負債9番の解消でGoalPanel.css・
+   * BulkScheduleImportModal.css・DishFormModal.cssの3ファイルを移行し、
+   * それらでしか参照されていなかった --color-ink / --color-pitch-text /
+   * --color-amber-text / --color-red-text / --font-display / --font-mono
+   * のエイリアス定義は削除済み。--color-surface / --color-surface-muted /
+   * --color-text / --color-pitch / --font-sans は src/App.css がまだ
+   * 参照しているため残存）。
+   * 例外：--color-ink-soft / --color-hero-muted は
    * ダッシュボードの「常に濃紺のヒーローカード」専用色で新トークンに
-   * 対応物がないため、Phase 3でヒーローカードごと置き換えるまで固定値のまま維持する。
+   * 対応物がないため固定値のまま維持する（ヒーローカード自体はPhase 3で
+   * 撤去済みで現在は参照ゼロだが、このファイルの移行スコープ外のため未整理）。
    */
   --color-bg: var(--color-bg-base);
   --color-surface: var(--color-bg-surface);
   --color-surface-muted: var(--color-bg-elevated);
-  --color-ink: #12181b;
   --color-ink-soft: #1c2427;
   --color-text: var(--color-text-primary);
   --color-hero-muted: #8fa79a;
   --color-pitch: var(--color-accent);
   --color-pitch-soft: var(--color-accent-soft);
-  --color-pitch-text: var(--color-accent-text);
   --color-amber: var(--color-warning);
   --color-amber-soft: var(--color-warning-soft);
-  --color-amber-text: var(--color-warning-text);
   --color-red: var(--color-danger);
   --color-red-soft: var(--color-danger-soft);
-  --color-red-text: var(--color-danger-text);
   --font-sans: var(--font-base);
-  --font-display: var(--font-base);
-  --font-mono: var(--font-base);
 
   font-family: var(--font-sans);
   line-height: 1.5;

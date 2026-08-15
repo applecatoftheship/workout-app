@@ -13,7 +13,7 @@
 .dish-form-modal {
   width: 100%;
   max-width: 560px;
-  background: var(--color-surface);
+  background: var(--color-bg-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   display: flex;
@@ -32,7 +32,7 @@
 
 .dish-form-modal__header h3 {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-base);
   font-size: 1rem;
   font-weight: 500;
 }
