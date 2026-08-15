@@ -22,11 +22,6 @@
   gap: 4px;
 }
 
-.goal-card--training {
-  border-color: var(--color-pitch);
-  background: var(--color-pitch-soft);
-}
-
 .goal-card__title {
   font-size: 0.72rem;
   font-weight: 500;
@@ -37,13 +32,6 @@
   font-family: var(--font-mono);
   font-size: 0.88rem;
   color: var(--color-text);
-}
-
-.goal-card__percent {
-  font-family: var(--font-mono);
-  font-size: 1.3rem;
-  font-weight: 500;
-  color: var(--color-pitch-text);
 }
 
 .goal-card__note {

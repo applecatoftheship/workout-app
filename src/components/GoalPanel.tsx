@@ -50,13 +50,11 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
   const [goalFormSummaryError, setGoalFormSummaryError] = useState<string | null>(null)
 
   const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-  const currentMonthTrainingCount = trainingLogs.filter((log) => log.date.startsWith(currentMonthKey)).length
   const currentMonthConditions = dailyConditions.filter((condition) => condition.date.startsWith(currentMonthKey))
   const averageSleepHours =
     currentMonthConditions.length > 0
       ? currentMonthConditions.reduce((sum, condition) => sum + condition.sleepHours, 0) / currentMonthConditions.length
       : null
-  const achievementRate = goals.monthlyTrainingGoal > 0 ? Math.min(100, Math.round((currentMonthTrainingCount / goals.monthlyTrainingGoal) * 100)) : 0
 
   const latestCondition = useMemo(() => {
     return [...dailyConditions].sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
@@ -292,15 +290,6 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
             </div>
           ) : (
             <div className="goal-grid">
-              <article className="goal-card goal-card--training">
-                <div className="goal-card__title">8月トレーニング</div>
-                <div className="goal-card__stat">{currentMonthTrainingCount} / {goals.monthlyTrainingGoal}回</div>
-                <div className="goal-card__percent">{achievementRate}%</div>
-                <div className="progress-meter" aria-label="8月トレーニング進捗">
-                  <div className="progress-meter__fill" style={{ width: `${achievementRate}%` }} />
-                </div>
-              </article>
-
               <article className="goal-card">
                 <div className="goal-card__title">目標体重</div>
                 <div className="goal-card__stat">現在 {latestWeightText}</div>

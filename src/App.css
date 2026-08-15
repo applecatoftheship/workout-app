@@ -51,7 +51,7 @@
 @media (min-width: 700px) {
   .app-shell {
     width: min(100%, 900px);
-    padding: 20px 24px 28px;
+    padding: 20px 24px calc(69px + 20px + env(safe-area-inset-bottom, 0px));
   }
 }
 
