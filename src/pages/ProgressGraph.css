@@ -1,11 +1,11 @@
 .progress-graph {
-  background: var(--color-surface);
+  background: var(--color-bg-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  padding: 14px;
+  padding: var(--space-md) var(--space-lg);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-md);
 }
 
 .progress-graph__header {
@@ -16,16 +16,16 @@
 
 .progress-graph__header h2 {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: 1.05rem;
-  color: var(--color-text);
+  font-family: var(--font-base);
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--color-text-primary);
 }
 
 .progress-graph__header p {
   margin: 0;
   color: var(--color-text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--font-size-body-sm);
 }
 
 .progress-graph__tabs {
@@ -35,49 +35,53 @@
 }
 
 .progress-graph__tab {
-  background: var(--color-bg);
+  background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 8px 6px;
   color: var(--color-text-secondary);
   font-weight: 500;
-  font-size: 0.76rem;
+  font-size: var(--font-size-body-sm);
   cursor: pointer;
 }
 
 .progress-graph__tab--active {
-  background: var(--color-ink);
-  color: #f6f5f0;
-  border-color: var(--color-ink);
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
 }
 
+/* 期間切り替え：セグメント型（食事タブの食材/料理トグルと同じトーン） */
 .progress-graph__period {
-  display: inline-flex;
-  gap: 4px;
+  display: flex;
+  gap: 2px;
   padding: 3px;
-  border-radius: 999px;
-  background: var(--color-bg);
-  align-self: flex-start;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-base);
 }
 
 .progress-graph__period-button {
+  flex: 1;
   border: 0;
-  border-radius: 999px;
-  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  padding: 7px 10px;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--font-size-body-sm);
   font-weight: 500;
   cursor: pointer;
+  text-align: center;
 }
 
 .progress-graph__period-button--active {
-  background: var(--color-pitch);
-  color: #d8f2e4;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-card);
+  font-weight: 600;
 }
 
 .progress-graph__panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-md);
 }

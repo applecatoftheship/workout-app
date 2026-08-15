@@ -2,6 +2,43 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.chart-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.chart-card__title {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.chart-card__value-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.chart-card__value {
+  font-size: var(--font-size-metric);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.chart-card__value-unit {
+  margin-left: 2px;
+  font-size: var(--font-size-body-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
 }
 
 .progress-graph__training-metrics {
@@ -13,13 +50,8 @@
 .progress-graph__svg {
   width: 100%;
   min-height: 160px;
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-}
-
-.progress-graph__gridlines line {
-  stroke: var(--color-border);
-  stroke-width: 1;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-base);
 }
 
 .progress-graph__line {
@@ -28,27 +60,35 @@
   stroke-linecap: round;
 }
 
-.progress-graph__line--pitch {
-  stroke: var(--color-pitch);
+.progress-graph__line--accent {
+  stroke: var(--color-accent);
 }
 
-.progress-graph__line--amber {
-  stroke: var(--color-amber);
+.progress-graph__line--warning {
+  stroke: var(--color-warning);
 }
 
-.progress-graph__dot--pitch {
-  fill: var(--color-pitch);
+.progress-graph__line--data {
+  stroke: var(--color-data);
 }
 
-.progress-graph__dot--amber {
-  fill: var(--color-amber);
+.progress-graph__dot--accent {
+  fill: var(--color-accent);
+}
+
+.progress-graph__dot--warning {
+  fill: var(--color-warning);
+}
+
+.progress-graph__dot--data {
+  fill: var(--color-data);
 }
 
 .progress-graph__legend {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  font-size: 0.74rem;
+  font-size: var(--font-size-body-sm);
   color: var(--color-text-secondary);
 }
 
@@ -69,7 +109,7 @@
   flex-wrap: nowrap;
   overflow: hidden;
   gap: 4px;
-  font-size: 0.66rem;
+  font-size: var(--font-size-caption);
   color: var(--color-text-muted);
 }
 
@@ -85,7 +125,7 @@
 .progress-graph__summary {
   display: flex;
   justify-content: space-between;
-  font-size: 0.78rem;
+  font-size: var(--font-size-body-sm);
   color: var(--color-text-secondary);
 }
 
@@ -99,21 +139,22 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 8px;
-  background: var(--color-bg);
+  background: var(--color-bg-base);
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
 .progress-graph__metric-label {
-  font-size: 0.66rem;
+  font-size: var(--font-size-caption);
   color: var(--color-text-secondary);
 }
 
 .progress-graph__metric strong {
-  font-family: var(--font-mono);
-  font-size: 0.86rem;
-  color: var(--color-text);
+  font-family: var(--font-base);
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-graph__bars-wrapper {
@@ -143,29 +184,25 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 3px;
-  font-family: var(--font-mono);
-  font-size: 0.64rem;
-  color: #f6f5f0;
+  font-size: var(--font-size-caption);
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-graph__bar--done {
-  background: var(--color-pitch);
+  background: var(--color-accent);
 }
 
 .progress-graph__bar--pending {
-  background: var(--color-amber);
+  background: var(--color-warning);
 }
 
 .progress-graph__bar--empty {
   background: var(--color-border);
 }
 
-.progress-graph__bar--sleep {
-  background: var(--color-pitch);
-}
-
 .progress-graph__bar-label {
-  font-size: 0.62rem;
+  font-size: var(--font-size-caption);
   color: var(--color-text-muted);
   text-align: center;
   white-space: nowrap;
@@ -177,7 +214,7 @@
 .progress-graph__empty {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: 0.85rem;
+  font-size: var(--font-size-body-sm);
   padding: 12px 0;
 }
 
@@ -191,12 +228,12 @@
 @media (max-width: 480px) {
   .progress-graph__labels {
     gap: 2px;
-    font-size: 0.6rem;
+    font-size: 10px;
     letter-spacing: -0.2px;
   }
 
   .progress-graph__bar-label {
-    font-size: 0.56rem;
+    font-size: 10px;
     letter-spacing: -0.2px;
   }
 }
@@ -207,47 +244,106 @@
 }
 
 .progress-graph__axis-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-base);
   font-size: 7px;
   fill: var(--color-text-muted);
 }
 
 .progress-graph__target-line {
-  stroke: var(--color-red);
+  stroke: var(--color-danger);
   stroke-width: 1.5;
   stroke-dasharray: 3 3;
 }
 
 .progress-graph__line--ideal {
-  stroke: var(--color-amber);
+  stroke: var(--color-warning);
   stroke-width: 2;
   stroke-dasharray: 5 4;
 }
 
 .progress-graph__area {
   stroke: none;
+}
+
+.progress-graph__area--warning {
+  fill: var(--color-warning);
   opacity: 0.12;
 }
 
-.progress-graph__area--pitch {
-  fill: var(--color-pitch);
-}
-
-.progress-graph__area--amber {
-  fill: var(--color-amber);
+.progress-graph__area--data {
+  fill: var(--color-data);
+  opacity: 0.12;
 }
 
 .progress-graph__dot {
-  stroke: var(--color-surface);
+  stroke: var(--color-bg-surface);
   stroke-width: 2;
 }
 
 .progress-graph__legend-dot--target {
-  background: var(--color-red);
+  background: var(--color-danger);
 }
 
 .progress-graph__goal-note {
   margin: 0;
-  font-size: 0.74rem;
+  font-size: var(--font-size-body-sm);
   color: var(--color-text-secondary);
+}
+
+/* 部位別トレーニング頻度 */
+
+.body-part-frequency {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.body-part-frequency__title {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.body-part-frequency__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.body-part-frequency__row {
+  display: grid;
+  grid-template-columns: 44px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+}
+
+.body-part-frequency__label {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.body-part-frequency__bar-track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-base);
+  overflow: hidden;
+}
+
+.body-part-frequency__bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-data);
+}
+
+.body-part-frequency__count {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  text-align: right;
 }

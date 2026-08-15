@@ -18,6 +18,13 @@ const chartTabs = [
 
 type ChartType = (typeof chartTabs)[number]['id']
 
+const periodTabs: { id: Period; label: string }[] = [
+  { id: 'week', label: '1週間' },
+  { id: 'month', label: '1ヶ月' },
+  { id: 'quarter', label: '3ヶ月' },
+  { id: 'all', label: '全期間' },
+]
+
 export function ProgressGraph({
   trainingLogs,
   dailyConditions,
@@ -37,7 +44,14 @@ export function ProgressGraph({
   const [period, setPeriod] = useState<Period>('week')
 
   const today = useMemo(() => new Date(), [])
-  const { start, end } = useMemo(() => getPeriodRange(period, today), [period, today])
+
+  const earliestDate = useMemo(() => {
+    const dates = [...trainingLogs.map((log) => log.date), ...dailyConditions.map((condition) => condition.date)]
+    if (dates.length === 0) return undefined
+    return new Date(`${[...dates].sort()[0]}T00:00:00`)
+  }, [trainingLogs, dailyConditions])
+
+  const { start, end } = useMemo(() => getPeriodRange(period, today, earliestDate), [period, today, earliestDate])
   const periodStartKey = toDateKey(start)
   const periodEndKey = toDateKey(end)
   const periodDates = useMemo(() => buildDateList(start, end), [start, end])
@@ -80,6 +94,22 @@ export function ProgressGraph({
     [periodDates, trainingByDate],
   )
 
+  const bodyPartFrequency = useMemo(() => {
+    const counts = new Map<string, number>()
+    trainingLogs
+      .filter((log) => log.date >= periodStartKey && log.date <= periodEndKey)
+      .forEach((log) => {
+        log.exercises.forEach((exercise) => {
+          const bodyPart = exercise.exercise?.bodyPart
+          if (!bodyPart) return
+          counts.set(bodyPart, (counts.get(bodyPart) ?? 0) + 1)
+        })
+      })
+    return Array.from(counts.entries())
+      .map(([bodyPart, count]) => ({ bodyPart, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [trainingLogs, periodStartKey, periodEndKey])
+
   const trainingGoal = period === 'week' ? weeklyTrainingGoal : monthlyTrainingGoal
   const trainingCount = periodTrainingDays.filter((day) => day.hasLog).length
   const totalSets = periodTrainingDays.reduce((sum, day) => sum + day.sets, 0)
@@ -107,20 +137,16 @@ export function ProgressGraph({
       </div>
 
       <div className="progress-graph__period">
-        <button
-          type="button"
-          className={`progress-graph__period-button ${period === 'week' ? 'progress-graph__period-button--active' : ''}`}
-          onClick={() => setPeriod('week')}
-        >
-          今週
-        </button>
-        <button
-          type="button"
-          className={`progress-graph__period-button ${period === 'month' ? 'progress-graph__period-button--active' : ''}`}
-          onClick={() => setPeriod('month')}
-        >
-          今月
-        </button>
+        {periodTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`progress-graph__period-button ${period === tab.id ? 'progress-graph__period-button--active' : ''}`}
+            onClick={() => setPeriod(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <div className="progress-graph__panel">
@@ -132,6 +158,7 @@ export function ProgressGraph({
             totalSets={totalSets}
             totalVolume={totalVolume}
             achievementRate={achievementRate}
+            bodyPartFrequency={bodyPartFrequency}
           />
         ) : null}
         {selectedChart === 'weight' ? (

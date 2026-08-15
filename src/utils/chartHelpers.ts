@@ -1,4 +1,4 @@
-export type Period = 'week' | 'month'
+export type Period = 'week' | 'month' | 'quarter' | 'all'
 
 export const CHART_WIDTH = 300
 export const CHART_HEIGHT = 180
@@ -17,7 +17,7 @@ export function toDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-export function getPeriodRange(period: Period, today: Date) {
+export function getPeriodRange(period: Period, today: Date, earliestDate?: Date) {
   if (period === 'week') {
     const start = new Date(today)
     start.setDate(today.getDate() - today.getDay())
@@ -26,9 +26,21 @@ export function getPeriodRange(period: Period, today: Date) {
     return { start, end }
   }
 
-  const start = new Date(today.getFullYear(), today.getMonth(), 1)
-  const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-  return { start, end }
+  if (period === 'month') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1)
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    return { start, end }
+  }
+
+  if (period === 'quarter') {
+    const start = new Date(today)
+    start.setMonth(today.getMonth() - 3)
+    start.setDate(start.getDate() + 1)
+    return { start, end: today }
+  }
+
+  // all
+  return { start: earliestDate ?? today, end: today }
 }
 
 export function buildDateList(start: Date, end: Date) {

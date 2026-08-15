@@ -26,9 +26,28 @@ export function FatigueChart({ periodConditions }: FatigueChartProps) {
   const points = pointsFor(fatigueValues, min, range)
   const areaPath = areaPathFor(fatigueValues, min, range)
   const ticks = buildAxisTicks(min, range, 0)
+  const latestFatigue = fatigueValues[fatigueValues.length - 1]
+  const previousFatigue = fatigueValues.length > 1 ? fatigueValues[fatigueValues.length - 2] : null
+  const fatigueDiff = previousFatigue != null ? latestFatigue - previousFatigue : null
 
   return (
     <div className="progress-graph__chart-wrapper">
+      <div className="chart-card__header">
+        <h3 className="chart-card__title">疲労度</h3>
+        <div className="chart-card__value-group">
+          <span className="chart-card__value metric-value">
+            {latestFatigue}
+            <span className="chart-card__value-unit">/5</span>
+          </span>
+          {fatigueDiff != null && fatigueDiff !== 0 ? (
+            <span className={`trend-badge ${fatigueDiff > 0 ? 'trend-badge--warning' : 'trend-badge--good'}`}>
+              {fatigueDiff > 0 ? '+' : ''}
+              {fatigueDiff}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
       <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="progress-graph__svg" aria-hidden="true">
         {ticks.map((tick) => (
           <g key={tick.y}>
@@ -38,11 +57,11 @@ export function FatigueChart({ periodConditions }: FatigueChartProps) {
             </text>
           </g>
         ))}
-        <path d={areaPath} className="progress-graph__area progress-graph__area--amber" />
-        <polyline points={points.join(' ')} fill="none" className="progress-graph__line progress-graph__line--amber" />
+        <path d={areaPath} className="progress-graph__area progress-graph__area--warning" />
+        <polyline points={points.join(' ')} fill="none" className="progress-graph__line progress-graph__line--warning" />
         {points.map((point, index) => {
           const [cx, cy] = point.split(',').map(Number)
-          return <circle key={periodConditions[index].date} cx={cx} cy={cy} r="4" className="progress-graph__dot progress-graph__dot--amber" />
+          return <circle key={periodConditions[index].date} cx={cx} cy={cy} r="4" className="progress-graph__dot progress-graph__dot--warning" />
         })}
       </svg>
       <div className="progress-graph__labels">
