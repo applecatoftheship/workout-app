@@ -77,21 +77,6 @@ export async function fetchSoccerLogs(startDate: string, endDate: string): Promi
   return (data as SoccerLogRow[]).map(rowToSoccerLog)
 }
 
-export async function fetchSoccerLogByDate(date: string): Promise<SoccerLog | null> {
-  const { data, error } = await supabase
-    .from('soccer_logs')
-    .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
-    .eq('log_date', date)
-    .maybeSingle()
-
-  if (error) {
-    throw error
-  }
-
-  return data ? rowToSoccerLog(data as SoccerLogRow) : null
-}
-
 export async function createOrUpdateSoccerLog(input: SoccerLogInput): Promise<SoccerLog> {
   const { data, error } = await supabase
     .from('soccer_logs')

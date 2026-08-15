@@ -51,16 +51,9 @@ export interface TrainingTemplate extends BaseRecord {
   exercises: TrainingTemplateExercise[];
 }
 
-export interface CardioPlan extends BaseRecord {
-  durationMinutes: number;
-  intensity: 'easy' | 'moderate' | 'hard';
-  notes?: string;
-}
-
 export interface TrainingLog extends BaseRecord {
   date: DateString;
   exercises: TrainingLogExercise[];
-  cardio?: CardioPlan | null;
   notes?: string;
   completed: boolean;
 }
