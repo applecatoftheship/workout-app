@@ -6,7 +6,7 @@ import { TrainingChart } from '../components/graphs/TrainingChart'
 import { WeightChart } from '../components/graphs/WeightChart'
 import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
-import { buildDateList, getPeriodRange, toDateKey } from '../utils/chartHelpers'
+import { buildDateList, getPeriodGoalMultiplier, getPeriodRange, toDateKey } from '../utils/chartHelpers'
 import type { Period } from '../utils/chartHelpers'
 
 const chartTabs = [
@@ -30,7 +30,6 @@ export function ProgressGraph({
   dailyConditions,
   targetWeight,
   targetSleepHours,
-  weeklyTrainingGoal,
   monthlyTrainingGoal,
 }: {
   trainingLogs: TrainingLog[]
@@ -110,7 +109,11 @@ export function ProgressGraph({
       .sort((a, b) => b.count - a.count)
   }, [trainingLogs, periodStartKey, periodEndKey])
 
-  const trainingGoal = period === 'week' ? weeklyTrainingGoal : monthlyTrainingGoal
+  const periodGoalMultiplier = useMemo(
+    () => getPeriodGoalMultiplier(period, today, earliestDate),
+    [period, today, earliestDate],
+  )
+  const trainingGoal = Math.round(monthlyTrainingGoal * periodGoalMultiplier)
   const trainingCount = periodTrainingDays.filter((day) => day.hasLog).length
   const totalSets = periodTrainingDays.reduce((sum, day) => sum + day.sets, 0)
   const totalVolume = periodTrainingDays.reduce((sum, day) => sum + day.volume, 0)

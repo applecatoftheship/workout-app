@@ -43,6 +43,22 @@ export function getPeriodRange(period: Period, today: Date, earliestDate?: Date)
   return { start: earliestDate ?? today, end: today }
 }
 
+/**
+ * 月間目標（monthlyTrainingGoal）を選択期間に応じて比例スケールするための倍率。
+ * 1週間=1/4, 1ヶ月=1, 3ヶ月=3, 全期間=開始月から現在月までの月数。
+ */
+export function getPeriodGoalMultiplier(period: Period, today: Date, earliestDate?: Date) {
+  if (period === 'week') return 0.25
+  if (period === 'month') return 1
+  if (period === 'quarter') return 3
+
+  // all
+  if (!earliestDate) return 1
+  const monthsCount =
+    (today.getFullYear() - earliestDate.getFullYear()) * 12 + (today.getMonth() - earliestDate.getMonth()) + 1
+  return Math.max(1, monthsCount)
+}
+
 export function buildDateList(start: Date, end: Date) {
   const dates: string[] = []
   const cursor = new Date(start)
