@@ -1,0 +1,115 @@
+/*
+ * UIブラッシュアップ v1（2026年8月15日）で導入した新デザイントークン。
+ * 旧「ナイター照明の下のピッチ」ブランド（ピッチグリーン系）から
+ * オレンジ/ティール配色へ完全移行する決定に基づく。
+ *
+ * 指示書1-1のtokens.css仕様に、既存コードが必要とする追加トークン
+ * （accent-text / warning-soft・text / danger系 / text-muted）を加えている。
+ * 理由：旧トークンは success/warning/danger のような3階層（soft背景+text）を
+ * 全アクセントに持っていたが、指示書のtokens.cssにはこの階層が一部欠けており、
+ * そのままでは既存のステータスピル（要注意・警告・削除ボタン等）を表現できないため。
+ */
+:root {
+  /* Light（デフォルト） */
+  --color-bg-base: #FAFAF8;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-border: #E7E5DF;
+  --color-text-primary: #1B1D1F;
+  --color-text-secondary: #6B6F76;
+  --color-text-muted: #9CA0A6;
+  --color-accent: #E85D2C;
+  --color-accent-soft: #FBE2D3;
+  --color-accent-text: #A8391A;
+  --color-data: #1D9C93;
+  --color-data-soft: #D8F0EE;
+  --color-success: #2E7D4F;
+  --color-success-soft: #E1F3E7;
+  --color-success-text: #1E5C3A;
+  --color-warning: #B9791E;
+  --color-warning-soft: #FBEEDA;
+  --color-warning-text: #7A4C0F;
+  --color-danger: #B4443C;
+  --color-danger-soft: #F8E6E4;
+  --color-danger-text: #7A2C26;
+  --shadow-card: 0 1px 2px rgba(20,20,20,0.04), 0 8px 24px rgba(20,20,20,0.05);
+
+  /* Radius */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 14px;
+  --space-lg: 18px;
+  --space-xl: 24px;
+
+  /* Typography */
+  --font-base: 'Inter', -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  --font-size-caption: 11px;
+  --font-size-body-sm: 12.5px;
+  --font-size-body: 13.5px;
+  --font-size-title: 18px;
+  --font-size-metric: 26px;
+  --font-size-metric-lg: 30px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg-base: #0B0E11;
+    --color-bg-surface: #14181D;
+    --color-bg-elevated: #1D2229;
+    --color-border: #262B32;
+    --color-text-primary: #F2F1ED;
+    --color-text-secondary: #9B9FA6;
+    --color-text-muted: #6B7078;
+    --color-accent: #FF7A33;
+    --color-accent-soft: #3A2417;
+    --color-accent-text: #FFB088;
+    --color-data: #35C9C0;
+    --color-data-soft: #12302E;
+    --color-success: #4CAF6D;
+    --color-success-soft: #14301F;
+    --color-success-text: #8CDBA6;
+    --color-warning: #F2B84B;
+    --color-warning-soft: #3A2E12;
+    --color-warning-text: #F2B84B;
+    --color-danger: #E2685F;
+    --color-danger-soft: #3A211F;
+    --color-danger-text: #F2B0A8;
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
+  }
+}
+
+[data-theme="dark"] {
+  --color-bg-base: #0B0E11;
+  --color-bg-surface: #14181D;
+  --color-bg-elevated: #1D2229;
+  --color-border: #262B32;
+  --color-text-primary: #F2F1ED;
+  --color-text-secondary: #9B9FA6;
+  --color-text-muted: #6B7078;
+  --color-accent: #FF7A33;
+  --color-accent-soft: #3A2417;
+  --color-accent-text: #FFB088;
+  --color-data: #35C9C0;
+  --color-data-soft: #12302E;
+  --color-success: #4CAF6D;
+  --color-success-soft: #14301F;
+  --color-success-text: #8CDBA6;
+  --color-warning: #F2B84B;
+  --color-warning-soft: #3A2E12;
+  --color-warning-text: #F2B84B;
+  --color-danger: #E2685F;
+  --color-danger-soft: #3A211F;
+  --color-danger-text: #F2B0A8;
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
+}
+
+.metric-value {
+  font-variant-numeric: tabular-nums;
+}

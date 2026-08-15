@@ -1,32 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=JetBrains+Mono:wght@500;600&display=swap');
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import './styles/tokens.css';
 
 :root {
-  --color-bg: #f5f4ef;
-  --color-surface: #ffffff;
-  --color-surface-muted: #efece3;
+  /*
+   * 旧トークン名（2026年8月時点の「ナイター照明の下のピッチ」ブランド）を
+   * 新トークンへのエイリアスとして残している。既存CSSファイルはこの旧名を
+   * 参照したままだが、値は新パレット（オレンジ/ティール）を指すため配色は
+   * 即座に新パレットへ移行する。旧名の参照自体は、各画面がPhase 3〜5で
+   * リデザインされる際に新トークン名へ順次置き換えて削除する予定。
+   * 例外：--color-ink / --color-ink-soft / --color-hero-muted は
+   * ダッシュボードの「常に濃紺のヒーローカード」専用色で新トークンに
+   * 対応物がないため、Phase 3でヒーローカードごと置き換えるまで固定値のまま維持する。
+   */
+  --color-bg: var(--color-bg-base);
+  --color-surface: var(--color-bg-surface);
+  --color-surface-muted: var(--color-bg-elevated);
   --color-ink: #12181b;
   --color-ink-soft: #1c2427;
-  --color-text: #12181b;
-  --color-text-secondary: #5f5e5a;
-  --color-text-muted: #8a8985;
+  --color-text: var(--color-text-primary);
   --color-hero-muted: #8fa79a;
-  --color-border: #e3e0d5;
-  --color-pitch: #1f6f4b;
-  --color-pitch-soft: #e4f0e8;
-  --color-pitch-text: #14432e;
-  --color-amber: #c97f1e;
-  --color-amber-soft: #fbeeda;
-  --color-amber-text: #7a4c0f;
-  --color-red: #b4443c;
-  --color-red-soft: #f8e6e4;
-  --color-red-text: #7a2c26;
-  --font-sans: Inter, 'Noto Sans JP', 'Segoe UI', sans-serif;
-  --font-display: 'Oswald', 'Noto Sans JP', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
-  --shadow-card: 0 1px 2px rgba(18, 24, 27, 0.05), 0 6px 16px rgba(18, 24, 27, 0.06);
+  --color-pitch: var(--color-accent);
+  --color-pitch-soft: var(--color-accent-soft);
+  --color-pitch-text: var(--color-accent-text);
+  --color-amber: var(--color-warning);
+  --color-amber-soft: var(--color-warning-soft);
+  --color-amber-text: var(--color-warning-text);
+  --color-red: var(--color-danger);
+  --color-red-soft: var(--color-danger-soft);
+  --color-red-text: var(--color-danger-text);
+  --font-sans: var(--font-base);
+  --font-display: var(--font-base);
+  --font-mono: var(--font-base);
 
   font-family: var(--font-sans);
   line-height: 1.5;

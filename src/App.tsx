@@ -7,6 +7,7 @@ import { fetchDailyConditions, syncDailyConditions } from './api/dailyConditions
 import { fetchGoals, upsertGoals } from './api/goals'
 import { fetchTrainingLogs, syncTrainingLogs } from './api/trainingLogs'
 import { fetchMealLogs } from './api/mealLogs'
+import { useTheme } from './hooks/useTheme'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
 
@@ -30,6 +31,7 @@ const formattedDate = new Intl.DateTimeFormat('ja-JP', {
 }).format(today)
 
 function App() {
+  useTheme()
   const [activeView, setActiveView] = useState<'dashboard' | 'calendar' | 'progress'>('dashboard')
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
   const [areTrainingLogsLoaded, setAreTrainingLogsLoaded] = useState(false)
