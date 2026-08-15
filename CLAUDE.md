@@ -16,7 +16,7 @@
 - PWA：vite-plugin-pwa
 - リポジトリ：applecatoftheship/workout-app
 
-## 現在のファイル構成（2026年8月13日時点）
+## 現在のファイル構成（2026年8月16日時点）
 
 画面（pages）・フォーム/グラフ部品（components）・API層（api）・
 ユーティリティ（utils）・型定義（types.ts）に分離済み。
@@ -28,9 +28,14 @@ src/
                   trainingTemplates.ts, trainingSchedules.ts, foodItems.ts, mealLogs.ts,
                   soccerLogs.ts
   utils/          calendarHelpers.ts, chartHelpers.ts, soccerCalorieHelpers.ts
-  pages/          Dashboard(.css), MonthlyCalendar(.css), ProgressGraph(.css)
+  hooks/          useTheme.ts（ダーク/ライト切替、UIブラッシュアップPhase 1）
+  styles/         tokens.css（デザイントークン本体、UIブラッシュアップPhase 1）
+  pages/          Dashboard(.css), MonthlyCalendar(.css), ProgressGraph(.css),
+                  Settings(.css)（UIブラッシュアップPhase 2で新規）
   components/
     GoalPanel(.css)
+    BottomNav(.tsx/.css), RecordSheet(.tsx/.css), icons.tsx
+                  （下部ナビ・記録シート・アイコン集、UIブラッシュアップPhase 2で新規）
     calendar/     TrainingLogForm.tsx, MealLogForm.tsx, ConditionForm.tsx, ScheduleForm.tsx,
                   BulkScheduleImportModal(.css), ExerciseNameInput.tsx,
                   TrainingTemplateSection.tsx, DishFormModal(.tsx/.css),
@@ -89,9 +94,11 @@ training_schedulesからの直接取得に置き換え済み（下記参照）�
 オレンジ×ティールの配色に完全移行した。トークン本体は `src/styles/tokens.css`
 に定義（ライト/ダーク両対応）。`src/index.css`側にも旧トークン名
 （`--color-pitch`等）が残っているが、これは新トークンへの**エイリアス**であり、
-既存コンポーネントCSSが旧名を参照していても新配色が反映される。各画面の
-リデザイン（Phase 3〜5）で旧名参照を新トークン名に置き換え次第、順次削除予定。
-色を直接ハードコードせず、必ず変数を経由すること。
+既存コンポーネントCSSが旧名を参照していても新配色が反映される。Dashboard・
+MonthlyCalendar・CalendarForms・graphs（ProgressGraph）・RecordSheet・Settingsは
+Phase 1〜5（2026年8月15〜16日、下記変更点参照）で新トークン名への置き換えが完了済み。
+GoalPanel.css・BulkScheduleImportModal.css・DishFormModal.cssの3ファイルのみ
+旧名参照が残存（下記技術的負債参照）。色を直接ハードコードせず、必ず変数を経由すること。
 
 | 用途 | 色（ライト） | 色（ダーク） |
 |---|---|---|
@@ -113,9 +120,13 @@ training_schedulesからの直接取得に置き換え済み（下記参照）�
 対応のためGoogle Fonts CDNは不使用）。旧来の見出し用Oswald・数値用JetBrains Mono
 は廃止し、数値表示には`.metric-value`ユーティリティクラス（`tabular-nums`）を使う。
 
-ダッシュボードの濃紺ヒーローカード（`--color-ink`系）のみ新トークン体系に
-対応物がなく、旧来の固定値のまま`src/index.css`に残存。Phase 3でヒーローカード
-自体を置き換える際に整理する。
+ダッシュボードの濃紺ヒーローカードは、Phase 3（2026年8月15日、下記変更点参照）で
+カロリーリング等の新デザインに置き換え済みで撤去済み。`--color-ink`系トークン自体は
+`src/index.css`に残存しているが、現在は`GoalPanel.css`の主要ボタン（`.button--primary`）
+1箇所のみが参照している状態で、これは旧トークン移行の対象漏れ（下記技術的負債参照）。
+`BulkScheduleImportModal.css`・`DishFormModal.css`も同様に、Phase 1〜5のリデザイン対象外
+だったため旧トークン名（`--color-pitch`・`--color-amber`・`--color-surface`・`font-display`
+等）が残存している。
 
 ## データ構造（2026年8月12日 再設計済み）
 
@@ -208,6 +219,69 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
   親の`loadFoodItems`を再実行）。既存の「食材を追加」ドロップダウン（選択即追加）
   とは別の独立したドロップダウンとして実装し、既存の追加フローの挙動は変更していない。
 
+## 2026年8月15〜16日の変更点（UIブラッシュアップ Phase 1〜5）
+
+デザイン刷新のみを目的とした変更で、データ取得ロジック・保存ロジック・
+入力項目構成はPhase 1〜5を通じて変更していない（各Phaseとも実装後に
+claude-in-chromeで本番動作確認済み）。
+
+- **Phase 1：デザイントークン基盤**（2026年8月15日）：`src/styles/tokens.css`を
+  新設しオレンジ×ティール配色に刷新（詳細は上記「デザイントークン」参照）。
+  フォントをInterに統一（`@fontsource/inter`でセルフホスティング、PWAオフライン
+  対応のためGoogle Fonts CDN不使用）。ダーク/ライト切替基盤として`src/hooks/useTheme.ts`
+  を新設。`<html data-theme="dark">`属性で切り替え、初期値はOS設定
+  （`prefers-color-scheme`）に追従し、切り替え後の永続化はしない
+  （セッション中のみ保持、`localStorage`は不使用）。
+
+- **Phase 2：下部ナビ・記録シート・設定画面**（2026年8月15日）：`src/components/BottomNav.tsx`
+  を新設し、ホーム／カレンダー／＋（記録追加）／グラフ／設定の5スロット構成に刷新。
+  従来`App.tsx`にあったビュー切替用のタブ/ボタン（旧view-switcher）は撤去し、
+  `activeView`（`AppView`型）を`BottomNav`の`onNavigate`経由で更新する方式に統一。
+  中央の「＋」ボタンは`src/components/RecordSheet.tsx`（新設、ボトムシートUI）を開き、
+  トレーニング／食事／体調／サッカー／予定の5種類から記録タイプを選択すると、
+  `pendingRecordRequest`経由で`MonthlyCalendar.tsx`が該当タブを開いた状態で表示される。
+  設定画面`src/pages/Settings.tsx`（新設）にダークモード手動トグルを実装
+  （リロードでOS設定に戻る仕様は変更なし）。
+
+- **Phase 3：Dashboardリデザイン**（2026年8月15日）：旧来の濃紺ヒーローカードを撤去し、
+  カロリーリング（recharts、`RadialBarChart`）・今日の運動カード（トレーニング/
+  サッカーを個別ブロックで表示、双方あれば区切り線）・週間ストリップ（`getDayIcons`の
+  ロジックをそのまま流用しアイコン表示、ロジック自体は無変更）・統計カード4枚
+  （体重・睡眠・疲労度・直近の記録）・目標ストリップ（今月の達成率）に刷新。
+  「直近の記録」はトレーニング/食事/体調のうち最新日付のものを表示する仕様で、
+  サッカーログは対象外（Dashboard.tsxの`mostRecentRecord`計算ロジックは無変更）。
+  リリース後の動作確認で、デスクトップ幅（≥700px）で固定ボトムナビ（高さ69px）が
+  ページ最下部のコンテンツに約41px重なる表示崩れと、GoalPanel内に目標ストリップと
+  重複する静的表示（8月トレーニングカード）が見つかり、別コミットで修正済み
+  （`src/App.css`のデスクトップ幅`padding-bottom`調整、`GoalPanel.tsx`の重複カード削除）。
+
+- **Phase 4：MonthlyCalendarリデザイン**（2026年8月16日）：日付グリッドを
+  選択中セル＝アクセント色塗りつぶし（角丸10px）／非選択＝透明背景／今日（未選択時）＝
+  アクセント色の細いリングに刷新。記録アイコンはセル下部に小さく表示（`getDayIcons`の
+  ロジックは無変更）。日付詳細エリアの5タブ（トレーニング/予定/体調/食事/サッカー）を
+  横スクロール可能なピル型に変更。`MealLogForm.tsx`内の「食材から選択/料理から選択」
+  トグルは、同じ`.calendar-detail__tabs`をベースに`--segment`修飾クラスを追加し、
+  bgElevated＋影のセグメント型スタイルとして5タブのピル型と視覚的に区別。
+  `CalendarForms.css`は全5タブの入力フォームで共有されているため、この1ファイルの
+  刷新で他4タブ（トレーニング・予定・体調・サッカー）にも同じトーン
+  （角丸カード・チップ・ボタン配色）が自動的に反映されている。
+
+- **Phase 5：ProgressGraphリデザイン**（2026年8月16日、最終フェーズ）：
+  期間切り替えを「今週/今月」の2択から「1週間/1ヶ月/3ヶ月/全期間」の4択セグメント型
+  タブに拡張（`src/utils/chartHelpers.ts`の`Period`型・`getPeriodRange`に`quarter`/`all`
+  を追加。`week`/`month`の既存ロジックは無変更。`all`の開始日は`trainingLogs`/
+  `dailyConditions`の最古の記録日から動的算出）。体重・睡眠時間・疲労度の各グラフに
+  カードヘッダー（タイトル＋現在値＋トレンドバッジ）を追加。トレンドバッジの
+  上昇/下降判定は`Dashboard.tsx`の既存トーン判定ロジックを踏襲し、色は
+  `--color-success`/`--color-warning`を使用。**睡眠時間グラフはバーチャートから
+  ライン/エリアチャートに変更**（体重・疲労度は元々ライン/エリアチャートのため
+  変更なし）。データの算出式（`sleepValues`等）自体は無変更。体重＝アクセント色
+  （グラデーション塗り）、睡眠＝データ色（ティール）、疲労度＝警告色（アンバー）で
+  色分け。部位別トレーニング頻度を新規追加（`TrainingChart.tsx`）：`ProgressGraph.tsx`
+  側で親から渡されている`trainingLogs`props（既存、変更なし）から期間内の部位別
+  出現回数を新規に算出し、`bodyPartFrequency`propとして`TrainingChart`に渡す形で実装
+  （`TrainingChart`自体の既存集計ロジックは無変更）。データ色のプログレスバーで表示。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
@@ -247,6 +321,23 @@ UIは`MonthlyCalendar.tsx`の「予定」タブ（`ScheduleForm.tsx`）。カレ
 
 7. エラーハンドリングが薄い
    Supabase の読み書き失敗時、console.error のみで画面表示なし。
+
+8. ProgressGraphの期間「3ヶ月」「全期間」でも月間目標と比較され続ける
+   （2026年8月16日、Phase 5で期間選択肢を追加した際に判明）。
+   `ProgressGraph.tsx`の`trainingGoal`は`period === 'week' ? weeklyTrainingGoal
+   : monthlyTrainingGoal`という既存の三項演算子のままのため、`quarter`/`all`を
+   選んでも`week`以外は一律`monthlyTrainingGoal`と比較される。3ヶ月・全期間分の
+   実施回数を1ヶ月分の目標と比較するため、達成率が実態より高く出やすい
+   （既存ロジックを変更しない方針でPhase 5を実施したため、意図的に未対応のまま
+   残した。四半期/全期間用の目標値をgoalsに追加するか、期間の日数に応じて
+   月間目標を按分するかは要検討）。
+
+9. GoalPanel.css・BulkScheduleImportModal.css・DishFormModal.cssに
+   旧デザイントークン名（`--color-pitch`・`--color-amber`・`--color-ink`・
+   `--color-surface`・`--color-text`・`font-mono`・`font-display`等）が残存
+   （2026年8月16日、Phase 1〜5完了時点で判明。上記「デザイントークン」参照）。
+   エイリアス経由のため配色自体はすでに新パレットが反映されているが、
+   将来的にエイリアスを削除する際はこの3ファイルの置き換えが先行して必要になる。
 
 ## 進行中の計画（現在地）
 
