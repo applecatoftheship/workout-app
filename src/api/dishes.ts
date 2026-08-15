@@ -1,5 +1,6 @@
 import { supabase } from './client'
 import { fetchFoodItems } from './foodItems'
+import { DEFAULT_USER_ID } from './trainingLogs'
 import type { Dish, DishFoodItem, DishWithDetails, MealSize } from '../types'
 
 type DishRow = {
@@ -45,6 +46,7 @@ export async function fetchDishesWithDetails(): Promise<DishWithDetails[]> {
   const { data: dishRows, error: dishError } = await supabase
     .from('dishes')
     .select('*')
+    .eq('user_id', DEFAULT_USER_ID)
     .order('created_at', { ascending: true })
 
   if (dishError) {
@@ -106,7 +108,11 @@ export type DishItemInput = {
 }
 
 export async function createDish(name: string, items: DishItemInput[]): Promise<void> {
-  const { data: insertedDish, error: dishError } = await supabase.from('dishes').insert({ name }).select().single()
+  const { data: insertedDish, error: dishError } = await supabase
+    .from('dishes')
+    .insert({ name, user_id: DEFAULT_USER_ID })
+    .select()
+    .single()
 
   if (dishError) {
     throw dishError

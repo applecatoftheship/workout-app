@@ -28,7 +28,11 @@ function rowToExerciseDefinition(row: ExerciseRow): ExerciseDefinition {
 }
 
 export async function fetchExercises(): Promise<ExerciseDefinition[]> {
-  const { data, error } = await supabase.from('exercises').select('*').order('name', { ascending: true })
+  const { data, error } = await supabase
+    .from('exercises')
+    .select('*')
+    .or(`is_preset.eq.true,user_id.eq.${DEFAULT_USER_ID}`)
+    .order('name', { ascending: true })
 
   if (error) {
     throw error

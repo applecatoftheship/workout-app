@@ -1,4 +1,5 @@
 import { supabase } from './client'
+import { DEFAULT_USER_ID } from './trainingLogs'
 import type { FoodItem } from '../types'
 
 type FoodItemRow = {
@@ -36,6 +37,7 @@ export async function fetchFoodItems(): Promise<FoodItem[]> {
     .from('food_items')
     .select('*')
     .eq('is_deleted', false)
+    .or(`user_id.is.null,user_id.eq.${DEFAULT_USER_ID}`)
     .order('name', { ascending: true })
 
   if (error) {
@@ -68,6 +70,7 @@ export async function createFoodItem(input: {
       carbohydrates: input.carbohydrates,
       category: input.category ?? null,
       emoji: input.emoji ?? null,
+      user_id: DEFAULT_USER_ID,
     })
     .select()
     .single()

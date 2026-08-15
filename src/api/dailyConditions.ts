@@ -1,4 +1,5 @@
 import { supabase } from './client'
+import { DEFAULT_USER_ID } from './trainingLogs'
 import type { DailyCondition, DateString, FatigueLevel } from '../types'
 
 type DailyConditionRow = {
@@ -29,6 +30,7 @@ export async function fetchRecentWeight(beforeDate: DateString): Promise<number 
   const { data, error } = await supabase
     .from('daily_conditions')
     .select('weight')
+    .eq('user_id', DEFAULT_USER_ID)
     .lte('log_date', beforeDate)
     .order('log_date', { ascending: false })
     .limit(1)
@@ -45,6 +47,7 @@ export async function fetchDailyConditions(): Promise<DailyCondition[]> {
   const { data, error } = await supabase
     .from('daily_conditions')
     .select('*')
+    .eq('user_id', DEFAULT_USER_ID)
     .order('log_date', { ascending: true })
 
   if (error) {
@@ -59,13 +62,14 @@ export async function upsertDailyCondition(condition: DailyCondition): Promise<v
     .from('daily_conditions')
     .upsert(
       {
+        user_id: DEFAULT_USER_ID,
         log_date: condition.date,
         weight: condition.weight,
         sleep_hours: condition.sleepHours,
         fatigue: condition.fatigue,
         notes: condition.notes ?? null,
       },
-      { onConflict: 'log_date' },
+      { onConflict: 'user_id,log_date' },
     )
 
   if (error) {
@@ -77,6 +81,7 @@ export async function syncDailyConditions(conditions: DailyCondition[]): Promise
   const { data: remoteRows, error: fetchError } = await supabase
     .from('daily_conditions')
     .select('id, log_date')
+    .eq('user_id', DEFAULT_USER_ID)
 
   if (fetchError) {
     throw fetchError

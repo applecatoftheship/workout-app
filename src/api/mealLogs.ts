@@ -1,5 +1,6 @@
 import { supabase } from './client'
 import { fetchFoodItems } from './foodItems'
+import { DEFAULT_USER_ID } from './trainingLogs'
 import type { DateString, MealLog, MealLogFoodItem, MealType } from '../types'
 
 export type MealLogFoodItemInput = {
@@ -42,6 +43,7 @@ export async function fetchMealLogs(): Promise<MealLog[]> {
   const { data: logRows, error: logError } = await supabase
     .from('meal_logs')
     .select('*')
+    .eq('user_id', DEFAULT_USER_ID)
     .order('log_date', { ascending: true })
 
   if (logError) {
@@ -90,6 +92,7 @@ export async function fetchMealLogs(): Promise<MealLog[]> {
 export async function upsertMealLog(input: MealLogInput): Promise<void> {
   const { error: logError } = await supabase.from('meal_logs').upsert({
     id: input.id,
+    user_id: DEFAULT_USER_ID,
     log_date: input.date,
     meal_type: input.mealType,
     notes: input.notes ?? null,

@@ -43,6 +43,7 @@ export async function fetchTrainingTemplates(): Promise<TrainingTemplate[]> {
   const { data: templateRows, error: templateError } = await supabase
     .from('training_templates')
     .select('*')
+    .eq('user_id', DEFAULT_USER_ID)
     .order('created_at', { ascending: true })
 
   if (templateError) {
