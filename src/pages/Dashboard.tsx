@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
@@ -6,7 +7,7 @@ import { FatigueIcon, HistoryIcon, SleepIcon, WeightIcon } from '../components/i
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { getDayIcons, toDateKey, weekDays } from '../utils/calendarHelpers'
-import type { AppView } from '../components/BottomNav'
+import { APP_VIEW_PATHS } from '../utils/appViewPaths'
 import type { Goals } from '../api/goals'
 import type {
   DailyCondition,
@@ -40,7 +41,6 @@ type DashboardProps = {
   today: Date
   todayString: DateString
   formattedDate: string
-  setActiveView: React.Dispatch<React.SetStateAction<AppView>>
 }
 
 export function Dashboard({
@@ -52,8 +52,8 @@ export function Dashboard({
   today,
   todayString,
   formattedDate,
-  setActiveView,
 }: DashboardProps) {
+  const navigate = useNavigate()
   const [isTodayDetailOpen, setIsTodayDetailOpen] = useState(false)
   const [isNutritionOpen, setIsNutritionOpen] = useState(false)
   const [weekSchedules, setWeekSchedules] = useState<TrainingSchedule[]>([])
@@ -529,7 +529,7 @@ export function Dashboard({
             type="button"
             className="link-card"
             onClick={() => {
-              setActiveView(link.targetView)
+              navigate(APP_VIEW_PATHS[link.targetView])
             }}
           >
             <span className="link-card__badge">{link.badge}</span>

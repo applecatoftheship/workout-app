@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
+import { HashRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import './App.css'
 import { MonthlyCalendar } from './pages/MonthlyCalendar'
 import { ProgressGraph } from './pages/ProgressGraph'
 import { Dashboard } from './pages/Dashboard'
 import { Settings } from './pages/Settings'
 import { BottomNav } from './components/BottomNav'
-import type { AppView } from './components/BottomNav'
 import { RecordSheet } from './components/RecordSheet'
-import type { RecordType } from './components/RecordSheet'
 import { fetchDailyConditions, syncDailyConditions } from './api/dailyConditions'
 import { fetchGoalsByMonth, upsertGoals } from './api/goals'
 import { fetchTrainingLogs, syncTrainingLogs } from './api/trainingLogs'
@@ -15,11 +14,6 @@ import { fetchMealLogs } from './api/mealLogs'
 import { useTheme } from './hooks/useTheme'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
-
-type PendingRecordRequest = {
-  tab: RecordType
-  requestId: number
-}
 
 const today = new Date()
 const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}` as DateString
@@ -42,11 +36,9 @@ const formattedDate = new Intl.DateTimeFormat('ja-JP', {
   weekday: 'short',
 }).format(today)
 
-function App() {
+function AppShell() {
   const { theme, setTheme } = useTheme()
-  const [activeView, setActiveView] = useState<AppView>('dashboard')
   const [isRecordSheetOpen, setIsRecordSheetOpen] = useState(false)
-  const [pendingRecordRequest, setPendingRecordRequest] = useState<PendingRecordRequest | null>(null)
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
   const [areTrainingLogsLoaded, setAreTrainingLogsLoaded] = useState(false)
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
@@ -170,66 +162,89 @@ function App() {
     }
   }, [])
 
+  const navigate = useNavigate()
+
   return (
     <>
       <main className="app-shell">
-        {activeView === 'calendar' ? (
-          <MonthlyCalendar
-            trainingLogs={trainingLogs}
-            setTrainingLogs={setTrainingLogs}
-            mealLogs={mealLogs}
-            setMealLogs={setMealLogs}
-            dailyConditions={dailyConditions}
-            setDailyConditions={setDailyConditions}
-            pendingRecordRequest={pendingRecordRequest}
-            onPendingRecordRequestHandled={() => setPendingRecordRequest(null)}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Dashboard
+                trainingLogs={trainingLogs}
+                mealLogs={mealLogs}
+                dailyConditions={dailyConditions}
+                goals={goals}
+                setGoals={setGoals}
+                today={today}
+                todayString={todayString}
+                formattedDate={formattedDate}
+              />
+            }
           />
-        ) : activeView === 'progress' ? (
-          <ProgressGraph
-            trainingLogs={trainingLogs}
-            dailyConditions={dailyConditions}
-            targetWeight={goals.targetWeight}
-            targetSleepHours={goals.targetSleepHours}
-            weeklyTrainingGoal={goals.weeklyTrainingGoal}
-            monthlyTrainingGoal={goals.monthlyTrainingGoal}
+          <Route
+            path="/calendar"
+            element={
+              <MonthlyCalendar
+                trainingLogs={trainingLogs}
+                setTrainingLogs={setTrainingLogs}
+                mealLogs={mealLogs}
+                setMealLogs={setMealLogs}
+                dailyConditions={dailyConditions}
+                setDailyConditions={setDailyConditions}
+              />
+            }
           />
-        ) : activeView === 'settings' ? (
-          <Settings
-            goals={goals}
-            setGoals={setGoals}
-            trainingLogs={trainingLogs}
-            dailyConditions={dailyConditions}
-            today={today}
-            theme={theme}
-            setTheme={setTheme}
+          <Route
+            path="/graph"
+            element={
+              <ProgressGraph
+                trainingLogs={trainingLogs}
+                dailyConditions={dailyConditions}
+                targetWeight={goals.targetWeight}
+                targetSleepHours={goals.targetSleepHours}
+                weeklyTrainingGoal={goals.weeklyTrainingGoal}
+                monthlyTrainingGoal={goals.monthlyTrainingGoal}
+              />
+            }
           />
-        ) : (
-          <Dashboard
-            trainingLogs={trainingLogs}
-            mealLogs={mealLogs}
-            dailyConditions={dailyConditions}
-            goals={goals}
-            setGoals={setGoals}
-            today={today}
-            todayString={todayString}
-            formattedDate={formattedDate}
-            setActiveView={setActiveView}
+          <Route
+            path="/settings"
+            element={
+              <Settings
+                goals={goals}
+                setGoals={setGoals}
+                trainingLogs={trainingLogs}
+                dailyConditions={dailyConditions}
+                today={today}
+                theme={theme}
+                setTheme={setTheme}
+              />
+            }
           />
-        )}
+        </Routes>
       </main>
 
-      <BottomNav activeView={activeView} onNavigate={setActiveView} onOpenRecordSheet={() => setIsRecordSheetOpen(true)} />
+      <BottomNav onOpenRecordSheet={() => setIsRecordSheetOpen(true)} />
 
       <RecordSheet
         isOpen={isRecordSheetOpen}
         onClose={() => setIsRecordSheetOpen(false)}
         onSelect={(type) => {
-          setActiveView('calendar')
-          setPendingRecordRequest({ tab: type, requestId: Date.now() })
           setIsRecordSheetOpen(false)
+          navigate('/calendar', { state: { tab: type, requestId: Date.now() } })
         }}
       />
     </>
+  )
+}
+
+function App() {
+  return (
+    <HashRouter>
+      <AppShell />
+    </HashRouter>
   )
 }
 

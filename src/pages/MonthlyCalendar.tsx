@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../types'
 import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
@@ -20,9 +21,9 @@ type MonthlyCalendarProps = {
   setMealLogs: React.Dispatch<React.SetStateAction<MealLog[]>>
   dailyConditions: DailyCondition[]
   setDailyConditions: React.Dispatch<React.SetStateAction<DailyCondition[]>>
-  pendingRecordRequest?: { tab: RecordType; requestId: number } | null
-  onPendingRecordRequestHandled?: () => void
 }
+
+type PendingRecordState = { tab: RecordType; requestId: number } | null
 
 export function MonthlyCalendar({
   trainingLogs,
@@ -31,9 +32,9 @@ export function MonthlyCalendar({
   setMealLogs,
   dailyConditions,
   setDailyConditions,
-  pendingRecordRequest,
-  onPendingRecordRequestHandled,
 }: MonthlyCalendarProps) {
+  const location = useLocation()
+  const pendingRecordRequest = (location.state as PendingRecordState) ?? null
   const today = new Date()
   const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate())
   const [displayDate, setDisplayDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
@@ -54,8 +55,8 @@ export function MonthlyCalendar({
     }
     setSelectedDate(todayKey)
     setActiveDetailTab(pendingRecordRequest.tab)
-    onPendingRecordRequestHandled?.()
-  }, [pendingRecordRequest, todayKey, onPendingRecordRequestHandled])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRecordRequest?.requestId, todayKey])
 
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
