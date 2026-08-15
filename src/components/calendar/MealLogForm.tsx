@@ -535,7 +535,7 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
             {mealFormErrors.mealType ? <p className="calendar-detail__error">{mealFormErrors.mealType}</p> : null}
           </label>
 
-          <div className="calendar-detail__tabs">
+          <div className="calendar-detail__tabs calendar-detail__tabs--segment">
             <button
               type="button"
               className={`calendar-detail__tab ${inputMode === 'food' ? 'calendar-detail__tab--active' : ''}`}
