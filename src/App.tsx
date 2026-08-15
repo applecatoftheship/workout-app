@@ -3,6 +3,11 @@ import './App.css'
 import { MonthlyCalendar } from './pages/MonthlyCalendar'
 import { ProgressGraph } from './pages/ProgressGraph'
 import { Dashboard } from './pages/Dashboard'
+import { Settings } from './pages/Settings'
+import { BottomNav } from './components/BottomNav'
+import type { AppView } from './components/BottomNav'
+import { RecordSheet } from './components/RecordSheet'
+import type { RecordType } from './components/RecordSheet'
 import { fetchDailyConditions, syncDailyConditions } from './api/dailyConditions'
 import { fetchGoals, upsertGoals } from './api/goals'
 import { fetchTrainingLogs, syncTrainingLogs } from './api/trainingLogs'
@@ -10,6 +15,11 @@ import { fetchMealLogs } from './api/mealLogs'
 import { useTheme } from './hooks/useTheme'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
+
+type PendingRecordRequest = {
+  tab: RecordType
+  requestId: number
+}
 
 const defaultGoals: Goals = {
   targetWeight: 65,
@@ -31,8 +41,10 @@ const formattedDate = new Intl.DateTimeFormat('ja-JP', {
 }).format(today)
 
 function App() {
-  useTheme()
-  const [activeView, setActiveView] = useState<'dashboard' | 'calendar' | 'progress'>('dashboard')
+  const { theme, setTheme } = useTheme()
+  const [activeView, setActiveView] = useState<AppView>('dashboard')
+  const [isRecordSheetOpen, setIsRecordSheetOpen] = useState(false)
+  const [pendingRecordRequest, setPendingRecordRequest] = useState<PendingRecordRequest | null>(null)
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
   const [areTrainingLogsLoaded, setAreTrainingLogsLoaded] = useState(false)
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
@@ -157,56 +169,65 @@ function App() {
   }, [])
 
   return (
-    <main className="app-shell">
-      <div className="view-switcher" role="tablist" aria-label="ビュー切り替え">
-        <button
-          type="button"
-          className={`view-switcher__button ${activeView === 'dashboard' ? 'view-switcher__button--active' : ''}`}
-          onClick={() => setActiveView('dashboard')}
-        >
-          ダッシュボード
-        </button>
-        <button
-          type="button"
-          className={`view-switcher__button ${activeView === 'calendar' ? 'view-switcher__button--active' : ''}`}
-          onClick={() => setActiveView('calendar')}
-        >
-          月間カレンダー
-        </button>
-      </div>
+    <>
+      <main className="app-shell">
+        {activeView === 'calendar' ? (
+          <MonthlyCalendar
+            trainingLogs={trainingLogs}
+            setTrainingLogs={setTrainingLogs}
+            mealLogs={mealLogs}
+            setMealLogs={setMealLogs}
+            dailyConditions={dailyConditions}
+            setDailyConditions={setDailyConditions}
+            pendingRecordRequest={pendingRecordRequest}
+            onPendingRecordRequestHandled={() => setPendingRecordRequest(null)}
+          />
+        ) : activeView === 'progress' ? (
+          <ProgressGraph
+            trainingLogs={trainingLogs}
+            dailyConditions={dailyConditions}
+            targetWeight={goals.targetWeight}
+            targetSleepHours={goals.targetSleepHours}
+            weeklyTrainingGoal={goals.weeklyTrainingGoal}
+            monthlyTrainingGoal={goals.monthlyTrainingGoal}
+          />
+        ) : activeView === 'settings' ? (
+          <Settings
+            goals={goals}
+            setGoals={setGoals}
+            trainingLogs={trainingLogs}
+            dailyConditions={dailyConditions}
+            today={today}
+            theme={theme}
+            setTheme={setTheme}
+          />
+        ) : (
+          <Dashboard
+            trainingLogs={trainingLogs}
+            mealLogs={mealLogs}
+            dailyConditions={dailyConditions}
+            goals={goals}
+            setGoals={setGoals}
+            today={today}
+            todayString={todayString}
+            formattedDate={formattedDate}
+            setActiveView={setActiveView}
+          />
+        )}
+      </main>
 
-      {activeView === 'calendar' ? (
-        <MonthlyCalendar
-          trainingLogs={trainingLogs}
-          setTrainingLogs={setTrainingLogs}
-          mealLogs={mealLogs}
-          setMealLogs={setMealLogs}
-          dailyConditions={dailyConditions}
-          setDailyConditions={setDailyConditions}
-        />
-      ) : activeView === 'progress' ? (
-        <ProgressGraph
-          trainingLogs={trainingLogs}
-          dailyConditions={dailyConditions}
-          targetWeight={goals.targetWeight}
-          targetSleepHours={goals.targetSleepHours}
-          weeklyTrainingGoal={goals.weeklyTrainingGoal}
-          monthlyTrainingGoal={goals.monthlyTrainingGoal}
-        />
-      ) : (
-        <Dashboard
-          trainingLogs={trainingLogs}
-          mealLogs={mealLogs}
-          dailyConditions={dailyConditions}
-          goals={goals}
-          setGoals={setGoals}
-          today={today}
-          todayString={todayString}
-          formattedDate={formattedDate}
-          setActiveView={setActiveView}
-        />
-      )}
-    </main>
+      <BottomNav activeView={activeView} onNavigate={setActiveView} onOpenRecordSheet={() => setIsRecordSheetOpen(true)} />
+
+      <RecordSheet
+        isOpen={isRecordSheetOpen}
+        onClose={() => setIsRecordSheetOpen(false)}
+        onSelect={(type) => {
+          setActiveView('calendar')
+          setPendingRecordRequest({ tab: type, requestId: Date.now() })
+          setIsRecordSheetOpen(false)
+        }}
+      />
+    </>
   )
 }
 

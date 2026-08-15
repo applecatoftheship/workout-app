@@ -1,0 +1,111 @@
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-profile__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.settings-profile__name {
+  margin: 0 0 2px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.settings-profile__meta {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.settings-section__title {
+  margin: 0 0 10px;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-row__label {
+  margin: 0 0 2px;
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.settings-row__description {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.settings-accent-swatches {
+  display: flex;
+  gap: 6px;
+}
+
+.settings-accent-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-bg-surface);
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.toggle-switch {
+  width: 44px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  border: 0;
+  background: var(--color-border);
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.18s ease;
+}
+
+.toggle-switch--checked {
+  background: var(--color-accent);
+}
+
+.toggle-switch__thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.18s ease;
+}
+
+.toggle-switch--checked .toggle-switch__thumb {
+  transform: translateX(18px);
+}

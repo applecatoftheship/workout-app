@@ -8,6 +8,9 @@
  * 理由：旧トークンは success/warning/danger のような3階層（soft背景+text）を
  * 全アクセントに持っていたが、指示書のtokens.cssにはこの階層が一部欠けており、
  * そのままでは既存のステータスピル（要注意・警告・削除ボタン等）を表現できないため。
+ *
+ * Phase 2（2026年8月15日）で --color-nav-bg を追加。BottomNav.tsxの
+ * 半透明＋backdrop-filter背景に使用（指示書2-1）。
  */
 :root {
   /* Light（デフォルト） */
@@ -32,6 +35,7 @@
   --color-danger: #B4443C;
   --color-danger-soft: #F8E6E4;
   --color-danger-text: #7A2C26;
+  --color-nav-bg: rgba(255, 255, 255, 0.82);
   --shadow-card: 0 1px 2px rgba(20,20,20,0.04), 0 8px 24px rgba(20,20,20,0.05);
 
   /* Radius */
@@ -81,6 +85,7 @@
     --color-danger: #E2685F;
     --color-danger-soft: #3A211F;
     --color-danger-text: #F2B0A8;
+    --color-nav-bg: rgba(20, 24, 29, 0.82);
     --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
   }
 }
@@ -107,6 +112,7 @@
   --color-danger: #E2685F;
   --color-danger-soft: #3A211F;
   --color-danger-text: #F2B0A8;
+  --color-nav-bg: rgba(20, 24, 29, 0.82);
   --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
 }
 

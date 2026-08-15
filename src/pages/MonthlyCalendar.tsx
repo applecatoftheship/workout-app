@@ -11,6 +11,7 @@ import { BulkScheduleImportModal } from '../components/calendar/BulkScheduleImpo
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { weekDays, toDateKey, formatMonthLabel, getDayIcons } from '../utils/calendarHelpers'
+import type { RecordType } from '../components/RecordSheet'
 
 type MonthlyCalendarProps = {
   trainingLogs: TrainingLog[]
@@ -19,6 +20,8 @@ type MonthlyCalendarProps = {
   setMealLogs: React.Dispatch<React.SetStateAction<MealLog[]>>
   dailyConditions: DailyCondition[]
   setDailyConditions: React.Dispatch<React.SetStateAction<DailyCondition[]>>
+  pendingRecordRequest?: { tab: RecordType; requestId: number } | null
+  onPendingRecordRequestHandled?: () => void
 }
 
 export function MonthlyCalendar({
@@ -28,6 +31,8 @@ export function MonthlyCalendar({
   setMealLogs,
   dailyConditions,
   setDailyConditions,
+  pendingRecordRequest,
+  onPendingRecordRequestHandled,
 }: MonthlyCalendarProps) {
   const today = new Date()
   const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate())
@@ -42,6 +47,15 @@ export function MonthlyCalendar({
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
   const [soccerLogs, setSoccerLogs] = useState<SoccerLog[]>([])
+
+  useEffect(() => {
+    if (!pendingRecordRequest) {
+      return
+    }
+    setSelectedDate(todayKey)
+    setActiveDetailTab(pendingRecordRequest.tab)
+    onPendingRecordRequestHandled?.()
+  }, [pendingRecordRequest, todayKey, onPendingRecordRequestHandled])
 
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()

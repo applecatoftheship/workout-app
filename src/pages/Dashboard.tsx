@@ -3,6 +3,7 @@ import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { formatTrainingLogItem } from '../utils/calendarHelpers'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
+import type { AppView } from '../components/BottomNav'
 import type { Goals } from '../api/goals'
 import type { DailyCondition, DateString, MealLog, TrainingLog, TrainingLogExercise, TrainingSchedule } from '../types'
 
@@ -50,7 +51,7 @@ type DashboardProps = {
   today: Date
   todayString: DateString
   formattedDate: string
-  setActiveView: React.Dispatch<React.SetStateAction<'dashboard' | 'calendar' | 'progress'>>
+  setActiveView: React.Dispatch<React.SetStateAction<AppView>>
 }
 
 export function Dashboard({

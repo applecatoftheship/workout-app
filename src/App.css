@@ -1,36 +1,10 @@
 .app-shell {
   width: min(100%, 460px);
   margin: 0 auto;
-  padding: calc(18px + env(safe-area-inset-top, 0px)) 14px 20px;
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 14px calc(100px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.view-switcher {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 999px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  align-self: flex-start;
-}
-
-.view-switcher__button {
-  border: 0;
-  border-radius: 999px;
-  padding: 7px 14px;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 0.85rem;
-}
-
-.view-switcher__button--active {
-  background: var(--color-ink);
-  color: #f6f5f0;
 }
 
 .hero-card,
