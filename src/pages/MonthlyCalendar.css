@@ -34,18 +34,12 @@
 
 .calendar-nav {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 
-.calendar-nav__button {
-  border: 0;
-  border-radius: var(--radius-pill);
-  padding: 6px 14px;
-  background: var(--color-bg-elevated);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: var(--font-size-body-sm);
-  font-weight: 500;
+.calendar-nav__today {
+  white-space: nowrap;
 }
 
 .calendar-card__toolbar {
@@ -65,6 +59,14 @@
   font-size: var(--font-size-caption);
   color: var(--color-text-muted);
   font-weight: 500;
+}
+
+.calendar-weekday--sunday {
+  color: var(--color-danger);
+}
+
+.calendar-weekday--saturday {
+  color: var(--color-data);
 }
 
 .calendar-day {
@@ -107,8 +109,8 @@
 }
 
 .calendar-day__content {
-  font-size: 9px;
-  min-height: 9px;
+  font-size: 13px;
+  min-height: 13px;
   text-align: center;
   line-height: 1;
 }

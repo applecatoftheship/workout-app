@@ -137,3 +137,36 @@ export function HistoryIcon({ strokeWidth = 2, className }: IconProps) {
     </svg>
   )
 }
+
+export function ChevronLeftIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <path d="M15 5l-7 7 7 7" />
+    </svg>
+  )
+}
+
+export function ChevronRightIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <path d="M9 5l7 7-7 7" />
+    </svg>
+  )
+}
+
+export function EditIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+export function CloseIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  )
+}

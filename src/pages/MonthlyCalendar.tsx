@@ -13,6 +13,7 @@ import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { weekDays, toDateKey, formatMonthLabel, getDayIcons } from '../utils/calendarHelpers'
 import type { RecordType } from '../components/RecordSheet'
+import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 
 type MonthlyCalendarProps = {
   trainingLogs: TrainingLog[]
@@ -176,6 +177,13 @@ export function MonthlyCalendar({
     setDisplayDate(nextDate)
   }
 
+  const isDisplayingCurrentMonth = year === today.getFullYear() && month === today.getMonth()
+
+  const goToToday = () => {
+    setDisplayDate(new Date(today.getFullYear(), today.getMonth(), 1))
+    setSelectedDate(todayKey)
+  }
+
   return (
     <section className="calendar-card">
       <div className="calendar-card__header">
@@ -184,24 +192,32 @@ export function MonthlyCalendar({
           <h2>{formatMonthLabel(displayDate)}</h2>
         </div>
         <div className="calendar-nav">
-          <button type="button" className="calendar-nav__button" onClick={() => changeMonth(-1)}>
-            前月
+          {!isDisplayingCurrentMonth ? (
+            <button type="button" className="btn-secondary btn-secondary--sm calendar-nav__today" onClick={goToToday}>
+              今日に戻る
+            </button>
+          ) : null}
+          <button type="button" className="btn-icon" onClick={() => changeMonth(-1)} aria-label="前月">
+            <ChevronLeftIcon />
           </button>
-          <button type="button" className="calendar-nav__button" onClick={() => changeMonth(1)}>
-            翌月
+          <button type="button" className="btn-icon" onClick={() => changeMonth(1)} aria-label="翌月">
+            <ChevronRightIcon />
           </button>
         </div>
       </div>
 
       <div className="calendar-card__toolbar">
-        <button type="button" className="calendar-nav__button" onClick={() => setIsBulkImportOpen(true)}>
+        <button type="button" className="btn-pill-accent" onClick={() => setIsBulkImportOpen(true)}>
           ✨ AI予定一括取り込み
         </button>
       </div>
 
       <div className="calendar-weekdays" aria-label="曜日">
-        {weekDays.map((day) => (
-          <div key={day} className="calendar-weekday">
+        {weekDays.map((day, index) => (
+          <div
+            key={day}
+            className={`calendar-weekday ${index === 0 ? 'calendar-weekday--sunday' : ''} ${index === 6 ? 'calendar-weekday--saturday' : ''}`}
+          >
             {day}
           </div>
         ))}
@@ -232,7 +248,7 @@ export function MonthlyCalendar({
       <div className="calendar-detail">
         <div className="calendar-detail__header">
           <h3>{selectedDate}</h3>
-          <span className="calendar-detail__badge">詳細</span>
+          <span className="btn-secondary btn-secondary--sm calendar-detail__badge">詳細</span>
         </div>
 
         <div className="calendar-detail__group">
