@@ -34,6 +34,9 @@ type ScheduleFormProps = {
   selectedDate: DateString
   isScheduleFormOpen: boolean
   setIsScheduleFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+  /** RecordFormModal（Phase B）からの自動オープン用。既存利用への影響なし。 */
+  autoOpenToken?: number
+  autoOpenScheduleId?: string
 }
 
 export function ScheduleForm({
@@ -42,6 +45,8 @@ export function ScheduleForm({
   selectedDate,
   isScheduleFormOpen,
   setIsScheduleFormOpen,
+  autoOpenToken,
+  autoOpenScheduleId,
 }: ScheduleFormProps) {
   const { showToast } = useToast()
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
@@ -67,6 +72,15 @@ export function ScheduleForm({
     setIsScheduleFormOpen(false)
     setEditingScheduleId(null)
   }, [selectedDate, setIsScheduleFormOpen])
+
+  useEffect(() => {
+    if (autoOpenToken === undefined) {
+      return
+    }
+    const target = autoOpenScheduleId ? schedules.find((schedule) => schedule.id === autoOpenScheduleId) : undefined
+    openForm(target)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenToken])
 
   const openForm = (schedule?: TrainingSchedule) => {
     setEditingScheduleId(schedule?.id ?? null)
@@ -299,6 +313,20 @@ export function ScheduleForm({
             <button type="button" className="calendar-detail__button" onClick={saveSchedule} disabled={isSaving}>
               {isSaving ? '保存中...' : '保存する'}
             </button>
+            {editingScheduleId ? (
+              <button
+                type="button"
+                className="calendar-detail__delete-button"
+                onClick={() => {
+                  const target = schedules.find((schedule) => schedule.id === editingScheduleId)
+                  if (target) {
+                    removeSchedule(target)
+                  }
+                }}
+              >
+                この予定を削除
+              </button>
+            ) : null}
             <button type="button" className="calendar-detail__secondary-button" onClick={() => setIsScheduleFormOpen(false)}>
               キャンセル
             </button>

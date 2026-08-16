@@ -1,63 +1,38 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../types'
 import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
-import { TrainingLogForm } from '../components/calendar/TrainingLogForm'
-import { MealLogForm } from '../components/calendar/MealLogForm'
-import { ConditionForm } from '../components/calendar/ConditionForm'
-import { ScheduleForm } from '../components/calendar/ScheduleForm'
-import { SoccerLogForm } from '../components/calendar/SoccerLogForm'
+import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, SoccerSummary } from '../components/calendar/CalendarDaySummaries'
 import { BulkScheduleImportModal } from '../components/calendar/BulkScheduleImportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { weekDays, toDateKey, formatMonthLabel, getDayIcons } from '../utils/calendarHelpers'
-import type { RecordType } from '../components/RecordSheet'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
+import type { RecordModalRequest } from '../components/RecordFormModal'
 
 type MonthlyCalendarProps = {
   trainingLogs: TrainingLog[]
-  setTrainingLogs: React.Dispatch<React.SetStateAction<TrainingLog[]>>
   mealLogs: MealLog[]
-  setMealLogs: React.Dispatch<React.SetStateAction<MealLog[]>>
   dailyConditions: DailyCondition[]
-  setDailyConditions: React.Dispatch<React.SetStateAction<DailyCondition[]>>
+  openRecordModal: (request: Omit<RecordModalRequest, 'requestId'>) => void
+  isRecordModalOpen: boolean
 }
-
-type PendingRecordState = { tab: RecordType; requestId: number } | null
 
 export function MonthlyCalendar({
   trainingLogs,
-  setTrainingLogs,
   mealLogs,
-  setMealLogs,
   dailyConditions,
-  setDailyConditions,
+  openRecordModal,
+  isRecordModalOpen,
 }: MonthlyCalendarProps) {
-  const location = useLocation()
-  const pendingRecordRequest = (location.state as PendingRecordState) ?? null
   const today = new Date()
   const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate())
   const [displayDate, setDisplayDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState<DateString>(todayKey)
   const [activeDetailTab, setActiveDetailTab] = useState<'training' | 'schedule' | 'condition' | 'meal' | 'soccer'>('training')
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [isMealFormOpen, setIsMealFormOpen] = useState(false)
-  const [isConditionFormOpen, setIsConditionFormOpen] = useState(false)
-  const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(false)
-  const [isSoccerFormOpen, setIsSoccerFormOpen] = useState(false)
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
   const [soccerLogs, setSoccerLogs] = useState<SoccerLog[]>([])
-
-  useEffect(() => {
-    if (!pendingRecordRequest) {
-      return
-    }
-    setSelectedDate(todayKey)
-    setActiveDetailTab(pendingRecordRequest.tab)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingRecordRequest?.requestId, todayKey])
 
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
@@ -166,6 +141,32 @@ export function MonthlyCalendar({
     })
     return map
   }, [soccerLogs])
+
+  const refetchSoccerLogs = () => {
+    if (!scheduleRangeStart || !scheduleRangeEnd) {
+      return
+    }
+
+    fetchSoccerLogs(scheduleRangeStart, scheduleRangeEnd)
+      .then((data) => setSoccerLogs(data))
+      .catch((error) => {
+        console.error('Supabaseからサッカー記録の再取得に失敗しました', error)
+      })
+  }
+
+  // RecordFormModal（Phase B/C、2026年8月16日）がtraining/meal/conditionは
+  // AppShell側の共有state（props経由）を直接更新するため自動的に反映されるが、
+  // schedules/soccerLogsはMonthlyCalendarが月範囲で個別に保持しているため、
+  // モーダルが閉じたタイミングで再取得して最新化する。
+  const [wasRecordModalOpen, setWasRecordModalOpen] = useState(false)
+  useEffect(() => {
+    if (wasRecordModalOpen && !isRecordModalOpen) {
+      refetchSchedules()
+      refetchSoccerLogs()
+    }
+    setWasRecordModalOpen(isRecordModalOpen)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecordModalOpen])
 
   useEffect(() => {
     setActiveDetailTab('training')
@@ -291,56 +292,47 @@ export function MonthlyCalendar({
           </div>
 
           {activeDetailTab === 'training' ? (
-            <TrainingLogForm
+            <TrainingSummary
               trainingLogs={trainingLogs}
-              setTrainingLogs={setTrainingLogs}
               selectedDate={selectedDate}
-              isFormOpen={isFormOpen}
-              setIsFormOpen={setIsFormOpen}
-              onScheduleUpdated={refetchSchedules}
+              onAdd={() => openRecordModal({ type: 'training', date: selectedDate })}
+              onEdit={(index) => openRecordModal({ type: 'training', date: selectedDate, trainingLogIndex: index })}
             />
           ) : null}
 
           {activeDetailTab === 'schedule' ? (
-            <ScheduleForm
+            <ScheduleSummary
               schedules={schedules}
-              setSchedules={setSchedules}
               selectedDate={selectedDate}
-              isScheduleFormOpen={isScheduleFormOpen}
-              setIsScheduleFormOpen={setIsScheduleFormOpen}
+              onAdd={() => openRecordModal({ type: 'schedule', date: selectedDate })}
+              onEdit={(scheduleId) => openRecordModal({ type: 'schedule', date: selectedDate, scheduleId })}
             />
           ) : null}
 
           {activeDetailTab === 'condition' ? (
-            <ConditionForm
+            <ConditionSummary
               dailyConditions={dailyConditions}
-              setDailyConditions={setDailyConditions}
               selectedDate={selectedDate}
-              isConditionFormOpen={isConditionFormOpen}
-              setIsConditionFormOpen={setIsConditionFormOpen}
-              setIsFormOpen={setIsFormOpen}
-              setIsMealFormOpen={setIsMealFormOpen}
+              onAdd={() => openRecordModal({ type: 'condition', date: selectedDate })}
+              onEdit={() => openRecordModal({ type: 'condition', date: selectedDate })}
             />
           ) : null}
 
           {activeDetailTab === 'meal' ? (
-            <MealLogForm
+            <MealSummary
               mealLogs={mealLogs}
-              setMealLogs={setMealLogs}
               selectedDate={selectedDate}
-              isMealFormOpen={isMealFormOpen}
-              setIsMealFormOpen={setIsMealFormOpen}
-              setIsFormOpen={setIsFormOpen}
+              onAdd={() => openRecordModal({ type: 'meal', date: selectedDate })}
+              onEdit={(index) => openRecordModal({ type: 'meal', date: selectedDate, mealLogIndex: index })}
             />
           ) : null}
 
           {activeDetailTab === 'soccer' ? (
-            <SoccerLogForm
+            <SoccerSummary
               soccerLogs={soccerLogs}
-              setSoccerLogs={setSoccerLogs}
               selectedDate={selectedDate}
-              isSoccerFormOpen={isSoccerFormOpen}
-              setIsSoccerFormOpen={setIsSoccerFormOpen}
+              onAdd={() => openRecordModal({ type: 'soccer', date: selectedDate })}
+              onEdit={() => openRecordModal({ type: 'soccer', date: selectedDate })}
             />
           ) : null}
         </div>

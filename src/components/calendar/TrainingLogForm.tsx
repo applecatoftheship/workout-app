@@ -83,6 +83,14 @@ type TrainingLogFormProps = {
   isFormOpen: boolean
   setIsFormOpen: React.Dispatch<React.SetStateAction<boolean>>
   onScheduleUpdated?: () => void
+  /**
+   * RecordFormModal（カレンダー構造変更・記録モーダル・トレーニング刷新
+   * 実装指示書 Phase B、2026年8月16日）から呼び出す際、この値が変化する
+   * （undefinedでなくなる）たびに openForm(autoOpenIndex) を自動実行する。
+   * MonthlyCalendarでの従来利用（inline表示）には影響しない追加専用プロパティ。
+   */
+  autoOpenToken?: number
+  autoOpenIndex?: number
 }
 
 export function TrainingLogForm({
@@ -92,6 +100,8 @@ export function TrainingLogForm({
   isFormOpen,
   setIsFormOpen,
   onScheduleUpdated,
+  autoOpenToken,
+  autoOpenIndex,
 }: TrainingLogFormProps) {
   const { showToast } = useToast()
   const [editingLogIndex, setEditingLogIndex] = useState<number | null>(null)
@@ -118,6 +128,14 @@ export function TrainingLogForm({
     setIsFormOpen(false)
     setEditingLogIndex(null)
   }, [selectedDate, setIsFormOpen])
+
+  useEffect(() => {
+    if (autoOpenToken === undefined) {
+      return
+    }
+    openForm(autoOpenIndex)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenToken])
 
   const handleExerciseCreated = (exercise: ExerciseDefinition) => {
     setExercises((current) => [...current, exercise].sort((a, b) => a.name.localeCompare(b.name)))
@@ -626,6 +644,15 @@ export function TrainingLogForm({
             <button type="button" className="calendar-detail__button" onClick={saveTrainingLog}>
               保存する
             </button>
+            {editingLogIndex !== null ? (
+              <button
+                type="button"
+                className="calendar-detail__delete-button"
+                onClick={() => deleteTrainingLog(editingLogIndex)}
+              >
+                この記録を削除
+              </button>
+            ) : null}
           </div>
         </div>
       ) : (

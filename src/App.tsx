@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { HashRouter, Route, Routes, useNavigate } from 'react-router-dom'
+import { HashRouter, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { MonthlyCalendar } from './pages/MonthlyCalendar'
 import { ProgressGraph } from './pages/ProgressGraph'
@@ -7,6 +7,8 @@ import { Dashboard } from './pages/Dashboard'
 import { Settings } from './pages/Settings'
 import { BottomNav } from './components/BottomNav'
 import { RecordSheet } from './components/RecordSheet'
+import { RecordFormModal } from './components/RecordFormModal'
+import type { RecordModalRequest } from './components/RecordFormModal'
 import { fetchDailyConditions, syncDailyConditions } from './api/dailyConditions'
 import { fetchGoalsByMonth, upsertGoals } from './api/goals'
 import { fetchTrainingLogs, syncTrainingLogs } from './api/trainingLogs'
@@ -41,6 +43,7 @@ function AppShell() {
   const { theme, setTheme } = useTheme()
   const { showToast } = useToast()
   const [isRecordSheetOpen, setIsRecordSheetOpen] = useState(false)
+  const [recordModalRequest, setRecordModalRequest] = useState<RecordModalRequest | null>(null)
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
   const [areTrainingLogsLoaded, setAreTrainingLogsLoaded] = useState(false)
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
@@ -167,7 +170,9 @@ function AppShell() {
     }
   }, [])
 
-  const navigate = useNavigate()
+  const openRecordModal = (request: Omit<RecordModalRequest, 'requestId'>) => {
+    setRecordModalRequest({ ...request, requestId: Date.now() })
+  }
 
   return (
     <>
@@ -193,11 +198,10 @@ function AppShell() {
             element={
               <MonthlyCalendar
                 trainingLogs={trainingLogs}
-                setTrainingLogs={setTrainingLogs}
                 mealLogs={mealLogs}
-                setMealLogs={setMealLogs}
                 dailyConditions={dailyConditions}
-                setDailyConditions={setDailyConditions}
+                openRecordModal={openRecordModal}
+                isRecordModalOpen={recordModalRequest !== null}
               />
             }
           />
@@ -238,8 +242,19 @@ function AppShell() {
         onClose={() => setIsRecordSheetOpen(false)}
         onSelect={(type) => {
           setIsRecordSheetOpen(false)
-          navigate('/calendar', { state: { tab: type, requestId: Date.now() } })
+          openRecordModal({ type, date: todayString })
         }}
+      />
+
+      <RecordFormModal
+        request={recordModalRequest}
+        onClose={() => setRecordModalRequest(null)}
+        trainingLogs={trainingLogs}
+        setTrainingLogs={setTrainingLogs}
+        mealLogs={mealLogs}
+        setMealLogs={setMealLogs}
+        dailyConditions={dailyConditions}
+        setDailyConditions={setDailyConditions}
       />
     </>
   )

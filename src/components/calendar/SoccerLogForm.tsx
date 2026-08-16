@@ -78,9 +78,18 @@ type SoccerLogFormProps = {
   selectedDate: DateString
   isSoccerFormOpen: boolean
   setIsSoccerFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+  /** RecordFormModal（Phase B）からの自動オープン用。既存利用への影響なし。 */
+  autoOpenToken?: number
 }
 
-export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSoccerFormOpen, setIsSoccerFormOpen }: SoccerLogFormProps) {
+export function SoccerLogForm({
+  soccerLogs,
+  setSoccerLogs,
+  selectedDate,
+  isSoccerFormOpen,
+  setIsSoccerFormOpen,
+  autoOpenToken,
+}: SoccerLogFormProps) {
   const { showToast } = useToast()
   const [formState, setFormState] = useState<SoccerLogFormState>(createEmptyFormState())
   const [formErrors, setFormErrors] = useState<SoccerLogFormErrors>({})
@@ -93,6 +102,14 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
   useEffect(() => {
     setIsSoccerFormOpen(false)
   }, [selectedDate, setIsSoccerFormOpen])
+
+  useEffect(() => {
+    if (autoOpenToken === undefined) {
+      return
+    }
+    openForm()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenToken])
 
   useEffect(() => {
     fetchRecentWeight(selectedDate)
@@ -398,6 +415,11 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
             <button type="button" className="calendar-detail__button" onClick={saveSoccerLog} disabled={isSaving}>
               {isSaving ? '保存中...' : '保存する'}
             </button>
+            {selectedLog ? (
+              <button type="button" className="calendar-detail__delete-button" onClick={removeSoccerLog}>
+                この記録を削除
+              </button>
+            ) : null}
             <button type="button" className="calendar-detail__secondary-button" onClick={() => setIsSoccerFormOpen(false)}>
               キャンセル
             </button>

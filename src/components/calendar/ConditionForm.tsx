@@ -33,6 +33,8 @@ type ConditionFormProps = {
   setIsConditionFormOpen: React.Dispatch<React.SetStateAction<boolean>>
   setIsFormOpen: React.Dispatch<React.SetStateAction<boolean>>
   setIsMealFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+  /** RecordFormModal（Phase B）からの自動オープン用。既存利用への影響なし。 */
+  autoOpenToken?: number
 }
 
 export function ConditionForm({
@@ -43,6 +45,7 @@ export function ConditionForm({
   setIsConditionFormOpen,
   setIsFormOpen,
   setIsMealFormOpen,
+  autoOpenToken,
 }: ConditionFormProps) {
   const { showToast } = useToast()
   const [editingConditionIndex, setEditingConditionIndex] = useState<number | null>(null)
@@ -59,6 +62,15 @@ export function ConditionForm({
     setIsConditionFormOpen(false)
     setEditingConditionIndex(null)
   }, [selectedDate, setIsConditionFormOpen])
+
+  useEffect(() => {
+    if (autoOpenToken === undefined) {
+      return
+    }
+    const existingIndex = dailyConditions.findIndex((condition) => condition.date === selectedDate)
+    openConditionForm(existingIndex >= 0 ? existingIndex : undefined)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenToken])
 
   const openConditionForm = (conditionIndex?: number) => {
     const existingCondition = typeof conditionIndex === 'number' && conditionIndex >= 0 ? dailyConditions[conditionIndex] : null
@@ -241,6 +253,11 @@ export function ConditionForm({
             <button type="button" className="calendar-detail__button" onClick={saveCondition}>
               保存する
             </button>
+            {editingConditionIndex !== null ? (
+              <button type="button" className="calendar-detail__delete-button" onClick={deleteCondition}>
+                この記録を削除
+              </button>
+            ) : null}
           </div>
         </div>
       ) : (

@@ -1,0 +1,239 @@
+import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../../types'
+import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel } from '../../utils/calendarHelpers'
+
+/**
+ * カレンダー構造変更・記録モーダル・トレーニング刷新 実装指示書 Phase C（2026年8月16日）
+ * MonthlyCalendarを閲覧専用にするための、記録タイプごとの読み取り専用サマリー表示。
+ * 入力フォーム本体（TrainingLogForm等）は RecordFormModal 内でのみ使用し、
+ * ここでは保存・削除ロジックには一切触れず、表示専用のコンポーネントとする。
+ */
+
+const scheduleStatusLabel: Record<TrainingSchedule['status'], string> = {
+  scheduled: '予定',
+  completed: '完了',
+  cancelled: 'キャンセル',
+}
+
+type TrainingSummaryProps = {
+  trainingLogs: TrainingLog[]
+  selectedDate: DateString
+  onAdd: () => void
+  onEdit: (index: number) => void
+}
+
+export function TrainingSummary({ trainingLogs, selectedDate, onAdd, onEdit }: TrainingSummaryProps) {
+  const logs = trainingLogs.map((log, index) => ({ log, index })).filter(({ log }) => log.date === selectedDate)
+
+  return (
+    <div className="calendar-detail__section">
+      <div className="calendar-detail__section-header">
+        <h4>トレーニング実績</h4>
+        <button type="button" className="calendar-detail__secondary-button" onClick={onAdd}>
+          記録を追加
+        </button>
+      </div>
+      {logs.length > 0 ? (
+        <div className="calendar-detail__log-list">
+          {logs.map(({ log, index }) => (
+            <div key={`${selectedDate}-${index}`} className="calendar-detail__log-item">
+              <div className="calendar-detail__log-head">
+                <span>{log.completed ? '完了' : '未完了'}</span>
+                <button type="button" className="calendar-detail__edit-button" onClick={() => onEdit(index)}>
+                  編集
+                </button>
+              </div>
+              <ul className="calendar-detail__exercise-list">
+                {log.exercises.map((exercise, exerciseIndex) => (
+                  <li key={`${selectedDate}-${index}-${exerciseIndex}`}>{formatTrainingLogItem(exercise)}</li>
+                ))}
+              </ul>
+              {log.notes ? <p className="calendar-detail__description">メモ: {log.notes}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="calendar-detail__empty">🏋️ まだトレーニング記録がありません</p>
+      )}
+    </div>
+  )
+}
+
+type ScheduleSummaryProps = {
+  schedules: TrainingSchedule[]
+  selectedDate: DateString
+  onAdd: () => void
+  onEdit: (scheduleId: string) => void
+}
+
+export function ScheduleSummary({ schedules, selectedDate, onAdd, onEdit }: ScheduleSummaryProps) {
+  const daySchedules = schedules.filter((schedule) => schedule.scheduledDate === selectedDate)
+
+  return (
+    <div className="calendar-detail__section">
+      <div className="calendar-detail__section-header">
+        <h4>トレーニング予定</h4>
+        <button type="button" className="calendar-detail__secondary-button" onClick={onAdd}>
+          予定を追加
+        </button>
+      </div>
+      {daySchedules.length > 0 ? (
+        <div className="calendar-detail__log-list">
+          {daySchedules.map((schedule) => (
+            <div key={schedule.id} className="calendar-detail__log-item">
+              <div className="calendar-detail__log-head">
+                <span>
+                  {schedule.emoji} {schedule.title}（{scheduleStatusLabel[schedule.status]}）
+                </span>
+                <button
+                  type="button"
+                  className="calendar-detail__edit-button"
+                  onClick={() => schedule.id && onEdit(schedule.id)}
+                >
+                  編集
+                </button>
+              </div>
+              {schedule.notes ? <p className="calendar-detail__description">メモ: {schedule.notes}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="calendar-detail__empty">📅 まだ予定がありません</p>
+      )}
+    </div>
+  )
+}
+
+type ConditionSummaryProps = {
+  dailyConditions: DailyCondition[]
+  selectedDate: DateString
+  onAdd: () => void
+  onEdit: () => void
+}
+
+export function ConditionSummary({ dailyConditions, selectedDate, onAdd, onEdit }: ConditionSummaryProps) {
+  const condition = dailyConditions.find((current) => current.date === selectedDate)
+
+  return (
+    <div className="calendar-detail__section">
+      <div className="calendar-detail__section-header">
+        <h4>体調</h4>
+        <button type="button" className="calendar-detail__secondary-button" onClick={onAdd}>
+          体調を記録
+        </button>
+      </div>
+      {condition ? (
+        <div className="calendar-detail__item">
+          <p>{formatConditionSummary(condition)}</p>
+          <div className="calendar-detail__condition-actions">
+            <button type="button" className="calendar-detail__edit-button" onClick={onEdit}>
+              編集
+            </button>
+          </div>
+          {condition.notes ? <p className="calendar-detail__description">メモ: {condition.notes}</p> : null}
+        </div>
+      ) : (
+        <p className="calendar-detail__empty">🌙 まだ体調記録がありません</p>
+      )}
+    </div>
+  )
+}
+
+type MealSummaryProps = {
+  mealLogs: MealLog[]
+  selectedDate: DateString
+  onAdd: () => void
+  onEdit: (index: number) => void
+}
+
+export function MealSummary({ mealLogs, selectedDate, onAdd, onEdit }: MealSummaryProps) {
+  const logs = mealLogs.map((mealLog, index) => ({ mealLog, index })).filter(({ mealLog }) => mealLog.date === selectedDate)
+  const totals = logs.reduce(
+    (acc, { mealLog }) => ({
+      calories: acc.calories + mealLog.calories,
+      protein: acc.protein + mealLog.protein,
+      fat: acc.fat + mealLog.fat,
+      carbohydrates: acc.carbohydrates + mealLog.carbohydrates,
+    }),
+    { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
+  )
+
+  return (
+    <div className="calendar-detail__section">
+      <div className="calendar-detail__section-header">
+        <h4>食事記録</h4>
+        <button type="button" className="calendar-detail__secondary-button" onClick={onAdd}>
+          食事・PFCを記録
+        </button>
+      </div>
+      {logs.length > 0 ? (
+        <>
+          <div className="calendar-detail__meal-totals">
+            合計: {totals.calories}kcal / P{totals.protein}g F{totals.fat}g C{totals.carbohydrates}g
+          </div>
+          <div className="calendar-detail__log-list">
+            {logs.map(({ mealLog, index }) => (
+              <div key={`${selectedDate}-meal-${index}`} className="calendar-detail__meal-item">
+                <div className="calendar-detail__meal-head">
+                  <span>{getMealTypeLabel(mealLog.mealType)}</span>
+                  <button type="button" className="calendar-detail__edit-button" onClick={() => onEdit(index)}>
+                    編集
+                  </button>
+                </div>
+                <div className="calendar-detail__meal-row">内容: {mealLog.foods.join('・')}</div>
+                <div className="calendar-detail__meal-row">
+                  カロリー: {mealLog.calories}kcal / P{mealLog.protein}g F{mealLog.fat}g C{mealLog.carbohydrates}g
+                </div>
+                {mealLog.notes ? <p className="calendar-detail__description">メモ: {mealLog.notes}</p> : null}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="calendar-detail__empty">🍽️ まだ食事記録がありません</p>
+      )}
+    </div>
+  )
+}
+
+type SoccerSummaryProps = {
+  soccerLogs: SoccerLog[]
+  selectedDate: DateString
+  onAdd: () => void
+  onEdit: () => void
+}
+
+export function SoccerSummary({ soccerLogs, selectedDate, onAdd, onEdit }: SoccerSummaryProps) {
+  const log = soccerLogs.find((current) => current.date === selectedDate)
+
+  return (
+    <div className="calendar-detail__section">
+      <div className="calendar-detail__section-header">
+        <h4>サッカー</h4>
+        <button type="button" className="calendar-detail__secondary-button" onClick={onAdd}>
+          {log ? '記録を編集' : '記録を追加'}
+        </button>
+      </div>
+      {log ? (
+        <div className="calendar-detail__item">
+          <p>
+            ⚽ {log.activityType}
+            {log.trainingMenu ? `（${log.trainingMenu}）` : ''}
+            {log.durationMinutes !== undefined ? ` / ${log.durationMinutes}分` : ''}
+            {log.caloriesBurned !== undefined ? ` / ${log.caloriesBurned}kcal` : ''}
+          </p>
+          {log.distanceKm !== undefined ? <p className="calendar-detail__description">走行距離: {log.distanceKm}km</p> : null}
+          {log.sprintCount !== undefined ? <p className="calendar-detail__description">スプリント: {log.sprintCount}回</p> : null}
+          {log.maxSpeedKmh !== undefined ? <p className="calendar-detail__description">最高速度: {log.maxSpeedKmh}km/h</p> : null}
+          {log.notes ? <p className="calendar-detail__description">メモ: {log.notes}</p> : null}
+          <div className="calendar-detail__condition-actions">
+            <button type="button" className="calendar-detail__edit-button" onClick={onEdit}>
+              編集
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="calendar-detail__empty">⚽ まだサッカー記録がありません</p>
+      )}
+    </div>
+  )
+}

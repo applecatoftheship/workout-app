@@ -81,9 +81,21 @@ type MealLogFormProps = {
   isMealFormOpen: boolean
   setIsMealFormOpen: React.Dispatch<React.SetStateAction<boolean>>
   setIsFormOpen: React.Dispatch<React.SetStateAction<boolean>>
+  /** RecordFormModal（Phase B）からの自動オープン用。既存利用への影響なし。 */
+  autoOpenToken?: number
+  autoOpenIndex?: number
 }
 
-export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpen, setIsMealFormOpen, setIsFormOpen }: MealLogFormProps) {
+export function MealLogForm({
+  mealLogs,
+  setMealLogs,
+  selectedDate,
+  isMealFormOpen,
+  setIsMealFormOpen,
+  setIsFormOpen,
+  autoOpenToken,
+  autoOpenIndex,
+}: MealLogFormProps) {
   const { showToast } = useToast()
   const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null)
   const [mealFormState, setMealFormState] = useState<MealLogFormState>(createEmptyMealFormState())
@@ -161,6 +173,14 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
     setInputMode('food')
     setSelectedDishId('')
   }, [selectedDate, setIsMealFormOpen])
+
+  useEffect(() => {
+    if (autoOpenToken === undefined) {
+      return
+    }
+    openMealForm(autoOpenIndex)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenToken])
 
   const openMealForm = (mealIndex?: number) => {
     const existingLog = typeof mealIndex === 'number' ? mealLogs[mealIndex] : null
@@ -802,6 +822,15 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
             <button type="button" className="calendar-detail__button" onClick={saveMealLog} disabled={isMealSaving}>
               {isMealSaving ? '保存中...' : '保存する'}
             </button>
+            {editingMealIndex !== null ? (
+              <button
+                type="button"
+                className="calendar-detail__delete-button"
+                onClick={() => deleteMealLog(editingMealIndex)}
+              >
+                この記録を削除
+              </button>
+            ) : null}
           </div>
         </div>
       ) : (
