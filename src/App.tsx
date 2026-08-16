@@ -65,14 +65,17 @@ function AppShell() {
       .catch((error) => {
         console.error('Supabaseから体調記録の取得に失敗しました', error)
         if (isMounted) {
-          setAreDailyConditionsLoaded(true)
+          // areDailyConditionsLoadedはfalseのまま維持する。ここでtrueにすると、
+          // 空のdailyConditions状態がそのままsyncDailyConditionsに渡り、
+          // リモートの全体調記録が削除されてしまう（2026年8月17日、データ損失事故の調査で判明）。
+          showToast('体調記録の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
 
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [showToast])
 
   useEffect(() => {
     if (!areDailyConditionsLoaded) {
@@ -90,23 +93,31 @@ function AppShell() {
 
     fetchGoalsByMonth(currentYearMonth)
       .then((data) => {
-        if (isMounted && data) {
-          setGoals(data)
+        if (isMounted) {
+          if (data) {
+            setGoals(data)
+          }
+          // dataがnullなのは「過去分含めて目標設定が1件もない初回ユーザー」の
+          // 正常なケースなので、その場合もloadedをtrueにしてデフォルト値を
+          // 新規作成させてよい。
+          setAreGoalsLoaded(true)
         }
       })
       .catch((error) => {
         console.error('Supabaseから目標設定の取得に失敗しました', error)
-      })
-      .finally(() => {
         if (isMounted) {
-          setAreGoalsLoaded(true)
+          // areGoalsLoadedはfalseのまま維持する。ここでtrueにすると、
+          // 初期値（defaultGoals、ハードコードされた仮の目標値）がそのまま
+          // upsertGoalsに渡り、ユーザーが実際に設定した目標値を上書きしてしまう
+          // （2026年8月17日、データ損失事故の調査で判明した関連の欠陥）。
+          showToast('目標設定の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
 
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [showToast])
 
   useEffect(() => {
     if (!areGoalsLoaded) {
@@ -132,14 +143,18 @@ function AppShell() {
       .catch((error) => {
         console.error('Supabaseからトレーニング記録の取得に失敗しました', error)
         if (isMounted) {
-          setAreTrainingLogsLoaded(true)
+          // areTrainingLogsLoadedはfalseのまま維持する。ここでtrueにすると、
+          // 空のtrainingLogs状態がそのままsyncTrainingLogsに渡り、
+          // リモートの全トレーニング記録が削除されてしまう
+          // （2026年8月17日、データ損失事故の調査で判明）。
+          showToast('トレーニング記録の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
 
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [showToast])
 
   useEffect(() => {
     if (!areTrainingLogsLoaded) {
