@@ -381,3 +381,121 @@ grant/RLSは既存の`soccer_logs`に対して設定済みのため、列追加�
 - 走行距離・スプリント回数・最高速度は、サッカー/フットサル選択時、または練習でメニュー選択後は
   活動時間から自動計算され、入力欄は`disabled`（手入力不可）になる。「その他」選択時、または
   練習でメニュー未選択の場合は従来通り手入力可能（`resolveAutoFillRates`が`null`を返す）。
+
+## 2026年8月16日: 技術的負債一括解消（項目1・2）user_id整備＋goals履歴化
+
+**未実行（Supabase SQL Editorでの実行待ち）**。「技術的負債 一括解消 実装指示書」の
+項目1（user_id列の整備）・項目2（goals履歴化）に基づく。このプロジェクトからは直接
+Supabaseへ接続できず既存の列・制約構成を確認できないため、すべて
+「既にあれば安全にスキップ、なければ追加」の冪等な書き方にしている
+（`dishes`・`soccer_logs`実装時と同一パターン）。
+
+対象16テーブルの現状は、`src/api/*.ts`の実装とこのファイルの過去の記録から推定した
+（直接クエリして確認したものではない）。`training_logs`・`training_templates`・
+`training_schedules`・`soccer_logs`・`exercises`は既にuser_id列・適切な制約を備えており
+対象外。`food_items`・`meal_sizes`は「共有カタログ」（NULL=全ユーザー共通）として扱い、
+既存行のバックフィルは行わない（`exercises`の`is_preset`と同様の考え方だが、
+これらのテーブルには`is_preset`に相当する列がないため、user_id自体をその代替として使う）。
+`dishes`は列自体は既存だったが、これまで一度も設定されずに運用されていたため
+既存行のバックフィルが必要だった。
+
+実行前に、対象テーブルの現状（列・制約）を以下で確認してから進めることを推奨する
+（想定と異なる場合は制約名の衝突等でこのSQLの一部がスキップされる可能性があるため）。
+
+```sql
+select table_name, column_name from information_schema.columns
+where table_name in (
+  'training_log_exercises', 'training_sets', 'training_template_exercises',
+  'daily_conditions', 'meal_logs', 'meal_log_food_items', 'dish_food_items',
+  'food_items', 'meal_sizes', 'dishes', 'goals'
+) and column_name in ('user_id', 'year_month')
+order by table_name;
+```
+
+```sql
+begin;
+
+-- ===== 技術的負債1番: user_id列の整備 =====
+
+-- 1-1. user_idが欠けているテーブルへの追加（実ユーザーデータ用、NOT NULL DEFAULTで自動バックフィル）
+alter table training_log_exercises add column if not exists user_id uuid not null default '00000000-0000-0000-0000-000000000002';
+alter table training_sets add column if not exists user_id uuid not null default '00000000-0000-0000-0000-000000000002';
+alter table training_template_exercises add column if not exists user_id uuid not null default '00000000-0000-0000-0000-000000000002';
+alter table daily_conditions add column if not exists user_id uuid not null default '00000000-0000-0000-0000-000000000002';
+alter table meal_logs add column if not exists user_id uuid not null default '00000000-0000-0000-0000-000000000002';
+alter table meal_log_food_items add column if not exists user_id uuid not null default '00000000-0000-0000-0000-000000000002';
+alter table dish_food_items add column if not exists user_id uuid not null default '00000000-0000-0000-0000-000000000002';
+alter table goals add column if not exists user_id uuid not null default '00000000-0000-0000-0000-000000000002';
+
+-- 1-2. 共有カタログ系テーブル（NULL=共有データとして扱う。バックフィルしない）
+alter table food_items add column if not exists user_id uuid;
+alter table meal_sizes add column if not exists user_id uuid;
+
+-- 1-3. dishesは既存カラムだが未設定のまま運用されていたため、既存行をバックフィルしてからNOT NULL化
+update dishes set user_id = '00000000-0000-0000-0000-000000000002' where user_id is null;
+alter table dishes alter column user_id set default '00000000-0000-0000-0000-000000000002';
+alter table dishes alter column user_id set not null;
+
+-- 1-4. daily_conditionsのunique制約をuser_idありに変更（従来はlog_date単体のunique想定）
+alter table daily_conditions drop constraint if exists daily_conditions_log_date_key;
+alter table daily_conditions drop constraint if exists daily_conditions_log_date_unique;
+do $$
+begin
+  begin
+    alter table daily_conditions add constraint daily_conditions_user_date_key unique (user_id, log_date);
+  exception
+    when duplicate_object then
+      raise notice 'daily_conditions_user_date_key は既に存在するためスキップしました';
+  end;
+end $$;
+
+-- ===== 技術的負債2番: goals履歴化（年月単位） =====
+
+-- 2-1. year_month列を追加
+alter table goals add column if not exists year_month text;
+
+-- 2-2. 既存の固定1行に現在の年月を設定（移行用の1回限りのUPDATE）
+update goals set year_month = '2026-08' where year_month is null;
+
+-- 2-3. year_monthをNOT NULLに変更
+alter table goals alter column year_month set not null;
+
+-- 2-4. id列にデフォルト生成を保証（固定ID単一行運用から月ごとの複数行運用に変わるため）
+alter table goals alter column id set default gen_random_uuid();
+
+-- 2-5. unique(user_id, year_month)制約を追加（1-1でuser_id列は追加済み）
+do $$
+begin
+  begin
+    alter table goals add constraint goals_user_year_month_key unique (user_id, year_month);
+  exception
+    when duplicate_object then
+      raise notice 'goals_user_year_month_key は既に存在するためスキップしました';
+  end;
+end $$;
+
+commit;
+```
+
+grant/RLSは既存テーブルへの列追加のみのため不要（テーブル新設ではないため、
+既存のgrant/RLSポリシーがそのまま列にも適用される）。
+
+### 実装メモ
+
+- `src/api/trainingLogs.ts`の`fetchExercises`は`is_preset.eq.true,user_id.eq.<固定UUID>`の
+  OR条件でフィルタするよう変更。`food_items`の`fetchFoodItems`も同様に
+  `user_id.is.null,user_id.eq.<固定UUID>`のOR条件を追加（`is_preset`列がないため
+  user_id自体がNULL=共有／非NULL=個人の代替になっている）。
+- `daily_conditions`・`meal_logs`のfetch/upsertにも`user_id`フィルタ・設定を追加。
+  `upsertDailyCondition`の`onConflict`は`'log_date'`から`'user_id,log_date'`に変更した
+  （このSQLで対応するunique制約変更を先に実行しないと、アプリ側のupsertがエラーになる）。
+- `dishes`の`createDish`はこれまでuser_idを一切設定していなかったため、既存データは
+  全行`user_id is null`だった前提でバックフィルSQLを書いている。実際にNULL以外の値が
+  混在していた場合は、`update ... where user_id is null`により該当行のみ補完される
+  （既存の非NULL値は上書きしない）。
+- `goals`はこれまで固定ID（`00000000-0000-0000-0000-000000000001`）1行を
+  upsertし続ける運用だったため、`id`列に`gen_random_uuid()`のデフォルトが
+  設定されていない可能性を考慮し、2-4で明示的に設定している
+  （元々設定済みであっても`alter column ... set default`は何度実行しても安全）。
+- アプリ側（`src/api/goals.ts`）は`upsertGoals`で`id`をpayloadに含めなくなったため、
+  新規月の初回保存時はこのデフォルトに依存する。
