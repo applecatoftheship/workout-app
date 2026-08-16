@@ -4,6 +4,7 @@ import { completeScheduleForDate } from '../../api/trainingSchedules'
 import type { TrainingTemplateInput } from '../../api/trainingTemplates'
 import { formatTrainingLogItem } from '../../utils/calendarHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
+import { ExercisePicker } from './ExercisePicker'
 import { TrainingTemplateSection } from './TrainingTemplateSection'
 import { useToast } from '../../hooks/useToast'
 import type { DateString, ExerciseDefinition, TrainingLog, TrainingLogExercise, TrainingSet, TrainingTemplate } from '../../types'
@@ -527,6 +528,7 @@ export function TrainingLogForm({
 
           {formState.exercises.map((exercise, index) => (
             <div key={exercise.key} className="calendar-detail__exercise-form">
+              <ExercisePicker exercises={exercises} onSelect={(exerciseId, name) => handleExerciseNameChange(index, name, exerciseId)} />
               <ExerciseNameInput
                 exercises={exercises}
                 onExerciseCreated={handleExerciseCreated}
