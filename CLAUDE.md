@@ -96,9 +96,9 @@ training_schedulesからの直接取得に置き換え済み（下記参照）�
 （`--color-pitch`等）が残っているが、これは新トークンへの**エイリアス**であり、
 既存コンポーネントCSSが旧名を参照していても新配色が反映される。Dashboard・
 MonthlyCalendar・CalendarForms・graphs（ProgressGraph）・RecordSheet・Settingsは
-Phase 1〜5（2026年8月15〜16日、下記変更点参照）で新トークン名への置き換えが完了済み。
-GoalPanel.css・BulkScheduleImportModal.css・DishFormModal.cssの3ファイルのみ
-旧名参照が残存（下記技術的負債参照）。色を直接ハードコードせず、必ず変数を経由すること。
+Phase 1〜5（2026年8月15〜16日、下記変更点参照）およびGoalPanel.css・
+BulkScheduleImportModal.css・DishFormModal.css（2026年8月16日、下記「技術的負債一括解消」
+参照）で新トークン名への置き換えが完了済み。色を直接ハードコードせず、必ず変数を経由すること。
 
 | 用途 | 色（ライト） | 色（ダーク） |
 |---|---|---|
@@ -121,12 +121,12 @@ GoalPanel.css・BulkScheduleImportModal.css・DishFormModal.cssの3ファイル�
 は廃止し、数値表示には`.metric-value`ユーティリティクラス（`tabular-nums`）を使う。
 
 ダッシュボードの濃紺ヒーローカードは、Phase 3（2026年8月15日、下記変更点参照）で
-カロリーリング等の新デザインに置き換え済みで撤去済み。`--color-ink`系トークン自体は
-`src/index.css`に残存しているが、現在は`GoalPanel.css`の主要ボタン（`.button--primary`）
-1箇所のみが参照している状態で、これは旧トークン移行の対象漏れ（下記技術的負債参照）。
-`BulkScheduleImportModal.css`・`DishFormModal.css`も同様に、Phase 1〜5のリデザイン対象外
-だったため旧トークン名（`--color-pitch`・`--color-amber`・`--color-surface`・`font-display`
-等）が残存している。
+カロリーリング等の新デザインに置き換え済みで撤去済み。`GoalPanel.css`・
+`BulkScheduleImportModal.css`・`DishFormModal.css`に残っていた旧トークン名
+（`--color-pitch`・`--color-amber`・`--color-ink`・`--color-surface`・`--color-text`・
+`font-mono`・`font-display`等）は、2026年8月16日の技術的負債一括解消で新トークン名に
+置き換え済み（下記「2026年8月16日: 技術的負債一括解消」参照）。`src/index.css`側の
+旧トークンエイリアスも、他に参照が残るもの以外は削除済み。
 
 ## データ構造（2026年8月12日 再設計済み）
 
@@ -282,6 +282,61 @@ claude-in-chromeで本番動作確認済み）。
   出現回数を新規に算出し、`bodyPartFrequency`propとして`TrainingChart`に渡す形で実装
   （`TrainingChart`自体の既存集計ロジックは無変更）。データ色のプログレスバーで表示。
 
+## 2026年8月16日: 技術的負債一括解消（項目1・2・3・5・6・7・8・9）
+
+下記「既知の技術的負債」に旧#3〜#9として記載していた7項目を一括で解消。
+「推測で仕様を補完しない」の原則に従い、判断が分かれた箇所は判断理由を明記する。
+実装後、claude-in-chromeで本番環境（workout-app-suke4.vercel.app）の動作確認を実施し、
+データ消失なし・主要CRUD（体調・食事・料理登録、目標編集）正常動作・トースト表示・
+HashRouterのURL遷移を確認済み（2026年8月16日）。
+
+- **user_id整備**（旧技術的負債3番）：training_log_exercises・training_sets・
+  training_template_exercises・daily_conditions・meal_logs・meal_log_food_items・
+  dish_food_items・goalsにuser_id列を追加（NOT NULL, default DEFAULT_USER_ID）。
+  food_items・meal_sizesはexercisesの`is_preset`と同様の「共有カタログ」方式を採用し、
+  `user_id`をnullableにして`NULL=共有`として扱う（is_preset相当の列が元々存在しなかった
+  ためこの代替とした・判断理由）。dishesは既存行をDEFAULT_USER_IDで埋めた上でNOT NULL化。
+  daily_conditionsのUNIQUE制約は`log_date`単体から`(user_id, log_date)`に変更。
+  API層（src/api/dailyConditions.ts・dishes.ts・foodItems.ts・mealLogs.ts・
+  trainingLogs.ts・trainingTemplates.ts）にuser_idでのフィルタ・書き込みを追加。
+  ただし子テーブル（training_log_exercises等）自体へのAPI側フィルタは未実装のまま
+  （下記「既知の技術的負債」参照）。
+
+- **goalsの年月単位履歴化**（旧技術的負債4番）：固定ID1行の上書き運用から、
+  `(user_id, year_month)`単位の複数行管理に変更。`src/api/goals.ts`を全面書き換えし、
+  `fetchGoalsByMonth`・当月データが無い場合の直近月からのフォールバックコピー処理を追加。
+  `Goals`型の定義場所は実装指示書ではtypes.tsを想定していたが、実際は
+  `src/api/goals.ts`にあったため、そちらを直接拡張する判断とした（型の重複定義を
+  避けるため・判断理由）。過去月の目標値を一覧表示するUIは未実装
+  （下記「既知の技術的負債」参照）。
+
+- **未使用の型・関数の削除**（旧技術的負債5番）：`types.ts`に残存していた未使用の
+  `TrainingLog.cardio`（`CardioPlan`型）を削除。`src/api/soccerLogs.ts`の未使用関数
+  `fetchSoccerLogByDate`も削除。
+
+- **HashRouter導入**（旧技術的負債6番）：`react-router-dom`の`HashRouter`を導入し、
+  `useState`によるビュー切替からURLベースのルーティングに移行。Vercelにrewrites設定を
+  追加せずに済む`HashRouter`を選択した（`BrowserRouter`への移行は将来検討・判断理由、
+  下記「既知の技術的負債」参照）。`App.tsx`を`AppShell`に分割し、`BottomNav`・
+  `Dashboard`・`MonthlyCalendar`はそれぞれ`useNavigate`/`useLocation`を内部で使用する
+  形に変更。ビュー種別と経路の対応は新設の`src/utils/appViewPaths.ts`に集約。
+
+- **トースト通知の追加**（旧技術的負債7番）：`src/hooks/useToast.tsx`・
+  `src/components/Toast.tsx`を新設し、`App.tsx`をはじめ主要な保存・削除処理に
+  成功/エラートーストを追加（3秒で自動消滅、複数同時表示にも対応する配列管理）。
+  Supabaseへの読み書き失敗時にconsole.errorのみだった状態を解消。
+
+- **ProgressGraphの期間別目標達成率**（旧技術的負債8番）：`src/utils/chartHelpers.ts`に
+  `getPeriodGoalMultiplier`を追加し、「3ヶ月」「全期間」選択時も月間目標を期間の日数に
+  応じて按分した値と比較するように変更（既存の「週」「月」のロジックは無変更）。
+
+- **旧デザイントークン名の置き換え**（旧技術的負債9番）：`GoalPanel.css`・
+  `BulkScheduleImportModal.css`・`DishFormModal.css`の旧トークン名を新トークン名に
+  置き換え。`src/index.css`側の旧トークンエイリアスも、他に参照が残るもの以外は削除。
+
+SQL全文は`.claude/references/sql-migrations.md`の「2026年8月16日」節に集約済み
+（BEGIN/COMMITで囲んだ冪等な1トランザクション。実行済み・動作確認済み）。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
@@ -302,42 +357,23 @@ claude-in-chromeで本番動作確認済み）。
    修正する必要がある。新規登録する食材は登録フォームで基準量・単位を
    指定できるため、この問題は蓄積しない。
 
-3. user_id が未整備なテーブルが残っている
-   training_logs のみ対応済み。meal_logs・daily_conditions・goals は
-   user_id を持たず、マルチユーザー化の際にまとめて対応が必要。
+3. goalsの過去月一覧表示UIは未実装
+   （2026年8月16日、goalsの年月単位履歴化に伴い判明）。DBは`(user_id, year_month)`
+   単位で複数月の目標値を保持できるようになったが、UI側は当月分の表示・編集のみに
+   対応しており、過去月の目標設定を一覧・閲覧する画面はまだない。
 
-4. goals が固定ID1行の上書き運用
-   月ごとの目標履歴が残らない。
+4. BrowserRouterへの未移行（HashRouterを使用中）
+   （2026年8月16日、ルーティング導入時の判断）。VercelにSPA用のrewrites設定を
+   追加せずに済む`HashRouter`を採用したため、URLに常に`#`が入る。rewrites設定を
+   追加すれば`BrowserRouter`への移行は可能だが、現状は未着手。
 
-5. 未使用の型・データが残存
-   ProgressRecord（体脂肪率・ウエスト）と TrainingLog.cardio は完全未使用。
-   mockData.ts本体・DailyProgram/MonthlyProgram等の旧型定義は削除済み
-   （2026年8月12日）。ProgressRecordはtypes.tsからも削除済み。
-   TrainingLog.cardio（CardioPlan型）のみ未使用のまま残存。
-
-6. ルーティングが存在しない
-   useState による表示切替のみ。URLが変わらないため、
-   PWAとして「戻る」操作が機能しない。
-
-7. エラーハンドリングが薄い
-   Supabase の読み書き失敗時、console.error のみで画面表示なし。
-
-8. ProgressGraphの期間「3ヶ月」「全期間」でも月間目標と比較され続ける
-   （2026年8月16日、Phase 5で期間選択肢を追加した際に判明）。
-   `ProgressGraph.tsx`の`trainingGoal`は`period === 'week' ? weeklyTrainingGoal
-   : monthlyTrainingGoal`という既存の三項演算子のままのため、`quarter`/`all`を
-   選んでも`week`以外は一律`monthlyTrainingGoal`と比較される。3ヶ月・全期間分の
-   実施回数を1ヶ月分の目標と比較するため、達成率が実態より高く出やすい
-   （既存ロジックを変更しない方針でPhase 5を実施したため、意図的に未対応のまま
-   残した。四半期/全期間用の目標値をgoalsに追加するか、期間の日数に応じて
-   月間目標を按分するかは要検討）。
-
-9. GoalPanel.css・BulkScheduleImportModal.css・DishFormModal.cssに
-   旧デザイントークン名（`--color-pitch`・`--color-amber`・`--color-ink`・
-   `--color-surface`・`--color-text`・`font-mono`・`font-display`等）が残存
-   （2026年8月16日、Phase 1〜5完了時点で判明。上記「デザイントークン」参照）。
-   エイリアス経由のため配色自体はすでに新パレットが反映されているが、
-   将来的にエイリアスを削除する際はこの3ファイルの置き換えが先行して必要になる。
+5. 子テーブルのuser_id列はAPI側でフィルタしていない
+   （2026年8月16日、user_id整備時の判断）。`training_log_exercises`・`training_sets`・
+   `training_template_exercises`・`meal_log_food_items`・`dish_food_items`にはuser_id列を
+   追加したが、API層のクエリはこれらの子テーブル自体をuser_idでフィルタしておらず、
+   親テーブル（training_logs・meal_logs等）のuser_idスコープ・外部キー経由で
+   結果的にスコープされている状態。将来的な複数ユーザー化の際、親経由のスコープが
+   崩れるケース（子テーブルを直接操作するコードの追加等）がないか要確認。
 
 ## 進行中の計画（現在地）
 
