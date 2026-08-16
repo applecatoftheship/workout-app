@@ -58,6 +58,7 @@ export function Dashboard({
   const [isNutritionOpen, setIsNutritionOpen] = useState(false)
   const [weekSchedules, setWeekSchedules] = useState<TrainingSchedule[]>([])
   const [weekSoccerLogs, setWeekSoccerLogs] = useState<SoccerLog[]>([])
+  const [expandedWeekDateKey, setExpandedWeekDateKey] = useState<DateString | null>(null)
 
   const weekStart = useMemo(() => {
     const start = new Date(today)
@@ -120,6 +121,31 @@ export function Dashboard({
 
   const todaySchedules = weekSchedulesByDate.get(todayString) ?? []
   const todaySoccerLog = weekSoccerLogsByDate.get(todayString)?.[0] ?? null
+
+  const toggleWeekDate = (dateKey: DateString) => {
+    setExpandedWeekDateKey((current) => (current === dateKey ? null : dateKey))
+  }
+
+  const expandedTrainingLogs = useMemo(
+    () => (expandedWeekDateKey ? trainingLogs.filter((log) => log.date === expandedWeekDateKey) : []),
+    [trainingLogs, expandedWeekDateKey],
+  )
+  const expandedLoggedExercises = expandedTrainingLogs.flatMap((log) => log.exercises)
+  const expandedSchedules = expandedWeekDateKey ? weekSchedulesByDate.get(expandedWeekDateKey) ?? [] : []
+  const expandedSoccerLog = expandedWeekDateKey ? weekSoccerLogsByDate.get(expandedWeekDateKey)?.[0] ?? null : null
+  const expandedBodyPartsLabel = useMemo(() => {
+    const parts = Array.from(
+      new Set(
+        expandedLoggedExercises
+          .map((exercise) => exercise.exercise?.bodyPart)
+          .filter((part): part is NonNullable<typeof part> => Boolean(part)),
+      ),
+    )
+    return parts.length > 0 ? parts.join('・') : 'トレーニング'
+  }, [expandedLoggedExercises])
+  const hasExpandedTrainingBlock = expandedTrainingLogs.length > 0 || expandedSchedules.length > 0
+  const hasExpandedSoccerBlock = expandedSoccerLog !== null
+  const hasExpandedContent = hasExpandedTrainingBlock || hasExpandedSoccerBlock
 
   const todayTrainingLogs = useMemo(
     () => trainingLogs.filter((log) => log.date === todayString),
@@ -357,6 +383,7 @@ export function Dashboard({
         <div className="week-strip__grid">
           {weekDates.map(({ date, dateKey }, index) => {
             const isToday = dateKey === todayString
+            const isSelected = dateKey === expandedWeekDateKey
             const icons = getDayIcons(
               weekSchedulesByDate.get(dateKey) ?? [],
               weekSoccerLogsByDate.get(dateKey) ?? [],
@@ -365,14 +392,69 @@ export function Dashboard({
             )
 
             return (
-              <div key={dateKey} className={`week-strip__cell ${isToday ? 'week-strip__cell--today' : ''}`}>
+              <button
+                key={dateKey}
+                type="button"
+                className={`week-strip__cell ${isToday ? 'week-strip__cell--today' : ''} ${isSelected ? 'week-strip__cell--selected' : ''}`}
+                onClick={() => toggleWeekDate(dateKey)}
+                aria-pressed={isSelected}
+                aria-label={`${date.getMonth() + 1}月${date.getDate()}日の記録を見る`}
+              >
                 <span className="week-strip__day-label">{weekDays[index]}</span>
                 <span className="week-strip__date metric-value">{date.getDate()}</span>
                 <span className="week-strip__icons">{icons.join('')}</span>
-              </div>
+              </button>
             )
           })}
         </div>
+
+        {expandedWeekDateKey ? (
+          <div className="week-strip__detail">
+            {hasExpandedContent ? (
+              <>
+                {hasExpandedTrainingBlock ? (
+                  <div className="exercise-block">
+                    <div className="exercise-block__header">
+                      <span className="exercise-block__title">{expandedBodyPartsLabel}</span>
+                      <span className={`status-chip status-chip--${expandedTrainingLogs.length > 0 ? 'good' : 'warning'}`}>
+                        {expandedTrainingLogs.length > 0 ? '完了' : '予定'}
+                      </span>
+                    </div>
+                    <ul className="exercise-block__list">
+                      {expandedTrainingLogs.length > 0
+                        ? expandedLoggedExercises.map((exercise, index) => (
+                            <li key={exercise.id ?? `${exercise.exerciseId}-${index}`}>{formatExerciseCompact(exercise)}</li>
+                          ))
+                        : expandedSchedules.map((schedule, index) => (
+                            <li key={schedule.id ?? `${schedule.title}-${index}`}>
+                              {schedule.emoji} {schedule.title}
+                            </li>
+                          ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {hasExpandedTrainingBlock && hasExpandedSoccerBlock ? <div className="exercise-block__divider" /> : null}
+
+                {expandedSoccerLog ? (
+                  <div className="exercise-block exercise-block--soccer">
+                    <div className="exercise-block__header">
+                      <span className="exercise-block__title">⚽ {expandedSoccerLog.activityType}</span>
+                      <span className="status-chip status-chip--good">完了</span>
+                    </div>
+                    <div className="exercise-block__soccer-stats">
+                      {expandedSoccerLog.durationMinutes != null ? <span>⏱ {expandedSoccerLog.durationMinutes}分</span> : null}
+                      {expandedSoccerLog.distanceKm != null ? <span>📍 {expandedSoccerLog.distanceKm}km</span> : null}
+                      {expandedSoccerLog.caloriesBurned != null ? <span>🔥 {expandedSoccerLog.caloriesBurned}kcal</span> : null}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className="no-record">この日の記録はまだありません</p>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <section className="panel-card stats-card">

@@ -198,13 +198,26 @@
   width: 34px;
   height: 34px;
   margin: 0 auto;
+  border: 0;
   border-radius: 10px;
   background: var(--color-bg-elevated);
   position: relative;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .week-strip__cell--today {
   background: var(--color-accent);
+}
+
+.week-strip__cell--selected {
+  box-shadow: inset 0 0 0 1.5px var(--color-data);
+}
+
+.week-strip__detail {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
 }
 
 .week-strip__day-label {
