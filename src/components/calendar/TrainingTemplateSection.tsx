@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createTrainingTemplate, fetchTrainingTemplates } from '../../api/trainingTemplates'
 import type { TrainingTemplateInput } from '../../api/trainingTemplates'
+import { useToast } from '../../hooks/useToast'
 import type { TrainingTemplate } from '../../types'
 
 type TrainingTemplateSectionProps = {
@@ -9,6 +10,7 @@ type TrainingTemplateSectionProps = {
 }
 
 export function TrainingTemplateSection({ currentExerciseTargets, onApplyTemplate }: TrainingTemplateSectionProps) {
+  const { showToast } = useToast()
   const [templates, setTemplates] = useState<TrainingTemplate[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [isSaveFormOpen, setIsSaveFormOpen] = useState(false)
@@ -60,9 +62,11 @@ export function TrainingTemplateSection({ currentExerciseTargets, onApplyTemplat
       const refreshed = await fetchTrainingTemplates()
       setTemplates(refreshed)
       setIsSaveFormOpen(false)
+      showToast('テンプレートを保存しました', 'success')
     } catch (error) {
       console.error('Supabaseへのテンプレート保存に失敗しました', error)
       setSaveError('保存に失敗しました。もう一度お試しください')
+      showToast('テンプレートの保存に失敗しました', 'error')
     } finally {
       setIsSaving(false)
     }

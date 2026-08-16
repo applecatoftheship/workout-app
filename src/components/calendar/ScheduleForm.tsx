@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createSchedule, deleteSchedule, updateSchedule } from '../../api/trainingSchedules'
 import { fetchTrainingTemplates } from '../../api/trainingTemplates'
+import { useToast } from '../../hooks/useToast'
 import type { DateString, TrainingSchedule, TrainingScheduleStatus, TrainingTemplate } from '../../types'
 
 const QUICK_EMOJIS = ['🏋️', '🏃', '🧘', '💪', '🚴', '😴']
@@ -42,6 +43,7 @@ export function ScheduleForm({
   isScheduleFormOpen,
   setIsScheduleFormOpen,
 }: ScheduleFormProps) {
+  const { showToast } = useToast()
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
   const [formState, setFormState] = useState<ScheduleFormState>(createEmptyScheduleFormState())
   const [formError, setFormError] = useState<string | null>(null)
@@ -116,9 +118,11 @@ export function ScheduleForm({
 
       setIsScheduleFormOpen(false)
       setEditingScheduleId(null)
+      showToast('予定を保存しました', 'success')
     } catch (error) {
       console.error('Supabaseへの予定保存に失敗しました', error)
       setFormError('保存に失敗しました。もう一度お試しください')
+      showToast('予定の保存に失敗しました', 'error')
     } finally {
       setIsSaving(false)
     }
@@ -128,8 +132,10 @@ export function ScheduleForm({
     try {
       const updated = await updateSchedule(schedule.id as string, { status })
       setSchedules((current) => current.map((current_) => (current_.id === updated.id ? updated : current_)))
+      showToast('予定を更新しました', 'success')
     } catch (error) {
       console.error('Supabaseへの予定ステータス更新に失敗しました', error)
+      showToast('予定の更新に失敗しました', 'error')
     }
   }
 
@@ -146,8 +152,10 @@ export function ScheduleForm({
         setIsScheduleFormOpen(false)
         setEditingScheduleId(null)
       }
+      showToast('予定を削除しました', 'success')
     } catch (error) {
       console.error('Supabaseへの予定削除に失敗しました', error)
+      showToast('予定の削除に失敗しました', 'error')
     }
   }
 

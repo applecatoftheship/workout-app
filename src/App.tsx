@@ -12,6 +12,7 @@ import { fetchGoalsByMonth, upsertGoals } from './api/goals'
 import { fetchTrainingLogs, syncTrainingLogs } from './api/trainingLogs'
 import { fetchMealLogs } from './api/mealLogs'
 import { useTheme } from './hooks/useTheme'
+import { ToastProvider, useToast } from './hooks/useToast'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
 
@@ -38,6 +39,7 @@ const formattedDate = new Intl.DateTimeFormat('ja-JP', {
 
 function AppShell() {
   const { theme, setTheme } = useTheme()
+  const { showToast } = useToast()
   const [isRecordSheetOpen, setIsRecordSheetOpen] = useState(false)
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
   const [areTrainingLogsLoaded, setAreTrainingLogsLoaded] = useState(false)
@@ -76,8 +78,9 @@ function AppShell() {
 
     syncDailyConditions(dailyConditions).catch((error) => {
       console.error('Supabaseへの体調記録の保存に失敗しました', error)
+      showToast('体調記録の保存に失敗しました', 'error')
     })
-  }, [dailyConditions, areDailyConditionsLoaded])
+  }, [dailyConditions, areDailyConditionsLoaded, showToast])
 
   useEffect(() => {
     let isMounted = true
@@ -109,8 +112,9 @@ function AppShell() {
 
     upsertGoals(goals).catch((error) => {
       console.error('Supabaseへの目標設定の保存に失敗しました', error)
+      showToast('目標設定の保存に失敗しました', 'error')
     })
-  }, [goals, areGoalsLoaded])
+  }, [goals, areGoalsLoaded, showToast])
 
   useEffect(() => {
     let isMounted = true
@@ -141,8 +145,9 @@ function AppShell() {
 
     syncTrainingLogs(trainingLogs).catch((error) => {
       console.error('Supabaseへのトレーニング記録の保存に失敗しました', error)
+      showToast('トレーニング記録の保存に失敗しました', 'error')
     })
-  }, [trainingLogs, areTrainingLogsLoaded])
+  }, [trainingLogs, areTrainingLogsLoaded, showToast])
 
   useEffect(() => {
     let isMounted = true
@@ -243,7 +248,9 @@ function AppShell() {
 function App() {
   return (
     <HashRouter>
-      <AppShell />
+      <ToastProvider>
+        <AppShell />
+      </ToastProvider>
     </HashRouter>
   )
 }

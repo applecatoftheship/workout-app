@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { createExercise } from '../../api/trainingLogs'
+import { useToast } from '../../hooks/useToast'
 import type { BodyPart, ExerciseDefinition } from '../../types'
 
 const bodyPartOptions: BodyPart[] = ['胸', '肩', '腕', '背', '脚', '腹', '有酸素', 'その他']
@@ -14,6 +15,7 @@ type ExerciseNameInputProps = {
 }
 
 export function ExerciseNameInput({ exercises, onExerciseCreated, name, exerciseId, onChange, error }: ExerciseNameInputProps) {
+  const { showToast } = useToast()
   const datalistId = useId()
   const [newBodyPart, setNewBodyPart] = useState<BodyPart | ''>('')
   const [isRegistering, setIsRegistering] = useState(false)
@@ -44,9 +46,11 @@ export function ExerciseNameInput({ exercises, onExerciseCreated, name, exercise
       onExerciseCreated(created)
       onChange(created.name, created.id ?? null)
       setNewBodyPart('')
+      showToast('種目を登録しました', 'success')
     } catch (registrationError) {
       console.error('Supabaseへの種目登録に失敗しました', registrationError)
       setRegisterError('種目の登録に失敗しました')
+      showToast('種目の登録に失敗しました', 'error')
     } finally {
       setIsRegistering(false)
     }

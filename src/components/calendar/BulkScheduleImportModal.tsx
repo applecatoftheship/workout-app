@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { bulkCreateSchedules, deleteSchedulesInRange } from '../../api/trainingSchedules'
 import { fetchTrainingTemplates } from '../../api/trainingTemplates'
+import { useToast } from '../../hooks/useToast'
 import type { DateString, TrainingTemplate } from '../../types'
 import './BulkScheduleImportModal.css'
 
@@ -35,6 +36,7 @@ type BulkScheduleImportModalProps = {
 }
 
 export function BulkScheduleImportModal({ isOpen, onClose, onImported }: BulkScheduleImportModalProps) {
+  const { showToast } = useToast()
   const [jsonText, setJsonText] = useState('')
   const [parsedItems, setParsedItems] = useState<ParsedScheduleItem[] | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
@@ -173,9 +175,11 @@ export function BulkScheduleImportModal({ isOpen, onClose, onImported }: BulkSch
 
       onImported()
       onClose()
+      showToast(`${parsedItems.length}件の予定を登録しました`, 'success')
     } catch (error) {
       console.error('Supabaseへの一括予定登録に失敗しました', error)
       setSubmitError('登録に失敗しました。もう一度お試しください')
+      showToast('予定の一括登録に失敗しました', 'error')
     } finally {
       setIsSubmitting(false)
     }

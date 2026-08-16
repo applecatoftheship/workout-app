@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DailyCondition, DateString, FatigueLevel } from '../../types'
 import { formatConditionSummary } from '../../utils/calendarHelpers'
+import { useToast } from '../../hooks/useToast'
 
 type ConditionFormState = {
   weight: string
@@ -43,6 +44,7 @@ export function ConditionForm({
   setIsFormOpen,
   setIsMealFormOpen,
 }: ConditionFormProps) {
+  const { showToast } = useToast()
   const [editingConditionIndex, setEditingConditionIndex] = useState<number | null>(null)
   const [conditionFormState, setConditionFormState] = useState<ConditionFormState>(createEmptyConditionFormState())
   const [conditionFormErrors, setConditionFormErrors] = useState<ConditionFormErrors>(createEmptyConditionFormErrors())
@@ -134,6 +136,7 @@ export function ConditionForm({
 
     setIsConditionFormOpen(false)
     setEditingConditionIndex(null)
+    showToast('体調記録を保存しました', 'success')
   }
 
   const deleteCondition = () => {
@@ -149,6 +152,7 @@ export function ConditionForm({
     setDailyConditions((current) => current.filter((condition) => condition.date !== selectedDate))
     setIsConditionFormOpen(false)
     setEditingConditionIndex(null)
+    showToast('体調記録を削除しました', 'success')
   }
 
   return (

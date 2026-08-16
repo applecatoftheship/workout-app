@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FoodItem } from '../../types'
 import { createDish } from '../../api/dishes'
 import { GenreFoodPicker } from './GenreFoodPicker'
+import { useToast } from '../../hooks/useToast'
 import './DishFormModal.css'
 
 const DEFAULT_FOOD_EMOJI = '🍽️'
@@ -28,6 +29,7 @@ type DishFormModalProps = {
 }
 
 export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemDeleted }: DishFormModalProps) {
+  const { showToast } = useToast()
   const [name, setName] = useState('')
   const [items, setItems] = useState<DishItemForm[]>([])
   const [pickerResetKey, setPickerResetKey] = useState(0)
@@ -115,9 +117,11 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
         items.map((item) => ({ foodItemId: item.foodItemId, amount: Number(item.amount), unit: item.unit.trim() })),
       )
       onSaved()
+      showToast('料理を登録しました', 'success')
     } catch (saveError) {
       console.error('Supabaseへの料理登録に失敗しました', saveError)
       setError('登録に失敗しました。もう一度お試しください')
+      showToast('料理の登録に失敗しました', 'error')
     } finally {
       setIsSaving(false)
     }

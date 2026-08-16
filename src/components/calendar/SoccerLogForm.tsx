@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { DateString, SoccerLog } from '../../types'
 import { createOrUpdateSoccerLog, deleteSoccerLog } from '../../api/soccerLogs'
 import { fetchRecentWeight } from '../../api/dailyConditions'
+import { useToast } from '../../hooks/useToast'
 import {
   ACTIVITY_TYPE_PRESETS,
   TRAINING_MENUS,
@@ -80,6 +81,7 @@ type SoccerLogFormProps = {
 }
 
 export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSoccerFormOpen, setIsSoccerFormOpen }: SoccerLogFormProps) {
+  const { showToast } = useToast()
   const [formState, setFormState] = useState<SoccerLogFormState>(createEmptyFormState())
   const [formErrors, setFormErrors] = useState<SoccerLogFormErrors>({})
   const [formSummaryError, setFormSummaryError] = useState<string | null>(null)
@@ -192,9 +194,11 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
         return exists ? current.map((log) => (log.date === saved.date ? saved : log)) : [...current, saved]
       })
       setIsSoccerFormOpen(false)
+      showToast('サッカー記録を保存しました', 'success')
     } catch (error) {
       console.error('Supabaseへのサッカー記録の保存に失敗しました', error)
       setFormSummaryError('保存に失敗しました。もう一度お試しください')
+      showToast('サッカー記録の保存に失敗しました', 'error')
     } finally {
       setIsSaving(false)
     }
@@ -214,9 +218,10 @@ export function SoccerLogForm({ soccerLogs, setSoccerLogs, selectedDate, isSocce
       await deleteSoccerLog(selectedLog.id)
       setSoccerLogs((current) => current.filter((log) => log.date !== selectedDate))
       setIsSoccerFormOpen(false)
+      showToast('サッカー記録を削除しました', 'success')
     } catch (error) {
       console.error('Supabaseからのサッカー記録の削除に失敗しました', error)
-      window.alert('削除に失敗しました。もう一度お試しください')
+      showToast('削除に失敗しました。もう一度お試しください', 'error')
     }
   }
 

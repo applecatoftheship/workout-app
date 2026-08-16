@@ -5,6 +5,7 @@ import type { TrainingTemplateInput } from '../../api/trainingTemplates'
 import { formatTrainingLogItem } from '../../utils/calendarHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
 import { TrainingTemplateSection } from './TrainingTemplateSection'
+import { useToast } from '../../hooks/useToast'
 import type { DateString, ExerciseDefinition, TrainingLog, TrainingLogExercise, TrainingSet, TrainingTemplate } from '../../types'
 
 type SimpleSetInput = {
@@ -92,6 +93,7 @@ export function TrainingLogForm({
   setIsFormOpen,
   onScheduleUpdated,
 }: TrainingLogFormProps) {
+  const { showToast } = useToast()
   const [editingLogIndex, setEditingLogIndex] = useState<number | null>(null)
   const [formState, setFormState] = useState<TrainingLogFormState>(createEmptyFormState())
   const [formErrors, setFormErrors] = useState<TrainingLogFormExerciseErrors[]>(createEmptyFormErrors())
@@ -387,6 +389,7 @@ export function TrainingLogForm({
     if (editingLogIndex !== null && editingLogIndex > logIndex) {
       setEditingLogIndex(editingLogIndex - 1)
     }
+    showToast('トレーニング実績を削除しました', 'success')
   }
 
   const saveTrainingLog = () => {
@@ -444,11 +447,13 @@ export function TrainingLogForm({
         })
         .catch((error) => {
           console.error('Supabaseへの予定の完了連動に失敗しました', error)
+          showToast('予定の完了連動に失敗しました', 'error')
         })
     }
 
     setIsFormOpen(false)
     setEditingLogIndex(null)
+    showToast('トレーニング実績を保存しました', 'success')
   }
 
   return (

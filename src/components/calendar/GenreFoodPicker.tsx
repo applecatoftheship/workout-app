@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FoodItem } from '../../types'
 import { deleteFoodItem } from '../../api/foodItems'
+import { useToast } from '../../hooks/useToast'
 
 const UNCATEGORIZED = 'uncategorized'
 const DEFAULT_FOOD_EMOJI = '🍽️'
@@ -12,6 +13,7 @@ type GenreFoodPickerProps = {
 }
 
 export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: GenreFoodPickerProps) {
+  const { showToast } = useToast()
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedDeleteId, setSelectedDeleteId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
@@ -55,9 +57,10 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
       await deleteFoodItem(target.id as string)
       setSelectedDeleteId('')
       onFoodItemDeleted()
+      showToast('食材を削除しました', 'success')
     } catch (error) {
       console.error('Supabaseからの食材削除に失敗しました', error)
-      window.alert('削除に失敗しました。もう一度お試しください')
+      showToast('削除に失敗しました。もう一度お試しください', 'error')
     } finally {
       setIsDeleting(false)
     }

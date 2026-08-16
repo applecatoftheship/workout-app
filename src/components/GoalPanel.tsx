@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import './GoalPanel.css'
+import { useToast } from '../hooks/useToast'
 import type { Goals } from '../api/goals'
 import type { DailyCondition, TrainingLog } from '../types'
 
@@ -34,6 +35,7 @@ type GoalPanelProps = {
 }
 
 export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, today }: GoalPanelProps) {
+  const { showToast } = useToast()
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false)
   const [isEditingGoals, setIsEditingGoals] = useState(false)
   const [goalFormState, setGoalFormState] = useState<GoalFormState>({
@@ -161,6 +163,7 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
       dailyCarbohydrateGoal: Number(goalFormState.dailyCarbohydrateGoal),
     })
     setIsEditingGoals(false)
+    showToast('目標を保存しました', 'success')
   }
 
   const cancelGoalEdit = () => {

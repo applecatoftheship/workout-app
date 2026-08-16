@@ -7,6 +7,7 @@ import type { MealLogInput } from '../../api/mealLogs'
 import { fetchDishesWithDetails, fetchMealSizes, deleteDish } from '../../api/dishes'
 import { GenreFoodPicker } from './GenreFoodPicker'
 import { DishFormModal } from './DishFormModal'
+import { useToast } from '../../hooks/useToast'
 
 type MealLogFoodSelectionForm = {
   key: string
@@ -83,6 +84,7 @@ type MealLogFormProps = {
 }
 
 export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpen, setIsMealFormOpen, setIsFormOpen }: MealLogFormProps) {
+  const { showToast } = useToast()
   const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null)
   const [mealFormState, setMealFormState] = useState<MealLogFormState>(createEmptyMealFormState())
   const [mealFormErrors, setMealFormErrors] = useState<MealLogFormErrors>(createEmptyMealFormErrors())
@@ -277,9 +279,10 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
       await deleteDish(selectedDish.id)
       setSelectedDishId('')
       loadDishes()
+      showToast('料理を削除しました', 'success')
     } catch (error) {
       console.error('Supabaseからの料理削除に失敗しました', error)
-      window.alert('削除に失敗しました。もう一度お試しください')
+      showToast('削除に失敗しました。もう一度お試しください', 'error')
     } finally {
       setIsDeletingDish(false)
     }
@@ -348,9 +351,11 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
         newFoodServingAmount: undefined,
         newFoodCalories: undefined,
       }))
+      showToast('食材を登録しました', 'success')
     } catch (error) {
       console.error('Supabaseへの食材登録に失敗しました', error)
       setMealFormErrors((current) => ({ ...current, newFoodName: '食材の登録に失敗しました' }))
+      showToast('食材の登録に失敗しました', 'error')
     }
   }
 
@@ -445,9 +450,11 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
       setMealLogs(refreshed)
       setIsMealFormOpen(false)
       setEditingMealIndex(null)
+      showToast('食事記録を保存しました', 'success')
     } catch (error) {
       console.error('Supabaseへの食事記録の保存に失敗しました', error)
       setMealFormSummaryError('保存に失敗しました。もう一度お試しください')
+      showToast('食事記録の保存に失敗しました', 'error')
     } finally {
       setIsMealSaving(false)
     }
@@ -468,9 +475,10 @@ export function MealLogForm({ mealLogs, setMealLogs, selectedDate, isMealFormOpe
       await deleteMealLogRemote(target.id)
       const refreshed = await fetchMealLogs()
       setMealLogs(refreshed)
+      showToast('食事記録を削除しました', 'success')
     } catch (error) {
       console.error('Supabaseからの食事記録の削除に失敗しました', error)
-      window.alert('削除に失敗しました。もう一度お試しください')
+      showToast('削除に失敗しました。もう一度お試しください', 'error')
       return
     }
 
