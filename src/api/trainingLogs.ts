@@ -238,6 +238,77 @@ export async function upsertTrainingLog(log: TrainingLog): Promise<void> {
   }
 }
 
+// --- 前回記録の自動入力（技術指示書Phase F-2、2026年8月16日） ---
+
+export type LatestExerciseRecord = {
+  setsCount: number
+  reps: number | null
+  weight: number | null
+  logDate: DateString
+}
+
+export async function fetchLatestExerciseRecord(exerciseId: string): Promise<LatestExerciseRecord | null> {
+  const { data: exerciseRows, error: exerciseError } = await supabase
+    .from('training_log_exercises')
+    .select('id, training_log_id')
+    .eq('exercise_id', exerciseId)
+
+  if (exerciseError) {
+    throw exerciseError
+  }
+
+  const rows = exerciseRows as { id: string; training_log_id: string }[]
+  if (rows.length === 0) {
+    return null
+  }
+
+  const trainingLogIds = Array.from(new Set(rows.map((row) => row.training_log_id)))
+
+  const { data: logRows, error: logError } = await supabase
+    .from('training_logs')
+    .select('id, log_date')
+    .eq('user_id', DEFAULT_USER_ID)
+    .in('id', trainingLogIds)
+    .order('log_date', { ascending: false })
+    .limit(1)
+
+  if (logError) {
+    throw logError
+  }
+
+  const latestLog = (logRows as { id: string; log_date: string }[])[0]
+  if (!latestLog) {
+    return null
+  }
+
+  const latestExerciseRow = rows.find((row) => row.training_log_id === latestLog.id)
+  if (!latestExerciseRow) {
+    return null
+  }
+
+  const { data: setRows, error: setError } = await supabase
+    .from('training_sets')
+    .select('set_number, reps, weight')
+    .eq('training_log_exercise_id', latestExerciseRow.id)
+    .order('set_number', { ascending: true })
+
+  if (setError) {
+    throw setError
+  }
+
+  const sets = setRows as { set_number: number; reps: number | null; weight: number | null }[]
+  if (sets.length === 0) {
+    return null
+  }
+
+  return {
+    setsCount: sets.length,
+    reps: sets[0].reps,
+    weight: sets[0].weight,
+    logDate: latestLog.log_date as DateString,
+  }
+}
+
 export async function syncTrainingLogs(logs: TrainingLog[]): Promise<void> {
   const { data: remoteRows, error: fetchError } = await supabase
     .from('training_logs')

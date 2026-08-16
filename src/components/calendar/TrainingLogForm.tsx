@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchExercises } from '../../api/trainingLogs'
+import { fetchExercises, fetchLatestExerciseRecord } from '../../api/trainingLogs'
 import { completeScheduleForDate } from '../../api/trainingSchedules'
-import type { TrainingTemplateInput } from '../../api/trainingTemplates'
 import { formatTrainingLogItem } from '../../utils/calendarHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
 import { ExercisePicker } from './ExercisePicker'
-import { TrainingTemplateSection } from './TrainingTemplateSection'
 import { useToast } from '../../hooks/useToast'
-import type { DateString, ExerciseDefinition, TrainingLog, TrainingLogExercise, TrainingSet, TrainingTemplate } from '../../types'
+import type { DateString, ExerciseDefinition, TrainingLog, TrainingLogExercise, TrainingSet } from '../../types'
 
 type SimpleSetInput = {
   sets: string
@@ -110,7 +108,7 @@ export function TrainingLogForm({
   const [formErrors, setFormErrors] = useState<TrainingLogFormExerciseErrors[]>(createEmptyFormErrors())
   const [formSummaryError, setFormSummaryError] = useState<string | null>(null)
   const [exercises, setExercises] = useState<ExerciseDefinition[]>([])
-  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null)
+  const [previousRecordHints, setPreviousRecordHints] = useState<Record<number, string>>({})
 
   useEffect(() => {
     fetchExercises()
@@ -172,7 +170,7 @@ export function TrainingLogForm({
     })
     setFormErrors(createEmptyFormErrors(nextExercises.length))
     setFormSummaryError(null)
-    setAppliedTemplateId(null)
+    setPreviousRecordHints({})
     setIsFormOpen(true)
   }
 
@@ -183,6 +181,56 @@ export function TrainingLogForm({
         exerciseIndex === index ? { ...exercise, exerciseName: name, exerciseId } : exercise,
       ),
     }))
+
+    setPreviousRecordHints((current) => {
+      if (!(index in current)) {
+        return current
+      }
+      const next = { ...current }
+      delete next[index]
+      return next
+    })
+
+    if (!exerciseId) {
+      return
+    }
+
+    fetchLatestExerciseRecord(exerciseId)
+      .then((record) => {
+        if (!record) {
+          return
+        }
+
+        setPreviousRecordHints((current) => ({
+          ...current,
+          [index]: `前回: ${record.weight != null ? `${record.weight}kg` : '-'} × ${record.reps != null ? `${record.reps}回` : '-'} × ${record.setsCount}セット`,
+        }))
+
+        // 手入力済みのセット/回数/重量は上書きしない（前回記録の前提が変わっている可能性があるため）
+        setFormState((current) => ({
+          ...current,
+          exercises: current.exercises.map((exercise, exerciseIndex) => {
+            if (exerciseIndex !== index || exercise.mode !== 'simple') {
+              return exercise
+            }
+            const isPristine = exercise.simple.sets === '3' && exercise.simple.reps === '10' && exercise.simple.weight === ''
+            if (!isPristine) {
+              return exercise
+            }
+            return {
+              ...exercise,
+              simple: {
+                sets: String(record.setsCount),
+                reps: record.reps != null ? String(record.reps) : exercise.simple.reps,
+                weight: record.weight != null ? String(record.weight) : exercise.simple.weight,
+              },
+            }
+          }),
+        }))
+      })
+      .catch((error) => {
+        console.error('Supabaseから前回の記録の取得に失敗しました', error)
+      })
   }
 
   const handleSimpleFieldChange = (index: number, field: keyof SimpleSetInput, value: string) => {
@@ -263,61 +311,6 @@ export function TrainingLogForm({
     }))
     setFormErrors((current) => [...current, {}])
   }
-
-  const applyTemplate = (template: TrainingTemplate) => {
-    const nextExercises: TrainingLogFormExercise[] =
-      template.exercises.length > 0
-        ? template.exercises.map((templateExercise) => ({
-            key: createExerciseKey(),
-            exerciseName: templateExercise.exercise?.name ?? '',
-            exerciseId: templateExercise.exerciseId,
-            mode: 'simple' as const,
-            simple: {
-              sets: templateExercise.targetSets != null ? String(templateExercise.targetSets) : '3',
-              reps:
-                templateExercise.targetReps && /^\d+$/.test(templateExercise.targetReps.trim())
-                  ? templateExercise.targetReps.trim()
-                  : '',
-              weight: templateExercise.targetWeight != null ? String(templateExercise.targetWeight) : '',
-            },
-            detailedSets: [],
-          }))
-        : [createEmptyExercise()]
-
-    setFormState((current) => ({ ...current, exercises: nextExercises }))
-    setFormErrors(createEmptyFormErrors(nextExercises.length))
-    setFormSummaryError(null)
-    setAppliedTemplateId(template.id ?? null)
-  }
-
-  const currentExerciseTargets: TrainingTemplateInput['exercises'] = useMemo(
-    () =>
-      formState.exercises
-        .filter((exercise) => exercise.exerciseId)
-        .map((exercise, index) => ({
-          exerciseId: exercise.exerciseId as string,
-          orderIndex: index,
-          targetSets:
-            exercise.mode === 'simple'
-              ? exercise.simple.sets.trim() === ''
-                ? undefined
-                : Number(exercise.simple.sets)
-              : exercise.detailedSets.length || undefined,
-          targetReps:
-            exercise.mode === 'simple'
-              ? exercise.simple.reps.trim() || undefined
-              : exercise.detailedSets[0]?.reps.trim() || undefined,
-          targetWeight:
-            exercise.mode === 'simple'
-              ? exercise.simple.weight.trim() !== ''
-                ? Number(exercise.simple.weight)
-                : undefined
-              : exercise.detailedSets[0]?.weight.trim()
-              ? Number(exercise.detailedSets[0].weight)
-              : undefined,
-        })),
-    [formState.exercises],
-  )
 
   const validateForm = () => {
     const errors: TrainingLogFormExerciseErrors[] = formState.exercises.map((exercise) => {
@@ -460,7 +453,7 @@ export function TrainingLogForm({
     })
 
     if (nextLog.completed) {
-      completeScheduleForDate(selectedDate, appliedTemplateId ?? undefined)
+      completeScheduleForDate(selectedDate)
         .then(() => {
           onScheduleUpdated?.()
         })
@@ -513,8 +506,6 @@ export function TrainingLogForm({
         <div className="calendar-detail__form">
           {formSummaryError ? <p className="calendar-detail__form-error">{formSummaryError}</p> : null}
 
-          <TrainingTemplateSection currentExerciseTargets={currentExerciseTargets} onApplyTemplate={applyTemplate} />
-
           <label className="calendar-detail__field">
             <span>完了/未完了</span>
             <select
@@ -537,6 +528,9 @@ export function TrainingLogForm({
                 onChange={(name, exerciseId) => handleExerciseNameChange(index, name, exerciseId)}
                 error={formErrors[index]?.name}
               />
+              {previousRecordHints[index] ? (
+                <p className="calendar-detail__description">{previousRecordHints[index]}</p>
+              ) : null}
 
               <button type="button" className="calendar-detail__secondary-button" onClick={() => toggleDetailedMode(index)}>
                 {exercise.mode === 'simple' ? '詳細入力に切り替える' : 'シンプル入力に戻す'}
