@@ -1,20 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { DailyCondition, DateString, FatigueLevel } from '../../types'
+import type { DailyCondition, DateString, FatigueLevel, MuscleLocation, SorenessLevel } from '../../types'
 import { formatConditionSummary } from '../../utils/calendarHelpers'
+import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../../utils/acwrHelpers'
 import { deleteDailyConditionRemote, fetchDailyConditions, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
+
+const MUSCLE_LOCATIONS: MuscleLocation[] = ['none', 'calf_l', 'calf_r', 'hamstring', 'quad', 'groin', 'other']
+const SORENESS_LEVELS: SorenessLevel[] = ['none', 'mild', 'severe']
 
 type ConditionFormState = {
   weight: string
   sleepHours: string
   fatigue: FatigueLevel | ''
   notes: string
+  muscleSorenessLocation: MuscleLocation
+  muscleSorenessLevel: SorenessLevel
 }
 
 type ConditionFormErrors = {
   weight?: string
   sleepHours?: string
   fatigue?: string
+  muscleSorenessLocation?: string
 }
 
 const createEmptyConditionFormState = (): ConditionFormState => ({
@@ -22,6 +29,8 @@ const createEmptyConditionFormState = (): ConditionFormState => ({
   sleepHours: '',
   fatigue: '',
   notes: '',
+  muscleSorenessLocation: 'none',
+  muscleSorenessLevel: 'none',
 })
 
 const createEmptyConditionFormErrors = (): ConditionFormErrors => ({})
@@ -85,6 +94,8 @@ export function ConditionForm({
             sleepHours: String(existingCondition.sleepHours),
             fatigue: existingCondition.fatigue,
             notes: existingCondition.notes ?? '',
+            muscleSorenessLocation: existingCondition.muscleSorenessLocation ?? 'none',
+            muscleSorenessLevel: existingCondition.muscleSorenessLevel ?? 'none',
           }
         : createEmptyConditionFormState(),
     )
@@ -95,7 +106,10 @@ export function ConditionForm({
     setIsConditionFormOpen(true)
   }
 
-  const handleConditionFieldChange = (field: keyof ConditionFormState, value: string | FatigueLevel | '') => {
+  const handleConditionFieldChange = (
+    field: keyof ConditionFormState,
+    value: string | FatigueLevel | MuscleLocation | SorenessLevel | '',
+  ) => {
     setConditionFormState((current) => ({ ...current, [field]: value }))
   }
 
@@ -112,6 +126,9 @@ export function ConditionForm({
     }
     if (!conditionFormState.fatigue) {
       errors.fatigue = '疲労度は必須です'
+    }
+    if (conditionFormState.muscleSorenessLevel !== 'none' && conditionFormState.muscleSorenessLocation === 'none') {
+      errors.muscleSorenessLocation = '張りの度合いを選択した場合は部位も選択してください'
     }
 
     const hasErrors = Object.keys(errors).length > 0
@@ -136,6 +153,8 @@ export function ConditionForm({
       sleepHours: Number(conditionFormState.sleepHours),
       fatigue: conditionFormState.fatigue as FatigueLevel,
       notes: conditionFormState.notes.trim() || undefined,
+      muscleSorenessLocation: conditionFormState.muscleSorenessLocation,
+      muscleSorenessLevel: conditionFormState.muscleSorenessLevel,
     }
 
     setIsSaving(true)
@@ -251,6 +270,43 @@ export function ConditionForm({
             </select>
             {conditionFormErrors.fatigue ? <p className="calendar-detail__error">{conditionFormErrors.fatigue}</p> : null}
           </label>
+          <div className="calendar-detail__field calendar-detail__field--full">
+            <span>局所疲労・張りの部位</span>
+            <div className="calendar-detail__category-filter">
+              {MUSCLE_LOCATIONS.map((location) => (
+                <button
+                  key={location}
+                  type="button"
+                  className={`calendar-detail__category-chip${
+                    conditionFormState.muscleSorenessLocation === location ? ' calendar-detail__category-chip--active' : ''
+                  }`}
+                  onClick={() => handleConditionFieldChange('muscleSorenessLocation', location)}
+                >
+                  {MUSCLE_LOCATION_LABELS[location]}
+                </button>
+              ))}
+            </div>
+            {conditionFormErrors.muscleSorenessLocation ? (
+              <p className="calendar-detail__error">{conditionFormErrors.muscleSorenessLocation}</p>
+            ) : null}
+          </div>
+          <div className="calendar-detail__field calendar-detail__field--full">
+            <span>張りの度合い</span>
+            <div className="calendar-detail__category-filter">
+              {SORENESS_LEVELS.map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={`calendar-detail__category-chip${
+                    conditionFormState.muscleSorenessLevel === level ? ' calendar-detail__category-chip--active' : ''
+                  }`}
+                  onClick={() => handleConditionFieldChange('muscleSorenessLevel', level)}
+                >
+                  {SORENESS_LEVEL_LABELS[level]}
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="calendar-detail__field calendar-detail__field--full">
             <span>体調メモ</span>
             <textarea

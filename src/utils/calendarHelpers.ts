@@ -1,4 +1,5 @@
 import type { DateString, DailyCondition, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule } from '../types'
+import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from './acwrHelpers'
 
 export const weekDays = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -64,7 +65,17 @@ export function formatTrainingLogItem(exercise: TrainingLogExercise) {
 }
 
 export function formatConditionSummary(condition: DailyCondition) {
-  return `${condition.weight.toFixed(1)}kg / ${condition.sleepHours.toFixed(1)}時間 / 疲労度${condition.fatigue}/5`
+  const base = `${condition.weight.toFixed(1)}kg / ${condition.sleepHours.toFixed(1)}時間 / 疲労度${condition.fatigue}/5`
+
+  const level = condition.muscleSorenessLevel
+  if (!level || level === 'none') {
+    return base
+  }
+
+  const location = condition.muscleSorenessLocation
+  const locationLabel = location && location !== 'none' ? MUSCLE_LOCATION_LABELS[location] : '部位未指定'
+  const levelLabel = SORENESS_LEVEL_LABELS[level]
+  return `${base} / 局所疲労: ${locationLabel}（${levelLabel}）`
 }
 
 export function getMealTypeLabel(mealType: MealType) {

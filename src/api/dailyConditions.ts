@@ -1,6 +1,6 @@
 import { supabase } from './client'
 import { DEFAULT_USER_ID } from './trainingLogs'
-import type { DailyCondition, DateString, FatigueLevel } from '../types'
+import type { DailyCondition, DateString, FatigueLevel, MuscleLocation, SorenessLevel } from '../types'
 
 type DailyConditionRow = {
   id: string
@@ -9,6 +9,8 @@ type DailyConditionRow = {
   sleep_hours: number | null
   fatigue: number | null
   notes: string | null
+  muscle_soreness_location: string | null
+  muscle_soreness_level: string | null
   created_at: string
   updated_at: string
 }
@@ -21,6 +23,8 @@ function rowToDailyCondition(row: DailyConditionRow): DailyCondition {
     sleepHours: row.sleep_hours ?? 0,
     fatigue: (row.fatigue ?? 3) as FatigueLevel,
     notes: row.notes ?? undefined,
+    muscleSorenessLocation: (row.muscle_soreness_location ?? 'none') as MuscleLocation,
+    muscleSorenessLevel: (row.muscle_soreness_level ?? 'none') as SorenessLevel,
     createdAt: row.created_at as DateString,
     updatedAt: row.updated_at as DateString,
   }
@@ -68,6 +72,8 @@ export async function upsertDailyCondition(condition: DailyCondition): Promise<v
         sleep_hours: condition.sleepHours,
         fatigue: condition.fatigue,
         notes: condition.notes ?? null,
+        muscle_soreness_location: condition.muscleSorenessLocation ?? 'none',
+        muscle_soreness_level: condition.muscleSorenessLevel ?? 'none',
       },
       { onConflict: 'user_id,log_date' },
     )
