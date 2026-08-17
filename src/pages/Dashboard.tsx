@@ -10,6 +10,8 @@ import { fetchSoccerLogs } from '../api/soccerLogs'
 import { getDayIcons, toDateKey, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
 import { calculateACWR, daysUntilACWRAvailable } from '../utils/acwrHelpers'
+import { calculateMovingAverage, getTrendTone, toDateKey as toChartDateKey } from '../utils/chartHelpers'
+import type { MAPoint } from '../utils/chartHelpers'
 import type { Goals } from '../api/goals'
 import type {
   DailyCondition,
@@ -32,6 +34,19 @@ function formatExerciseCompact(exercise: TrainingLogExercise) {
   const weightText = firstSet.weight != null ? `${firstSet.weight}kg` : '-'
   const repsText = firstSet.reps != null ? `${firstSet.reps}回` : '-'
   return `${name} - ${weightText}×${repsText}×${exercise.sets.length}セット`
+}
+
+/**
+ * スプリント2（2026年8月17日）：統計カードの「前週比」用に、移動平均データ列から
+ * 指定日のちょうど7日前のポイントを探す。該当日に記録がなければnull
+ * （既存のweightTrend等と同様、比較対象が無い場合はトレンドバッジを非表示にする）。
+ */
+function findPointDaysBefore(points: MAPoint[], latestDate: string, daysBefore: number): MAPoint | null {
+  const latest = new Date(`${latestDate}T00:00:00`)
+  const target = new Date(latest)
+  target.setDate(target.getDate() - daysBefore)
+  const targetKey = toChartDateKey(target)
+  return points.find((point) => point.date === targetKey) ?? null
 }
 
 type DashboardProps = {
@@ -239,40 +254,45 @@ export function Dashboard({
     [calorieRate],
   )
 
-  const previousCondition = useMemo(() => {
-    return (
-      [...dailyConditions]
-        .filter((condition) => condition.date < todayString)
-        .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
-    )
-  }, [dailyConditions, todayString])
+  // 移動平均（スプリント2、2026年8月17日）：DBにはキャッシュせず、ACWR機能と同じ方針で
+  // 呼び出しのたびにdailyConditionsから動的計算する。統計カードのメイン表示を
+  // 「本日実測値」から「7日移動平均」に変更し、日々のノイズに惑わされないトレンドを示す。
+  const weightMA = useMemo(() => calculateMovingAverage(dailyConditions, 'date', 'weight'), [dailyConditions])
+  const sleepMA = useMemo(() => calculateMovingAverage(dailyConditions, 'date', 'sleepHours'), [dailyConditions])
+  const fatigueMA = useMemo(() => calculateMovingAverage(dailyConditions, 'date', 'fatigue'), [dailyConditions])
 
+  const latestWeightMA = weightMA.length > 0 ? weightMA[weightMA.length - 1] : null
+  const latestSleepMA = sleepMA.length > 0 ? sleepMA[sleepMA.length - 1] : null
+  const latestFatigueMA = fatigueMA.length > 0 ? fatigueMA[fatigueMA.length - 1] : null
+
+  // 前週比＝直近の移動平均値と、そのちょうど7日前の移動平均値との差分
+  // （「本日実測」同士の日次比較だったPhase 3のロジックから、移動平均同士の比較に変更）。
   const weightTrend = useMemo(() => {
-    if (!todayCondition || !previousCondition) return null
-    const diff = todayCondition.weight - previousCondition.weight
-    if (Math.abs(diff) < 0.05) return { text: '±0kg', tone: 'neutral' as const }
-    return diff > 0
-      ? { text: `+${diff.toFixed(1)}kg`, tone: 'alert' as const }
-      : { text: `${diff.toFixed(1)}kg`, tone: 'good' as const }
-  }, [todayCondition, previousCondition])
+    if (!latestWeightMA) return null
+    const previous = findPointDaysBefore(weightMA, latestWeightMA.date, 7)
+    if (!previous) return null
+    const diff = latestWeightMA.movingAvg - previous.movingAvg
+    const tone = getTrendTone('weight', diff)
+    return { text: tone === 'neutral' ? '±0kg' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)}kg`, tone }
+  }, [weightMA, latestWeightMA])
 
   const sleepTrend = useMemo(() => {
-    if (!todayCondition || !previousCondition) return null
-    const diff = todayCondition.sleepHours - previousCondition.sleepHours
-    if (Math.abs(diff) < 0.05) return { text: '±0h', tone: 'neutral' as const }
-    return diff > 0
-      ? { text: `+${diff.toFixed(1)}h`, tone: 'good' as const }
-      : { text: `${diff.toFixed(1)}h`, tone: 'alert' as const }
-  }, [todayCondition, previousCondition])
+    if (!latestSleepMA) return null
+    const previous = findPointDaysBefore(sleepMA, latestSleepMA.date, 7)
+    if (!previous) return null
+    const diff = latestSleepMA.movingAvg - previous.movingAvg
+    const tone = getTrendTone('sleep_hours', diff)
+    return { text: tone === 'neutral' ? '±0h' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)}h`, tone }
+  }, [sleepMA, latestSleepMA])
 
   const fatigueTrend = useMemo(() => {
-    if (!todayCondition || !previousCondition) return null
-    const diff = todayCondition.fatigue - previousCondition.fatigue
-    if (diff === 0) return { text: '±0', tone: 'neutral' as const }
-    return diff > 0
-      ? { text: `+${diff}`, tone: 'alert' as const }
-      : { text: `${diff}`, tone: 'good' as const }
-  }, [todayCondition, previousCondition])
+    if (!latestFatigueMA) return null
+    const previous = findPointDaysBefore(fatigueMA, latestFatigueMA.date, 7)
+    if (!previous) return null
+    const diff = latestFatigueMA.movingAvg - previous.movingAvg
+    const tone = getTrendTone('fatigue_level', diff)
+    return { text: tone === 'neutral' ? '±0' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)}`, tone }
+  }, [fatigueMA, latestFatigueMA])
 
   const mostRecentRecord = useMemo(() => {
     const candidates: { date: DateString; label: string }[] = []
@@ -518,10 +538,13 @@ export function Dashboard({
               <WeightIcon className="stat-card__icon" strokeWidth={1.8} />
               {weightTrend ? <span className={`trend-badge trend-badge--${weightTrend.tone}`}>{weightTrend.text}</span> : null}
             </div>
-            <span className="stat-card__label">体重</span>
+            <span className="stat-card__label">体重（7日平均）</span>
             <strong className="stat-card__value metric-value">
-              {todayCondition ? `${todayCondition.weight.toFixed(1)}kg` : '記録なし'}
+              {latestWeightMA ? `${latestWeightMA.movingAvg.toFixed(1)}kg` : '記録なし'}
             </strong>
+            {todayCondition ? (
+              <span className="stat-card__note">本日実測: {todayCondition.weight.toFixed(1)}kg</span>
+            ) : null}
           </article>
 
           <article className="stat-card">
@@ -529,10 +552,13 @@ export function Dashboard({
               <SleepIcon className="stat-card__icon" strokeWidth={1.8} />
               {sleepTrend ? <span className={`trend-badge trend-badge--${sleepTrend.tone}`}>{sleepTrend.text}</span> : null}
             </div>
-            <span className="stat-card__label">睡眠</span>
+            <span className="stat-card__label">睡眠（7日平均）</span>
             <strong className="stat-card__value metric-value">
-              {todayCondition ? `${todayCondition.sleepHours.toFixed(1)}h` : '記録なし'}
+              {latestSleepMA ? `${latestSleepMA.movingAvg.toFixed(1)}h` : '記録なし'}
             </strong>
+            {todayCondition ? (
+              <span className="stat-card__note">本日実測: {todayCondition.sleepHours.toFixed(1)}h</span>
+            ) : null}
           </article>
 
           <article className="stat-card">
@@ -540,10 +566,13 @@ export function Dashboard({
               <FatigueIcon className="stat-card__icon" strokeWidth={1.8} />
               {fatigueTrend ? <span className={`trend-badge trend-badge--${fatigueTrend.tone}`}>{fatigueTrend.text}</span> : null}
             </div>
-            <span className="stat-card__label">疲労度</span>
+            <span className="stat-card__label">疲労度（7日平均）</span>
             <strong className="stat-card__value metric-value">
-              {todayCondition ? `${todayCondition.fatigue}/5` : '記録なし'}
+              {latestFatigueMA ? `${latestFatigueMA.movingAvg.toFixed(1)}/5` : '記録なし'}
             </strong>
+            {todayCondition ? (
+              <span className="stat-card__note">本日実測: {todayCondition.fatigue}/5</span>
+            ) : null}
           </article>
 
           <article className="stat-card">
