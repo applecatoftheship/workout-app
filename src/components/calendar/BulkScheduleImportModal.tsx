@@ -29,6 +29,10 @@ const PROMPT_TEXT = `以下の内容を JSON 配列形式のみで出力して�
 日付ごとに、その日にあったデータの種類だけを含めてください（無い項目は省略可）。
 種目名・食材名は、記録アプリに登録されている名称にできるだけ近い一般的な名称にしてください
 （完全一致しない場合、その項目は取り込まれません）。
+種目名は「ベンチプレス」「スクワット」のように、末尾に（バーベル）（ダンベル）等の
+器具種別を含めないでください（アプリの記録画面では器具種別を括弧書きで併記表示していますが、
+これは種目名の一部ではありません）。食材名も同様に、末尾のカロリー・分量等の
+括弧書きは含めないでください（例:「白米」であって「白米 (100g = 168kcal)」ではない）。
 
 [
   {
@@ -50,6 +54,30 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+// 種目名マッチング改善（2026年8月18日）：記録画面のドロップダウンは
+// 「ショルダープレス（バーベル）」のように末尾に装備種別・カロリー等の
+// 括弧書きを付けて表示するが、DB上のマスタ名（exercises.name / food_items.name）
+// にはこの括弧書きが含まれない。ユーザーがドロップダウン表示をそのままAIに
+// 伝えると完全一致せず未一致になってしまう問題への対策として、完全一致が
+// 失敗した場合に末尾の括弧書き（全角（）・半角()どちらも）を1つ除去して
+// 再マッチを試みるフォールバックを追加した。
+function stripTrailingParenthetical(name: string): string {
+  return name.replace(/\s*[（(][^（）()]*[）)]\s*$/, '').trim()
+}
+
+function matchByNameWithFallback<T extends { name: string }>(items: T[], rawName: string): T | undefined {
+  const trimmed = rawName.trim()
+  const exact = items.find((item) => item.name.trim() === trimmed)
+  if (exact) {
+    return exact
+  }
+  const stripped = stripTrailingParenthetical(trimmed)
+  if (!stripped || stripped === trimmed) {
+    return undefined
+  }
+  return items.find((item) => item.name.trim() === stripped)
 }
 
 function mealTypeFromLabel(label: string): MealType {
@@ -260,7 +288,7 @@ export function BulkScheduleImportModal({
             reps: isRecord(rawSet) && typeof rawSet.reps === 'number' ? rawSet.reps : undefined,
           }))
           const exerciseName = rawExercise.name.trim()
-          const matchedExercise = exercisesMaster.find((exercise) => exercise.name.trim() === exerciseName)
+          const matchedExercise = matchByNameWithFallback(exercisesMaster, exerciseName)
           exercises.push({ name: exerciseName, exerciseId: matchedExercise?.id ?? null, sets })
         }
         item.training = { exercises }
@@ -286,7 +314,7 @@ export function BulkScheduleImportModal({
               return
             }
             const itemName = rawItem.name.trim()
-            const matchedFoodItem = foodItemsMaster.find((food) => food.name.trim() === itemName)
+            const matchedFoodItem = matchByNameWithFallback(foodItemsMaster, itemName)
             mealItems.push({ name: itemName, amount: rawItem.amount, foodItemId: matchedFoodItem?.id ?? null })
           }
 
