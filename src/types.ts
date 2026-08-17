@@ -135,6 +135,8 @@ export interface DailyCondition extends BaseRecord {
 export interface ACWRResult {
   acuteLoad: number;
   chronicLoad: number;
+  acuteDays: number;
+  chronicDays: number;
   acwr: number;
   status: 'sweet_spot' | 'warning' | 'danger' | 'unload';
   message: string;

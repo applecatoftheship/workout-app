@@ -158,6 +158,10 @@ export function calculateACWR(
     return dailyLoadMap.get(toDateKey(date)) ?? 0
   }
 
+  // calculateACWRはdaysAvailable < MIN_DAYS_FOR_CALCULATION(7)の時点でnullを返すため、
+  // ここに到達する時点でdaysAvailable >= 7が保証されており、acuteDaysは常に7固定になる。
+  // ただし将来MIN_DAYS_FOR_CALCULATIONを変更した場合にも表示側が正しく追従できるよう、
+  // 固定値ではなく実際の集計日数をACWRResultに含めて返す。
   const acuteDays = Math.min(ACUTE_WINDOW_DAYS, daysAvailable)
   const chronicDays = daysAvailable
 
@@ -177,7 +181,7 @@ export function calculateACWR(
 
   const { status, message, hasSorenessWarning } = determineACWRStatus(acwr, todaySorenessLevel, todaySorenessLocation)
 
-  return { acuteLoad, chronicLoad, acwr, status, message, hasSorenessWarning }
+  return { acuteLoad, chronicLoad, acuteDays, chronicDays, acwr, status, message, hasSorenessWarning }
 }
 
 /** データ蓄積があと何日で7日分に達するか（表示用）。7日分以上ある場合は0。 */

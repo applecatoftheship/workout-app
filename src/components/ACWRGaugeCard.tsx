@@ -47,7 +47,7 @@ export function ACWRGaugeCard({ result, daysUntilAvailable, sorenessLocation, so
 
       <div className="acwr-card__bars">
         <div className="acwr-bar">
-          <span className="acwr-bar__label">急性負荷（7日平均）</span>
+          <span className="acwr-bar__label">急性負荷（{result.acuteDays}日平均）</span>
           <div className="acwr-bar__track">
             <div
               className="acwr-bar__fill acwr-bar__fill--acute"
@@ -57,7 +57,7 @@ export function ACWRGaugeCard({ result, daysUntilAvailable, sorenessLocation, so
           <span className="acwr-bar__value metric-value">{result.acuteLoad.toFixed(0)}</span>
         </div>
         <div className="acwr-bar">
-          <span className="acwr-bar__label">慢性負荷（28日平均）</span>
+          <span className="acwr-bar__label">慢性負荷（{result.chronicDays}日平均）</span>
           <div className="acwr-bar__track">
             <div
               className="acwr-bar__fill acwr-bar__fill--chronic"
