@@ -27,7 +27,8 @@ src/
                   trainingLogs.ts（種目マスタ・実績・DEFAULT_USER_ID）,
                   trainingTemplates.ts, trainingSchedules.ts, foodItems.ts, mealLogs.ts,
                   soccerLogs.ts
-  utils/          calendarHelpers.ts, chartHelpers.ts, soccerCalorieHelpers.ts
+  utils/          calendarHelpers.ts, chartHelpers.ts, soccerCalorieHelpers.ts,
+                  acwrHelpers.ts（ACWR疲労残高計算、2026年8月16〜17日新設）
   hooks/          useTheme.ts（ダーク/ライト切替、UIブラッシュアップPhase 1）
   styles/         tokens.css（デザイントークン本体、UIブラッシュアップPhase 1）
   pages/          Dashboard(.css), MonthlyCalendar(.css), ProgressGraph(.css),
@@ -36,6 +37,7 @@ src/
     GoalPanel(.css)
     BottomNav(.tsx/.css), RecordSheet(.tsx/.css), icons.tsx
                   （下部ナビ・記録シート・アイコン集、UIブラッシュアップPhase 2で新規）
+    ACWRGaugeCard(.tsx/.css)（疲労残高ゲージ、2026年8月16〜17日新設）
     calendar/     TrainingLogForm.tsx, MealLogForm.tsx, ConditionForm.tsx, ScheduleForm.tsx,
                   BulkScheduleImportModal(.css), ExerciseNameInput.tsx,
                   TrainingTemplateSection.tsx, DishFormModal(.tsx/.css),
@@ -398,6 +400,55 @@ state変化のたびに自動発火する設計だったため、以下の経路
 採用していたため該当した。食事記録（meal_logs）・サッカー記録（soccer_logs）・予定
 （training_schedules）は元々個別CRUD方式（都度upsert/delete）だったため、同種の事故は
 起きていなかった。
+
+## 2026年8月16日：ACWR（疲労残高）＋定性チェック機能の追加
+
+9月目標（サッカーのコンディションピーク化）に向け、筋トレ・サッカーの運動負荷と
+主観的な体調・局所疲労を統合管理するACWR（急性:慢性負荷比）機能を追加した。
+ウェアラブルデバイスなしで、手入力データからコンディション予測・アラートを提供する。
+
+**機能概要**：直近7日間の運動負荷（急性負荷）と直近28日間（データ蓄積量に応じて可変、
+最短7日）の運動負荷（慢性負荷）の比率をACWRとして算出し、怪我リスクの目安として
+ダッシュボードに表示する。体調記録の「局所疲労の張り」情報と組み合わせて4段階
+（🟢最適／🟡注意／🔴警戒／🔵低下）で判定する。
+
+**負荷計算式**（`src/utils/acwrHelpers.ts`）：
+- 筋トレ負荷 = `min(100, その日の全セットのΣ(重量×回数) ÷ 100)`
+- サッカー負荷 = `min(100, 消費カロリー ÷ 8)`
+- デイリー統合負荷 = 筋トレ負荷 + サッカー負荷（同日に両方あれば合算、無記録日は0）
+- 急性負荷 = 直近7日間の日次負荷平均、慢性負荷 = 直近28日間（データ不足時はその日数）の
+  日次負荷平均、ACWR = 急性負荷 ÷ 慢性負荷
+- **DBにはキャッシュせず、`calculateACWR`関数の呼び出しのたびに`training_logs`・
+  `training_log_exercises`・`training_sets`・`soccer_logs`から動的に算出する**設計とした
+  （`daily_conditions`に`daily_load_score`のような列は追加していない）。目標値・ゴールの
+  ような「ユーザーが確定させる値」と異なり、ACWRは常に最新の記録を反映すべき派生値のため、
+  キャッシュとの不整合リスクを避ける判断。
+- データが7日未満の場合は`calculateACWR`が`null`を返し、UI側は「データ蓄積中（あとN日で
+  表示されます）」を表示する。
+
+**定性チェックとの組み合わせによる4段階判定**：`daily_conditions`に
+`muscle_soreness_location`（部位：なし/左右ふくらはぎ/ハムストリングス/大腿四頭筋/
+股関節・鼠蹊部/その他）・`muscle_soreness_level`（度合い：なし/違和感/強い張り）を追加し、
+`ConditionForm.tsx`にチップ選択UIを実装（`SoccerLogForm.tsx`の活動種別チップと同じ
+`calendar-detail__category-chip`パターン踏襲）。度合いを選択したまま部位を「なし」で保存
+しようとするとバリデーションエラーになる。ACWR数値と局所疲労の組み合わせ判定：
+ACWR>1.5→🔴警戒、ACWR<0.8→🔵低下、1.3〜1.5→張りなしなら🟡注意/張りありなら🔴警戒、
+0.8〜1.3→「強い張り」なら🟡注意（「右ふくらはぎ：強い張り」のように部位名入りで警告）/
+それ以外は🟢最適。保存・削除は根本修正後の個別CRUD方式（`upsertDailyCondition`直接
+呼び出し→再fetch→state更新）にそのまま追加しており、全件同期方式は使用していない。
+
+**ラベル可変表示の修正経緯**：初期実装では`ACWRGaugeCard.tsx`の負荷バーラベルが
+「急性負荷（7日平均）」「慢性負荷（**28日**平均）」の固定表示だったが、慢性負荷側は
+実際にはデータ蓄積日数（7〜28日で可変）を集計期間としているため、データが14日分
+しかない状態でも「28日平均」と表示され実態と食い違う問題があった。`ACWRResult`型に
+`acuteDays`・`chronicDays`を追加し、`calculateACWR`が実際の集計日数を返すようにした
+上で、ラベルを`result.acuteDays`/`result.chronicDays`から動的生成する形に修正した
+（急性負荷側は`calculateACWR`が7日未満でnullを返す仕様上、値が返る時点では常に7日
+固定になるが、将来の仕様変更に追従できるよう同様に可変対応してある）。
+
+本番環境（workout-app-suke4.vercel.app）で、部位・度合いチップの選択/保存/編集復元、
+バリデーション、データ不足表示、ACWR4ステータス（🟢🟡🔴🔵）すべての再現、ラベルの
+可変表示、ダーク/ライト両モード表示、既存機能への影響なしを確認済み。
 
 ## 既知の技術的負債
 
