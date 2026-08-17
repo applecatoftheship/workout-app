@@ -499,3 +499,39 @@ grant/RLSは既存テーブルへの列追加のみのため不要（テーブ�
   （元々設定済みであっても`alter column ... set default`は何度実行しても安全）。
 - アプリ側（`src/api/goals.ts`）は`upsertGoals`で`id`をpayloadに含めなくなったため、
   新規月の初回保存時はこのデフォルトに依存する。
+
+## 2026年8月17日: スプリント1（ACWR疲労残高＋定性チェック）daily_conditionsへの列追加
+
+実行前に、対象列が既に存在しないか確認する場合は以下で確認できる。
+
+```sql
+select column_name from information_schema.columns
+where table_name = 'daily_conditions' and column_name like 'muscle_soreness%';
+```
+
+```sql
+alter table daily_conditions add column if not exists muscle_soreness_location text default 'none';
+-- 選択肢: 'none'(なし) / 'calf_l'(左ふくらはぎ) / 'calf_r'(右ふくらはぎ) /
+--        'hamstring'(ハムストリングス) / 'quad'(大腿四頭筋) / 'groin'(股関節・鼠蹊部) / 'other'(その他)
+
+alter table daily_conditions add column if not exists muscle_soreness_level text default 'none';
+-- 選択肢: 'none'(なし) / 'mild'(違和感・張りあり) / 'severe'(強い張り・痛みあり)
+```
+
+grant/RLSは既存の`daily_conditions`テーブルへの列追加のみのため新規設定不要
+（テーブル新設ではなく、既存のgrant/RLSポリシーがそのまま新規列にも適用される）。
+
+`daily_load_score`等の負荷スコア列は追加しない。ACWR（急性:慢性負荷比）は
+`src/utils/acwrHelpers.ts`の`calculateACWR`が、training_logs/training_log_exercises/
+training_sets/soccer_logsの既存データから呼び出しのたびに動的算出する方針のため、
+DBへのキャッシュは行わない（3-3節参照）。
+
+### 実装メモ
+
+- `src/api/dailyConditions.ts`の`DailyConditionRow`型・`rowToDailyCondition`・
+  `upsertDailyCondition`に`muscle_soreness_location`/`muscle_soreness_level`の
+  読み書きを追加。値が未設定（レコード自体が旧スキーマ時代に作成された等）の場合は
+  `'none'`をデフォルトとして扱う。
+- 本SQLは列追加のみで、既存行への影響はない（`default 'none'`のため、実行後は
+  既存行も`muscle_soreness_location='none'`・`muscle_soreness_level='none'`として
+  読み出される）。
