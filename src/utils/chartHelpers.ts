@@ -113,6 +113,84 @@ export function shouldShowLabel(index: number, total: number, maxLabels = 8) {
   return index % step === 0 || index === total - 1
 }
 
+export interface MAPoint {
+  date: string // YYYY-MM-DD
+  actual: number // 本日実測値
+  movingAvg: number // 7日移動平均値
+}
+
+/**
+ * 任意のレコード配列から指定キーの7日移動平均（過去データが存在する日数分で平均、
+ * 欠損は許容する）を動的計算する。DBにはキャッシュせず、呼び出しのたびに算出する方針
+ * （ACWR機能・src/utils/acwrHelpers.tsと同じ設計思想）。
+ * 計算コスト（windowItemsのfilterによる全件スキャン）は現状のデータ量では
+ * 問題にならないため、最適化は行っていない（将来的な改善余地として認識のみ）。
+ */
+export function calculateMovingAverage<T extends Record<string, unknown>>(
+  records: T[],
+  dateKey: keyof T,
+  valueKey: keyof T,
+  windowSize = 7,
+): MAPoint[] {
+  const sorted = [...records]
+    .filter((record) => typeof record[valueKey] === 'number' && (record[valueKey] as number) > 0)
+    .sort((a, b) => String(a[dateKey]).localeCompare(String(b[dateKey])))
+
+  return sorted.map((current) => {
+    const currentDate = new Date(String(current[dateKey]))
+    const windowStartDate = new Date(currentDate)
+    windowStartDate.setDate(windowStartDate.getDate() - (windowSize - 1))
+
+    const windowItems = sorted.filter((item) => {
+      const itemDate = new Date(String(item[dateKey]))
+      return itemDate >= windowStartDate && itemDate <= currentDate
+    })
+
+    const sum = windowItems.reduce((acc, item) => acc + (item[valueKey] as number), 0)
+    const avg = sum / (windowItems.length || 1)
+
+    return {
+      date: String(current[dateKey]),
+      actual: current[valueKey] as number,
+      movingAvg: Math.round(avg * 10) / 10,
+    }
+  })
+}
+
+/**
+ * 指標ごとに「増加が良いか、減少が良いか」を一箇所で管理する設定。
+ * 新しい指標を追加する場合はここに1行追加するだけでトレンドバッジの色分けに反映される。
+ */
+export type TrendMetricKey = 'weight' | 'sleep_hours' | 'fatigue_level'
+
+export const TREND_DIRECTION: Record<TrendMetricKey, 'lower_is_better' | 'higher_is_better'> = {
+  weight: 'lower_is_better',
+  sleep_hours: 'higher_is_better',
+  fatigue_level: 'lower_is_better',
+}
+
+/**
+ * 差分（diff = 現在値 - 比較対象値）から、指標ごとの向き設定を踏まえてトレンドバッジの
+ * トーン（good=改善方向/alert=悪化方向/neutral=ほぼ変化なし）を判定する。
+ * Dashboard.tsx（Phase 3）で確立していた個別のweightTrend/sleepTrend/fatigueTrend
+ * ロジックを、指標横断で再利用できる形に共通化したもの。
+ */
+export function getTrendTone(
+  metricKey: TrendMetricKey,
+  diff: number,
+  neutralThreshold = 0.05,
+): 'good' | 'alert' | 'neutral' {
+  if (Math.abs(diff) < neutralThreshold) {
+    return 'neutral'
+  }
+  const direction = TREND_DIRECTION[metricKey]
+  const isIncrease = diff > 0
+  if (direction === 'higher_is_better') {
+    return isIncrease ? 'good' : 'alert'
+  }
+  return isIncrease ? 'alert' : 'good'
+}
+
 export function buildAxisTicks(min: number, range: number, decimals: number) {
   const tickCount = 4
   return Array.from({ length: tickCount }, (_, i) => {
