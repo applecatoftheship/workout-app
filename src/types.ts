@@ -119,12 +119,26 @@ export interface DishWithDetails extends Dish {
   totalCarbohydrates: number;
 }
 
+export type MuscleLocation = 'none' | 'calf_l' | 'calf_r' | 'hamstring' | 'quad' | 'groin' | 'other';
+export type SorenessLevel = 'none' | 'mild' | 'severe';
+
 export interface DailyCondition extends BaseRecord {
   date: DateString;
   weight: number;
   sleepHours: number;
   fatigue: FatigueLevel;
   notes?: string;
+  muscleSorenessLocation?: MuscleLocation;
+  muscleSorenessLevel?: SorenessLevel;
+}
+
+export interface ACWRResult {
+  acuteLoad: number;
+  chronicLoad: number;
+  acwr: number;
+  status: 'sweet_spot' | 'warning' | 'danger' | 'unload';
+  message: string;
+  hasSorenessWarning: boolean;
 }
 
 export type TrainingScheduleStatus = 'scheduled' | 'completed' | 'cancelled';
