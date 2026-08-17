@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import './GoalPanel.css'
 import { useToast } from '../hooks/useToast'
+import { upsertGoals } from '../api/goals'
 import type { Goals } from '../api/goals'
 import type { DailyCondition, TrainingLog } from '../types'
 
@@ -50,6 +51,7 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
   })
   const [goalFormErrors, setGoalFormErrors] = useState<GoalFormErrors>({})
   const [goalFormSummaryError, setGoalFormSummaryError] = useState<string | null>(null)
+  const [isSavingGoals, setIsSavingGoals] = useState(false)
 
   const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   const currentMonthConditions = dailyConditions.filter((condition) => condition.date.startsWith(currentMonthKey))
@@ -146,12 +148,12 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
     return !hasErrors
   }
 
-  const saveGoalSettings = () => {
+  const saveGoalSettings = async () => {
     if (!validateGoalForm()) {
       return
     }
 
-    setGoals({
+    const nextGoals: Goals = {
       yearMonth: goals.yearMonth,
       targetWeight: Number(goalFormState.targetWeight),
       targetSleepHours: Number(goalFormState.targetSleepHours),
@@ -161,9 +163,24 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
       dailyProteinGoal: Number(goalFormState.dailyProteinGoal),
       dailyFatGoal: Number(goalFormState.dailyFatGoal),
       dailyCarbohydrateGoal: Number(goalFormState.dailyCarbohydrateGoal),
-    })
-    setIsEditingGoals(false)
-    showToast('目標を保存しました', 'success')
+    }
+
+    setIsSavingGoals(true)
+    try {
+      // 保存成功後にのみローカルstateを更新する。App.tsx側の自動同期
+      // useEffectは廃止済み（2026年8月17日、データ損失事故の調査を踏まえ、
+      // フェッチ失敗時にデフォルト値で上書きされるリスクを避けるため）。
+      await upsertGoals(nextGoals)
+      setGoals(nextGoals)
+      setIsEditingGoals(false)
+      showToast('目標を保存しました', 'success')
+    } catch (error) {
+      console.error('Supabaseへの目標設定の保存に失敗しました', error)
+      setGoalFormSummaryError('保存に失敗しました。もう一度お試しください')
+      showToast('目標設定の保存に失敗しました', 'error')
+    } finally {
+      setIsSavingGoals(false)
+    }
   }
 
   const cancelGoalEdit = () => {
@@ -284,8 +301,8 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
                 {goalFormErrors.dailyCarbohydrateGoal ? <p className="form-error">{goalFormErrors.dailyCarbohydrateGoal}</p> : null}
               </label>
               <div className="dashboard-goals-actions">
-                <button type="button" className="button button--primary" onClick={saveGoalSettings}>
-                  保存する
+                <button type="button" className="button button--primary" onClick={saveGoalSettings} disabled={isSavingGoals}>
+                  {isSavingGoals ? '保存中...' : '保存する'}
                 </button>
                 <button type="button" className="button button--secondary" onClick={cancelGoalEdit}>
                   キャンセル

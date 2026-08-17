@@ -309,30 +309,10 @@ export async function fetchLatestExerciseRecord(exerciseId: string): Promise<Lat
   }
 }
 
-export async function syncTrainingLogs(logs: TrainingLog[]): Promise<void> {
-  const { data: remoteRows, error: fetchError } = await supabase
-    .from('training_logs')
-    .select('id, log_date')
-    .eq('user_id', DEFAULT_USER_ID)
+export async function deleteTrainingLogRemote(id: string): Promise<void> {
+  const { error } = await supabase.from('training_logs').delete().eq('id', id)
 
-  if (fetchError) {
-    throw fetchError
-  }
-
-  const localDates = new Set(logs.map((log) => log.date))
-  const idsToDelete = (remoteRows as { id: string; log_date: string }[])
-    .filter((row) => !localDates.has(row.log_date as DateString))
-    .map((row) => row.id)
-
-  if (idsToDelete.length > 0) {
-    const { error: deleteError } = await supabase.from('training_logs').delete().in('id', idsToDelete)
-
-    if (deleteError) {
-      throw deleteError
-    }
-  }
-
-  for (const log of logs) {
-    await upsertTrainingLog(log)
+  if (error) {
+    throw error
   }
 }

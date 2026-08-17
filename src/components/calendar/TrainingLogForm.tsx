@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchExercises, fetchLatestExerciseRecord } from '../../api/trainingLogs'
+import { deleteTrainingLogRemote, fetchExercises, fetchLatestExerciseRecord, fetchTrainingLogs, upsertTrainingLog } from '../../api/trainingLogs'
 import { completeScheduleForDate } from '../../api/trainingSchedules'
 import { formatTrainingLogItem } from '../../utils/calendarHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
@@ -109,6 +109,7 @@ export function TrainingLogForm({
   const [formSummaryError, setFormSummaryError] = useState<string | null>(null)
   const [exercises, setExercises] = useState<ExerciseDefinition[]>([])
   const [previousRecordHints, setPreviousRecordHints] = useState<Record<number, string>>({})
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     fetchExercises()
@@ -382,17 +383,34 @@ export function TrainingLogForm({
     return !hasErrors && hasExercise
   }
 
-  const deleteTrainingLog = (logIndex: number) => {
-    const confirmed = window.confirm('このトレーニング実績を本当に削除しますか？')
+  const deleteTrainingLog = async (logIndex: number) => {
+    const target = trainingLogs[logIndex]
+    if (!target?.id) {
+      return
+    }
+
+    const exerciseNames = target.exercises.map((exercise) => exercise.exercise?.name ?? '不明な種目')
+    const exerciseSummary =
+      exerciseNames.length === 0
+        ? ''
+        : exerciseNames.length === 1
+          ? `（${exerciseNames[0]}）`
+          : `（${exerciseNames[0]}他${exerciseNames.length - 1}種目）`
+    const confirmed = window.confirm(`${target.date}のトレーニング実績${exerciseSummary}を削除しますか？`)
     if (!confirmed) {
       return
     }
 
-    setTrainingLogs((current) => {
-      const updated = [...current]
-      updated.splice(logIndex, 1)
-      return updated
-    })
+    try {
+      await deleteTrainingLogRemote(target.id)
+      const refreshed = await fetchTrainingLogs()
+      setTrainingLogs(refreshed)
+      showToast('トレーニング実績を削除しました', 'success')
+    } catch (error) {
+      console.error('Supabaseからのトレーニング実績の削除に失敗しました', error)
+      showToast('削除に失敗しました。もう一度お試しください', 'error')
+      return
+    }
 
     if (editingLogIndex === logIndex) {
       setIsFormOpen(false)
@@ -401,10 +419,9 @@ export function TrainingLogForm({
     if (editingLogIndex !== null && editingLogIndex > logIndex) {
       setEditingLogIndex(editingLogIndex - 1)
     }
-    showToast('トレーニング実績を削除しました', 'success')
   }
 
-  const saveTrainingLog = () => {
+  const saveTrainingLog = async () => {
     if (!validateForm()) {
       return
     }
@@ -435,37 +452,43 @@ export function TrainingLogForm({
         }
       })
 
+    const existingLog = editingLogIndex !== null ? trainingLogs[editingLogIndex] : null
+
     const nextLog: TrainingLog = {
+      id: existingLog?.id,
       date: selectedDate,
       exercises: nextExercises,
       notes: formState.notes.trim() || undefined,
       completed: formState.completed,
     }
 
-    setTrainingLogs((current) => {
-      if (editingLogIndex !== null) {
-        const updated = [...current]
-        updated[editingLogIndex] = nextLog
-        return updated
+    setIsSaving(true)
+    try {
+      await upsertTrainingLog(nextLog)
+      const refreshed = await fetchTrainingLogs()
+      setTrainingLogs(refreshed)
+
+      if (nextLog.completed) {
+        completeScheduleForDate(selectedDate)
+          .then(() => {
+            onScheduleUpdated?.()
+          })
+          .catch((error) => {
+            console.error('Supabaseへの予定の完了連動に失敗しました', error)
+            showToast('予定の完了連動に失敗しました', 'error')
+          })
       }
 
-      return [...current, nextLog]
-    })
-
-    if (nextLog.completed) {
-      completeScheduleForDate(selectedDate)
-        .then(() => {
-          onScheduleUpdated?.()
-        })
-        .catch((error) => {
-          console.error('Supabaseへの予定の完了連動に失敗しました', error)
-          showToast('予定の完了連動に失敗しました', 'error')
-        })
+      setIsFormOpen(false)
+      setEditingLogIndex(null)
+      showToast('トレーニング実績を保存しました', 'success')
+    } catch (error) {
+      console.error('Supabaseへのトレーニング実績の保存に失敗しました', error)
+      setFormSummaryError('保存に失敗しました。もう一度お試しください')
+      showToast('トレーニング実績の保存に失敗しました', 'error')
+    } finally {
+      setIsSaving(false)
     }
-
-    setIsFormOpen(false)
-    setEditingLogIndex(null)
-    showToast('トレーニング実績を保存しました', 'success')
   }
 
   return (
@@ -637,8 +660,8 @@ export function TrainingLogForm({
           </div>
 
           <div className="calendar-detail__actions">
-            <button type="button" className="calendar-detail__button" onClick={saveTrainingLog}>
-              保存する
+            <button type="button" className="calendar-detail__button" onClick={saveTrainingLog} disabled={isSaving}>
+              {isSaving ? '保存中...' : '保存する'}
             </button>
             {editingLogIndex !== null ? (
               <button

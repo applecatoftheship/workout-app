@@ -77,30 +77,10 @@ export async function upsertDailyCondition(condition: DailyCondition): Promise<v
   }
 }
 
-export async function syncDailyConditions(conditions: DailyCondition[]): Promise<void> {
-  const { data: remoteRows, error: fetchError } = await supabase
-    .from('daily_conditions')
-    .select('id, log_date')
-    .eq('user_id', DEFAULT_USER_ID)
+export async function deleteDailyConditionRemote(id: string): Promise<void> {
+  const { error } = await supabase.from('daily_conditions').delete().eq('id', id)
 
-  if (fetchError) {
-    throw fetchError
-  }
-
-  const localDates = new Set(conditions.map((condition) => condition.date))
-  const idsToDelete = (remoteRows as { id: string; log_date: string }[])
-    .filter((row) => !localDates.has(row.log_date as DateString))
-    .map((row) => row.id)
-
-  if (idsToDelete.length > 0) {
-    const { error: deleteError } = await supabase.from('daily_conditions').delete().in('id', idsToDelete)
-
-    if (deleteError) {
-      throw deleteError
-    }
-  }
-
-  for (const condition of conditions) {
-    await upsertDailyCondition(condition)
+  if (error) {
+    throw error
   }
 }

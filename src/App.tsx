@@ -9,9 +9,9 @@ import { BottomNav } from './components/BottomNav'
 import { RecordSheet } from './components/RecordSheet'
 import { RecordFormModal } from './components/RecordFormModal'
 import type { RecordModalRequest } from './components/RecordFormModal'
-import { fetchDailyConditions, syncDailyConditions } from './api/dailyConditions'
-import { fetchGoalsByMonth, upsertGoals } from './api/goals'
-import { fetchTrainingLogs, syncTrainingLogs } from './api/trainingLogs'
+import { fetchDailyConditions } from './api/dailyConditions'
+import { fetchGoalsByMonth } from './api/goals'
+import { fetchTrainingLogs } from './api/trainingLogs'
 import { fetchMealLogs } from './api/mealLogs'
 import { useTheme } from './hooks/useTheme'
 import { ToastProvider, useToast } from './hooks/useToast'
@@ -45,12 +45,9 @@ function AppShell() {
   const [isRecordSheetOpen, setIsRecordSheetOpen] = useState(false)
   const [recordModalRequest, setRecordModalRequest] = useState<RecordModalRequest | null>(null)
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
-  const [areTrainingLogsLoaded, setAreTrainingLogsLoaded] = useState(false)
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
   const [dailyConditions, setDailyConditions] = useState<DailyCondition[]>([])
-  const [areDailyConditionsLoaded, setAreDailyConditionsLoaded] = useState(false)
   const [goals, setGoals] = useState<Goals>({ ...defaultGoals })
-  const [areGoalsLoaded, setAreGoalsLoaded] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -59,15 +56,11 @@ function AppShell() {
       .then((data) => {
         if (isMounted) {
           setDailyConditions(data)
-          setAreDailyConditionsLoaded(true)
         }
       })
       .catch((error) => {
         console.error('Supabaseから体調記録の取得に失敗しました', error)
         if (isMounted) {
-          // areDailyConditionsLoadedはfalseのまま維持する。ここでtrueにすると、
-          // 空のdailyConditions状態がそのままsyncDailyConditionsに渡り、
-          // リモートの全体調記録が削除されてしまう（2026年8月17日、データ損失事故の調査で判明）。
           showToast('体調記録の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
@@ -77,39 +70,28 @@ function AppShell() {
     }
   }, [showToast])
 
-  useEffect(() => {
-    if (!areDailyConditionsLoaded) {
-      return
-    }
-
-    syncDailyConditions(dailyConditions).catch((error) => {
-      console.error('Supabaseへの体調記録の保存に失敗しました', error)
-      showToast('体調記録の保存に失敗しました', 'error')
-    })
-  }, [dailyConditions, areDailyConditionsLoaded, showToast])
+  // 体調記録・トレーニング記録・目標設定は、以前は「state変化のたびに
+  // ローカルとリモートの差分を取ってリモート側を削除→再作成する」sync方式だった。
+  // フェッチが失敗/不完全なまま空のローカルstateで同期されるとリモートの
+  // 既存データが全損する構造的な欠陥があったため（2026年8月17日、データ損失
+  // 事故の調査で判明）、個別の保存・削除操作の際にAPIを直接呼び出す方式
+  // （食事記録・サッカー記録・予定と同じ方式）に統一した。このため、
+  // ここでの自動同期useEffectは廃止済み。各フォーム
+  // （TrainingLogForm・ConditionForm・GoalPanel）が保存・削除のたびに
+  // 個別APIを呼び、成功後にfetchで取得し直したデータでローカルstateを更新する。
 
   useEffect(() => {
     let isMounted = true
 
     fetchGoalsByMonth(currentYearMonth)
       .then((data) => {
-        if (isMounted) {
-          if (data) {
-            setGoals(data)
-          }
-          // dataがnullなのは「過去分含めて目標設定が1件もない初回ユーザー」の
-          // 正常なケースなので、その場合もloadedをtrueにしてデフォルト値を
-          // 新規作成させてよい。
-          setAreGoalsLoaded(true)
+        if (isMounted && data) {
+          setGoals(data)
         }
       })
       .catch((error) => {
         console.error('Supabaseから目標設定の取得に失敗しました', error)
         if (isMounted) {
-          // areGoalsLoadedはfalseのまま維持する。ここでtrueにすると、
-          // 初期値（defaultGoals、ハードコードされた仮の目標値）がそのまま
-          // upsertGoalsに渡り、ユーザーが実際に設定した目標値を上書きしてしまう
-          // （2026年8月17日、データ損失事故の調査で判明した関連の欠陥）。
           showToast('目標設定の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
@@ -120,33 +102,17 @@ function AppShell() {
   }, [showToast])
 
   useEffect(() => {
-    if (!areGoalsLoaded) {
-      return
-    }
-
-    upsertGoals(goals).catch((error) => {
-      console.error('Supabaseへの目標設定の保存に失敗しました', error)
-      showToast('目標設定の保存に失敗しました', 'error')
-    })
-  }, [goals, areGoalsLoaded, showToast])
-
-  useEffect(() => {
     let isMounted = true
 
     fetchTrainingLogs()
       .then((data) => {
         if (isMounted) {
           setTrainingLogs(data)
-          setAreTrainingLogsLoaded(true)
         }
       })
       .catch((error) => {
         console.error('Supabaseからトレーニング記録の取得に失敗しました', error)
         if (isMounted) {
-          // areTrainingLogsLoadedはfalseのまま維持する。ここでtrueにすると、
-          // 空のtrainingLogs状態がそのままsyncTrainingLogsに渡り、
-          // リモートの全トレーニング記録が削除されてしまう
-          // （2026年8月17日、データ損失事故の調査で判明）。
           showToast('トレーニング記録の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
@@ -155,17 +121,6 @@ function AppShell() {
       isMounted = false
     }
   }, [showToast])
-
-  useEffect(() => {
-    if (!areTrainingLogsLoaded) {
-      return
-    }
-
-    syncTrainingLogs(trainingLogs).catch((error) => {
-      console.error('Supabaseへのトレーニング記録の保存に失敗しました', error)
-      showToast('トレーニング記録の保存に失敗しました', 'error')
-    })
-  }, [trainingLogs, areTrainingLogsLoaded, showToast])
 
   useEffect(() => {
     let isMounted = true

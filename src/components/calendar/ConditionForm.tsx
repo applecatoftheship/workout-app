@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DailyCondition, DateString, FatigueLevel } from '../../types'
 import { formatConditionSummary } from '../../utils/calendarHelpers'
+import { deleteDailyConditionRemote, fetchDailyConditions, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
 
 type ConditionFormState = {
@@ -52,6 +53,7 @@ export function ConditionForm({
   const [conditionFormState, setConditionFormState] = useState<ConditionFormState>(createEmptyConditionFormState())
   const [conditionFormErrors, setConditionFormErrors] = useState<ConditionFormErrors>(createEmptyConditionFormErrors())
   const [conditionFormSummaryError, setConditionFormSummaryError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   const selectedCondition = useMemo(
     () => dailyConditions.find((condition) => condition.date === selectedDate),
@@ -123,12 +125,12 @@ export function ConditionForm({
     return !hasErrors
   }
 
-  const saveCondition = () => {
+  const saveCondition = async () => {
     if (!validateConditionForm()) {
       return
     }
 
-    const nextCondition = {
+    const nextCondition: DailyCondition = {
       date: selectedDate,
       weight: Number(conditionFormState.weight),
       sleepHours: Number(conditionFormState.sleepHours),
@@ -136,35 +138,44 @@ export function ConditionForm({
       notes: conditionFormState.notes.trim() || undefined,
     }
 
-    setDailyConditions((current) => {
-      if (editingConditionIndex !== null) {
-        const updated = [...current]
-        updated[editingConditionIndex] = nextCondition
-        return updated
-      }
-
-      return [...current, nextCondition]
-    })
-
-    setIsConditionFormOpen(false)
-    setEditingConditionIndex(null)
-    showToast('体調記録を保存しました', 'success')
+    setIsSaving(true)
+    try {
+      await upsertDailyCondition(nextCondition)
+      const refreshed = await fetchDailyConditions()
+      setDailyConditions(refreshed)
+      setIsConditionFormOpen(false)
+      setEditingConditionIndex(null)
+      showToast('体調記録を保存しました', 'success')
+    } catch (error) {
+      console.error('Supabaseへの体調記録の保存に失敗しました', error)
+      setConditionFormSummaryError('保存に失敗しました。もう一度お試しください')
+      showToast('体調記録の保存に失敗しました', 'error')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const deleteCondition = () => {
-    if (!selectedCondition) {
+  const deleteCondition = async () => {
+    if (!selectedCondition?.id) {
       return
     }
 
-    const confirmed = window.confirm('この体調記録を本当に削除しますか？')
+    const confirmed = window.confirm(`${selectedCondition.date}の体調記録を削除しますか？`)
     if (!confirmed) {
       return
     }
 
-    setDailyConditions((current) => current.filter((condition) => condition.date !== selectedDate))
-    setIsConditionFormOpen(false)
-    setEditingConditionIndex(null)
-    showToast('体調記録を削除しました', 'success')
+    try {
+      await deleteDailyConditionRemote(selectedCondition.id)
+      const refreshed = await fetchDailyConditions()
+      setDailyConditions(refreshed)
+      setIsConditionFormOpen(false)
+      setEditingConditionIndex(null)
+      showToast('体調記録を削除しました', 'success')
+    } catch (error) {
+      console.error('Supabaseからの体調記録の削除に失敗しました', error)
+      showToast('削除に失敗しました。もう一度お試しください', 'error')
+    }
   }
 
   return (
@@ -250,8 +261,8 @@ export function ConditionForm({
             />
           </label>
           <div className="calendar-detail__actions">
-            <button type="button" className="calendar-detail__button" onClick={saveCondition}>
-              保存する
+            <button type="button" className="calendar-detail__button" onClick={saveCondition} disabled={isSaving}>
+              {isSaving ? '保存中...' : '保存する'}
             </button>
             {editingConditionIndex !== null ? (
               <button type="button" className="calendar-detail__delete-button" onClick={deleteCondition}>

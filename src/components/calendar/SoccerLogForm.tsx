@@ -226,7 +226,7 @@ export function SoccerLogForm({
       return
     }
 
-    const confirmed = window.confirm('このサッカー記録を本当に削除しますか？')
+    const confirmed = window.confirm(`${selectedLog.date}のサッカー記録（${selectedLog.activityType}）を削除しますか？`)
     if (!confirmed) {
       return
     }

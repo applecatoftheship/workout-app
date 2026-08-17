@@ -154,7 +154,7 @@ export function ScheduleForm({
   }
 
   const removeSchedule = async (schedule: TrainingSchedule) => {
-    const confirmed = window.confirm('この予定を本当に削除しますか？')
+    const confirmed = window.confirm(`${schedule.scheduledDate}の予定「${schedule.title}」を削除しますか？`)
     if (!confirmed) {
       return
     }

@@ -481,13 +481,13 @@ export function MealLogForm({
   }
 
   const deleteMealLog = async (mealIndex: number) => {
-    const confirmed = window.confirm('この食事記録を本当に削除しますか？')
-    if (!confirmed) {
+    const target = mealLogs[mealIndex]
+    if (!target?.id) {
       return
     }
 
-    const target = mealLogs[mealIndex]
-    if (!target?.id) {
+    const confirmed = window.confirm(`${target.date}の${getMealTypeLabel(target.mealType)}記録を削除しますか？`)
+    if (!confirmed) {
       return
     }
 
