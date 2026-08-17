@@ -4,7 +4,7 @@ import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
-import { FatigueIcon, HistoryIcon, SleepIcon, WeightIcon } from '../components/icons'
+import { ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, WeightIcon } from '../components/icons'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { getDayIcons, toDateKey, weekDays } from '../utils/calendarHelpers'
@@ -49,6 +49,26 @@ function findPointDaysBefore(points: MAPoint[], latestDate: string, daysBefore: 
   return points.find((point) => point.date === targetKey) ?? null
 }
 
+/**
+ * ホーム日付選択（2026年8月17日）：移動平均データ列から、ちょうどその日付の
+ * ポイントを探す。「本日」のように直近の記録日にフォールバックせず、
+ * その日に記録が無ければnullを返す（選択日にデータが無いカードは非表示にする仕様のため）。
+ */
+function findMAPointForDate(points: MAPoint[], dateKey: string): MAPoint | null {
+  return points.find((point) => point.date === dateKey) ?? null
+}
+
+function formatSelectedDateLabel(dateKey: string) {
+  return new Intl.DateTimeFormat('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' }).format(
+    new Date(`${dateKey}T00:00:00`),
+  )
+}
+
+function formatSelectedDateShort(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00`)
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
 type DashboardProps = {
   trainingLogs: TrainingLog[]
   mealLogs: MealLog[]
@@ -76,13 +96,26 @@ export function Dashboard({
   const [weekSchedules, setWeekSchedules] = useState<TrainingSchedule[]>([])
   const [weekSoccerLogs, setWeekSoccerLogs] = useState<SoccerLog[]>([])
   const [acwrSoccerLogs, setAcwrSoccerLogs] = useState<SoccerLog[]>([])
-  const [expandedWeekDateKey, setExpandedWeekDateKey] = useState<DateString | null>(null)
+  // ホーム日付選択（2026年8月17日）：週間ストリップの週移動（A-1）と、
+  // 日付タップによるホーム画面全体の日付コンテキスト切り替え（A-2）。
+  // 目標ストリップ・ACWRGaugeCardは対象外のため、常にtodayStringを使い続ける。
+  const [weekOffset, setWeekOffset] = useState(0)
+  const [selectedDateKey, setSelectedDateKey] = useState<DateString>(todayString)
+  const isViewingToday = selectedDateKey === todayString
+
+  // 週を移動したら、直前に選んでいた日付コンテキストは一旦「今日」に戻す。
+  // 週送りボタン自体のクリック時点でリセットするため、その後に新しい週のセルを
+  // タップして選択する分には影響しない（選択対象は常に現在表示中の週の範囲内になる）。
+  useEffect(() => {
+    setSelectedDateKey(todayString)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekOffset])
 
   const weekStart = useMemo(() => {
     const start = new Date(today)
-    start.setDate(today.getDate() - today.getDay())
+    start.setDate(today.getDate() - today.getDay() + weekOffset * 7)
     return start
-  }, [today])
+  }, [today, weekOffset])
 
   const weekDates = useMemo(() => {
     return Array.from({ length: 7 }, (_, index) => {
@@ -164,38 +197,8 @@ export function Dashboard({
     return map
   }, [weekSoccerLogs])
 
-  const todaySchedules = weekSchedulesByDate.get(todayString) ?? []
-  const todaySoccerLog = weekSoccerLogsByDate.get(todayString)?.[0] ?? null
-
-  const toggleWeekDate = (dateKey: DateString) => {
-    setExpandedWeekDateKey((current) => (current === dateKey ? null : dateKey))
-  }
-
-  const expandedTrainingLogs = useMemo(
-    () => (expandedWeekDateKey ? trainingLogs.filter((log) => log.date === expandedWeekDateKey) : []),
-    [trainingLogs, expandedWeekDateKey],
-  )
-  const expandedLoggedExercises = expandedTrainingLogs.flatMap((log) => log.exercises)
-  const expandedSchedules = expandedWeekDateKey ? weekSchedulesByDate.get(expandedWeekDateKey) ?? [] : []
-  const expandedSoccerLog = expandedWeekDateKey ? weekSoccerLogsByDate.get(expandedWeekDateKey)?.[0] ?? null : null
-  const expandedBodyPartsLabel = useMemo(() => {
-    const parts = Array.from(
-      new Set(
-        expandedLoggedExercises
-          .map((exercise) => exercise.exercise?.bodyPart)
-          .filter((part): part is NonNullable<typeof part> => Boolean(part)),
-      ),
-    )
-    return parts.length > 0 ? parts.join('・') : 'トレーニング'
-  }, [expandedLoggedExercises])
-  const hasExpandedTrainingBlock = expandedTrainingLogs.length > 0 || expandedSchedules.length > 0
-  const hasExpandedSoccerBlock = expandedSoccerLog !== null
-  const hasExpandedContent = hasExpandedTrainingBlock || hasExpandedSoccerBlock
-
-  const todayTrainingLogs = useMemo(
-    () => trainingLogs.filter((log) => log.date === todayString),
-    [trainingLogs, todayString],
-  )
+  // ACWRGaugeCard・目標ストリップは日付選択の対象外のため、常にtodayString基準の
+  // 実測値を使う（ホーム日付選択機能の影響を受けない）。
   const todayCondition = useMemo(
     () => dailyConditions.find((condition) => condition.date === todayString),
     [dailyConditions, todayString],
@@ -216,9 +219,20 @@ export function Dashboard({
     () => daysUntilACWRAvailable(trainingLogs, acwrSoccerLogs, todayString),
     [trainingLogs, acwrSoccerLogs, todayString],
   )
+
+  // ホーム日付選択（A-2）：カロリーリング・「選択日の運動」カード・統計カードは
+  // 週間ストリップで選んだ日付（selectedDateKey）基準に切り替わる。閲覧専用で、
+  // 記録の追加・編集は既存の「＋」ボタン（常に今日固定）経由でのみ行う。
+  const todaySchedules = weekSchedulesByDate.get(selectedDateKey) ?? []
+  const todaySoccerLog = weekSoccerLogsByDate.get(selectedDateKey)?.[0] ?? null
+
+  const todayTrainingLogs = useMemo(
+    () => trainingLogs.filter((log) => log.date === selectedDateKey),
+    [trainingLogs, selectedDateKey],
+  )
   const todayMealLogs = useMemo(
-    () => mealLogs.filter((log) => log.date === todayString),
-    [mealLogs, todayString],
+    () => mealLogs.filter((log) => log.date === selectedDateKey),
+    [mealLogs, selectedDateKey],
   )
 
   const todayLoggedExercises = todayTrainingLogs.flatMap((log) => log.exercises)
@@ -261,11 +275,27 @@ export function Dashboard({
   const sleepMA = useMemo(() => calculateMovingAverage(dailyConditions, 'date', 'sleepHours'), [dailyConditions])
   const fatigueMA = useMemo(() => calculateMovingAverage(dailyConditions, 'date', 'fatigue'), [dailyConditions])
 
-  const latestWeightMA = weightMA.length > 0 ? weightMA[weightMA.length - 1] : null
-  const latestSleepMA = sleepMA.length > 0 ? sleepMA[sleepMA.length - 1] : null
-  const latestFatigueMA = fatigueMA.length > 0 ? fatigueMA[fatigueMA.length - 1] : null
+  // ホーム日付選択（A-3）：「今日」表示中は既存どおり最新の記録日（必ずしも
+  // todayStringと一致しない）にフォールバックする。過去日を選択した場合は
+  // 「既存ルール踏襲」の指示に従い、その日にちょうど記録があるときだけ表示し、
+  // なければnull（該当カードは非表示）にする——最新値へのフォールバックはしない。
+  const latestWeightMA = isViewingToday
+    ? weightMA.length > 0
+      ? weightMA[weightMA.length - 1]
+      : null
+    : findMAPointForDate(weightMA, selectedDateKey)
+  const latestSleepMA = isViewingToday
+    ? sleepMA.length > 0
+      ? sleepMA[sleepMA.length - 1]
+      : null
+    : findMAPointForDate(sleepMA, selectedDateKey)
+  const latestFatigueMA = isViewingToday
+    ? fatigueMA.length > 0
+      ? fatigueMA[fatigueMA.length - 1]
+      : null
+    : findMAPointForDate(fatigueMA, selectedDateKey)
 
-  // 前週比＝直近の移動平均値と、そのちょうど7日前の移動平均値との差分
+  // 前週比＝表示中の移動平均値と、そのちょうど7日前の移動平均値との差分
   // （「本日実測」同士の日次比較だったPhase 3のロジックから、移動平均同士の比較に変更）。
   const weightTrend = useMemo(() => {
     if (!latestWeightMA) return null
@@ -330,6 +360,19 @@ export function Dashboard({
     ? todayMealLogs.map((log) => `${log.mealType}(${log.foods.join('・')})`).join(' / ')
     : '記録なし'
 
+  // 統計カードの「実測」注記（本日実測 / 実測）は、選択日にちょうど記録があるときだけ表示する。
+  const selectedCondition = useMemo(
+    () => dailyConditions.find((condition) => condition.date === selectedDateKey),
+    [dailyConditions, selectedDateKey],
+  )
+
+  const selectedDateLabel = useMemo(() => formatSelectedDateLabel(selectedDateKey), [selectedDateKey])
+  const selectedDateShortLabel = useMemo(() => formatSelectedDateShort(selectedDateKey), [selectedDateKey])
+  const exerciseCardTitle = isViewingToday ? '今日の運動' : `${selectedDateShortLabel}の運動`
+  const calorieCardTitle = isViewingToday ? '今日のカロリー' : `${selectedDateShortLabel}のカロリー`
+  const todayDetailTitle = isViewingToday ? '今日の内容' : `${selectedDateShortLabel}の内容`
+  const nutritionDetailTitle = isViewingToday ? '今日の食事・PFC' : `${selectedDateShortLabel}の食事・PFC`
+
   const quickLinks = [
     {
       title: '月間カレンダー',
@@ -362,10 +405,22 @@ export function Dashboard({
       <div className="dashboard-header">
         <p className="eyebrow">Workout App</p>
         <h1>{formattedDate}</h1>
+        {!isViewingToday ? (
+          <div className="dashboard-date-context">
+            <span className="dashboard-date-context__label">📅 {selectedDateLabel}を表示中</span>
+            <button
+              type="button"
+              className="btn-secondary btn-secondary--sm"
+              onClick={() => setSelectedDateKey(todayString)}
+            >
+              ✕ 今日に戻る
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <section className="panel-card calorie-card">
-        <h2 className="panel-card__title">今日のカロリー</h2>
+        <h2 className="panel-card__title">{calorieCardTitle}</h2>
         <div className="calorie-ring">
           <RadialBarChart
             width={180}
@@ -402,7 +457,7 @@ export function Dashboard({
 
       {hasExerciseCard ? (
         <section className="panel-card exercise-card">
-          <h2 className="panel-card__title">今日の運動</h2>
+          <h2 className="panel-card__title">{exerciseCardTitle}</h2>
 
           {hasTrainingBlock ? (
             <div className="exercise-block">
@@ -452,11 +507,30 @@ export function Dashboard({
       />
 
       <section className="panel-card week-strip">
-        <h2 className="panel-card__title">今週の記録</h2>
+        <div className="week-strip__header">
+          <h2 className="panel-card__title">今週の記録</h2>
+          <div className="week-strip__nav">
+            {weekOffset !== 0 ? (
+              <button
+                type="button"
+                className="btn-secondary btn-secondary--sm calendar-nav__today"
+                onClick={() => setWeekOffset(0)}
+              >
+                今週に戻る
+              </button>
+            ) : null}
+            <button type="button" className="btn-icon" onClick={() => setWeekOffset((offset) => offset - 1)} aria-label="前週">
+              <ChevronLeftIcon />
+            </button>
+            <button type="button" className="btn-icon" onClick={() => setWeekOffset((offset) => offset + 1)} aria-label="翌週">
+              <ChevronRightIcon />
+            </button>
+          </div>
+        </div>
         <div className="week-strip__grid">
           {weekDates.map(({ date, dateKey }, index) => {
             const isToday = dateKey === todayString
-            const isSelected = dateKey === expandedWeekDateKey
+            const isSelected = dateKey === selectedDateKey
             const icons = getDayIcons(
               weekSchedulesByDate.get(dateKey) ?? [],
               weekSoccerLogsByDate.get(dateKey) ?? [],
@@ -469,7 +543,7 @@ export function Dashboard({
                 key={dateKey}
                 type="button"
                 className={`week-strip__cell ${isToday ? 'week-strip__cell--today' : ''} ${isSelected ? 'week-strip__cell--selected' : ''}`}
-                onClick={() => toggleWeekDate(dateKey)}
+                onClick={() => setSelectedDateKey(dateKey)}
                 aria-pressed={isSelected}
                 aria-label={`${date.getMonth() + 1}月${date.getDate()}日の記録を見る`}
               >
@@ -480,100 +554,64 @@ export function Dashboard({
             )
           })}
         </div>
-
-        {expandedWeekDateKey ? (
-          <div className="week-strip__detail">
-            {hasExpandedContent ? (
-              <>
-                {hasExpandedTrainingBlock ? (
-                  <div className="exercise-block">
-                    <div className="exercise-block__header">
-                      <span className="exercise-block__title">{expandedBodyPartsLabel}</span>
-                      <span className={`status-chip status-chip--${expandedTrainingLogs.length > 0 ? 'good' : 'warning'}`}>
-                        {expandedTrainingLogs.length > 0 ? '完了' : '予定'}
-                      </span>
-                    </div>
-                    <ul className="exercise-block__list">
-                      {expandedTrainingLogs.length > 0
-                        ? expandedLoggedExercises.map((exercise, index) => (
-                            <li key={exercise.id ?? `${exercise.exerciseId}-${index}`}>{formatExerciseCompact(exercise)}</li>
-                          ))
-                        : expandedSchedules.map((schedule, index) => (
-                            <li key={schedule.id ?? `${schedule.title}-${index}`}>
-                              {schedule.emoji} {schedule.title}
-                            </li>
-                          ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {hasExpandedTrainingBlock && hasExpandedSoccerBlock ? <div className="exercise-block__divider" /> : null}
-
-                {expandedSoccerLog ? (
-                  <div className="exercise-block exercise-block--soccer">
-                    <div className="exercise-block__header">
-                      <span className="exercise-block__title">⚽ {expandedSoccerLog.activityType}</span>
-                      <span className="status-chip status-chip--good">完了</span>
-                    </div>
-                    <div className="exercise-block__soccer-stats">
-                      {expandedSoccerLog.durationMinutes != null ? <span>⏱ {expandedSoccerLog.durationMinutes}分</span> : null}
-                      {expandedSoccerLog.distanceKm != null ? <span>📍 {expandedSoccerLog.distanceKm}km</span> : null}
-                      {expandedSoccerLog.caloriesBurned != null ? <span>🔥 {expandedSoccerLog.caloriesBurned}kcal</span> : null}
-                    </div>
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <p className="no-record">この日の記録はまだありません</p>
-            )}
-          </div>
-        ) : null}
       </section>
 
       <section className="panel-card stats-card">
         <h2 className="panel-card__title">体調・記録</h2>
         <div className="stats-grid">
-          <article className="stat-card">
-            <div className="stat-card__header">
-              <WeightIcon className="stat-card__icon" strokeWidth={1.8} />
-              {weightTrend ? <span className={`trend-badge trend-badge--${weightTrend.tone}`}>{weightTrend.text}</span> : null}
-            </div>
-            <span className="stat-card__label">体重（7日平均）</span>
-            <strong className="stat-card__value metric-value">
-              {latestWeightMA ? `${latestWeightMA.movingAvg.toFixed(1)}kg` : '記録なし'}
-            </strong>
-            {todayCondition ? (
-              <span className="stat-card__note">本日実測: {todayCondition.weight.toFixed(1)}kg</span>
-            ) : null}
-          </article>
+          {isViewingToday || latestWeightMA ? (
+            <article className="stat-card">
+              <div className="stat-card__header">
+                <WeightIcon className="stat-card__icon" strokeWidth={1.8} />
+                {weightTrend ? <span className={`trend-badge trend-badge--${weightTrend.tone}`}>{weightTrend.text}</span> : null}
+              </div>
+              <span className="stat-card__label">体重（7日平均）</span>
+              <strong className="stat-card__value metric-value">
+                {latestWeightMA ? `${latestWeightMA.movingAvg.toFixed(1)}kg` : '記録なし'}
+              </strong>
+              {selectedCondition ? (
+                <span className="stat-card__note">
+                  {isViewingToday ? '本日実測' : '実測'}: {selectedCondition.weight.toFixed(1)}kg
+                </span>
+              ) : null}
+            </article>
+          ) : null}
 
-          <article className="stat-card">
-            <div className="stat-card__header">
-              <SleepIcon className="stat-card__icon" strokeWidth={1.8} />
-              {sleepTrend ? <span className={`trend-badge trend-badge--${sleepTrend.tone}`}>{sleepTrend.text}</span> : null}
-            </div>
-            <span className="stat-card__label">睡眠（7日平均）</span>
-            <strong className="stat-card__value metric-value">
-              {latestSleepMA ? `${latestSleepMA.movingAvg.toFixed(1)}h` : '記録なし'}
-            </strong>
-            {todayCondition ? (
-              <span className="stat-card__note">本日実測: {todayCondition.sleepHours.toFixed(1)}h</span>
-            ) : null}
-          </article>
+          {isViewingToday || latestSleepMA ? (
+            <article className="stat-card">
+              <div className="stat-card__header">
+                <SleepIcon className="stat-card__icon" strokeWidth={1.8} />
+                {sleepTrend ? <span className={`trend-badge trend-badge--${sleepTrend.tone}`}>{sleepTrend.text}</span> : null}
+              </div>
+              <span className="stat-card__label">睡眠（7日平均）</span>
+              <strong className="stat-card__value metric-value">
+                {latestSleepMA ? `${latestSleepMA.movingAvg.toFixed(1)}h` : '記録なし'}
+              </strong>
+              {selectedCondition ? (
+                <span className="stat-card__note">
+                  {isViewingToday ? '本日実測' : '実測'}: {selectedCondition.sleepHours.toFixed(1)}h
+                </span>
+              ) : null}
+            </article>
+          ) : null}
 
-          <article className="stat-card">
-            <div className="stat-card__header">
-              <FatigueIcon className="stat-card__icon" strokeWidth={1.8} />
-              {fatigueTrend ? <span className={`trend-badge trend-badge--${fatigueTrend.tone}`}>{fatigueTrend.text}</span> : null}
-            </div>
-            <span className="stat-card__label">疲労度（7日平均）</span>
-            <strong className="stat-card__value metric-value">
-              {latestFatigueMA ? `${latestFatigueMA.movingAvg.toFixed(1)}/5` : '記録なし'}
-            </strong>
-            {todayCondition ? (
-              <span className="stat-card__note">本日実測: {todayCondition.fatigue}/5</span>
-            ) : null}
-          </article>
+          {isViewingToday || latestFatigueMA ? (
+            <article className="stat-card">
+              <div className="stat-card__header">
+                <FatigueIcon className="stat-card__icon" strokeWidth={1.8} />
+                {fatigueTrend ? <span className={`trend-badge trend-badge--${fatigueTrend.tone}`}>{fatigueTrend.text}</span> : null}
+              </div>
+              <span className="stat-card__label">疲労度（7日平均）</span>
+              <strong className="stat-card__value metric-value">
+                {latestFatigueMA ? `${latestFatigueMA.movingAvg.toFixed(1)}/5` : '記録なし'}
+              </strong>
+              {selectedCondition ? (
+                <span className="stat-card__note">
+                  {isViewingToday ? '本日実測' : '実測'}: {selectedCondition.fatigue}/5
+                </span>
+              ) : null}
+            </article>
+          ) : null}
 
           <article className="stat-card">
             <div className="stat-card__header">
@@ -605,7 +643,7 @@ export function Dashboard({
           className="accordion-header"
           onClick={() => setIsTodayDetailOpen((current) => !current)}
         >
-          今日の内容
+          {todayDetailTitle}
           <span className="accordion-chevron">{isTodayDetailOpen ? '▼' : '▶'}</span>
         </button>
         {isTodayDetailOpen ? (
@@ -618,7 +656,7 @@ export function Dashboard({
               </div>
               <div className="detail-item">
                 <span className="detail-label">体調メモ</span>
-                <p>{todayCondition ? todayCondition.notes ?? 'メモなし' : '記録なし'}</p>
+                <p>{selectedCondition ? selectedCondition.notes ?? 'メモなし' : '記録なし'}</p>
               </div>
             </div>
           </div>
@@ -631,14 +669,14 @@ export function Dashboard({
           className="accordion-header"
           onClick={() => setIsNutritionOpen((current) => !current)}
         >
-          今日の食事・PFC
+          {nutritionDetailTitle}
           <span className="accordion-chevron">{isNutritionOpen ? '▼' : '▶'}</span>
         </button>
         {isNutritionOpen ? (
           <div className="accordion-body">
             <p className="panel-card__description">1日の栄養進捗を目標値と比較して表示します。</p>
             {todayMealLogs.length === 0 ? (
-              <p className="no-record">今日の食事記録はありません</p>
+              <p className="no-record">{isViewingToday ? '今日の食事記録はありません' : 'この日の食事記録はありません'}</p>
             ) : (
               <div className="nutrition-grid">
                 {[

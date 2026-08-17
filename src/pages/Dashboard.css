@@ -19,6 +19,25 @@
   color: var(--color-text-primary);
 }
 
+/* ホーム日付選択（2026年8月17日）：選択中の日付コンテキスト表示バー */
+
+.dashboard-date-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-data-soft);
+}
+
+.dashboard-date-context__label {
+  font-size: var(--font-size-body-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
 .panel-card__title {
   margin: 0 0 10px;
   font-size: var(--font-size-title);
@@ -183,6 +202,24 @@
 
 /* 週間ストリップ */
 
+.week-strip__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.week-strip__header .panel-card__title {
+  margin: 0;
+}
+
+.week-strip__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .week-strip__grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -212,12 +249,6 @@
 
 .week-strip__cell--selected {
   box-shadow: inset 0 0 0 1.5px var(--color-data);
-}
-
-.week-strip__detail {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-border);
 }
 
 .week-strip__day-label {
