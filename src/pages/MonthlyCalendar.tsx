@@ -12,16 +12,22 @@ import type { RecordModalRequest } from '../components/RecordFormModal'
 
 type MonthlyCalendarProps = {
   trainingLogs: TrainingLog[]
+  setTrainingLogs: React.Dispatch<React.SetStateAction<TrainingLog[]>>
   mealLogs: MealLog[]
+  setMealLogs: React.Dispatch<React.SetStateAction<MealLog[]>>
   dailyConditions: DailyCondition[]
+  setDailyConditions: React.Dispatch<React.SetStateAction<DailyCondition[]>>
   openRecordModal: (request: Omit<RecordModalRequest, 'requestId'>) => void
   isRecordModalOpen: boolean
 }
 
 export function MonthlyCalendar({
   trainingLogs,
+  setTrainingLogs,
   mealLogs,
+  setMealLogs,
   dailyConditions,
+  setDailyConditions,
   openRecordModal,
   isRecordModalOpen,
 }: MonthlyCalendarProps) {
@@ -342,6 +348,11 @@ export function MonthlyCalendar({
         isOpen={isBulkImportOpen}
         onClose={() => setIsBulkImportOpen(false)}
         onImported={refetchSchedules}
+        trainingLogs={trainingLogs}
+        setTrainingLogs={setTrainingLogs}
+        setMealLogs={setMealLogs}
+        dailyConditions={dailyConditions}
+        setDailyConditions={setDailyConditions}
       />
     </section>
   )

@@ -151,6 +151,50 @@
   font-weight: 400;
 }
 
+/* AI一括取り込み拡張（2026年8月17日）：日付ごとのプレビューカード */
+
+.bulk-import-modal__days {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bulk-import-modal__day {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: var(--color-bg-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bulk-import-modal__day-date {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.bulk-import-modal__day-row {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.bulk-import-modal__day-note {
+  margin-left: 4px;
+  color: var(--color-text-muted);
+}
+
+.bulk-import-modal__day-list {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 @media (max-width: 640px) {
   .bulk-import-modal__overlay {
     padding: 0;

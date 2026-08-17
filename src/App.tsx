@@ -168,8 +168,11 @@ function AppShell() {
             element={
               <MonthlyCalendar
                 trainingLogs={trainingLogs}
+                setTrainingLogs={setTrainingLogs}
                 mealLogs={mealLogs}
+                setMealLogs={setMealLogs}
                 dailyConditions={dailyConditions}
+                setDailyConditions={setDailyConditions}
                 openRecordModal={openRecordModal}
                 isRecordModalOpen={recordModalRequest !== null}
               />
