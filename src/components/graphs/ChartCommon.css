@@ -280,6 +280,27 @@
   stroke-width: 2;
 }
 
+.progress-graph__legend-dot--actual {
+  background: var(--color-actual-line);
+  opacity: 0.6;
+}
+
+.progress-graph__legend-dot--ideal {
+  background: var(--color-warning);
+}
+
+.progress-graph__legend-dot--ma-weight {
+  background: var(--color-ma-weight);
+}
+
+.progress-graph__legend-dot--ma-sleep {
+  background: var(--color-ma-sleep);
+}
+
+.progress-graph__legend-dot--ma-fatigue {
+  background: var(--color-ma-fatigue);
+}
+
 .progress-graph__legend-dot--target {
   background: var(--color-danger);
 }
@@ -288,6 +309,74 @@
   margin: 0;
   font-size: var(--font-size-body-sm);
   color: var(--color-text-secondary);
+}
+
+/* スプリント2（2026年8月17日）：移動平均グラフの実測値（破線）・7日移動平均（実線+エリア） */
+
+.progress-graph__line--actual {
+  stroke: var(--color-actual-line);
+  stroke-width: 1.5;
+  stroke-opacity: 0.4;
+  stroke-dasharray: 4 3;
+}
+
+.progress-graph__dot--actual {
+  fill: var(--color-actual-line);
+  fill-opacity: 0.4;
+  stroke: none;
+  cursor: pointer;
+}
+
+.progress-graph__line--ma-weight {
+  stroke: var(--color-ma-weight);
+}
+
+.progress-graph__line--ma-sleep {
+  stroke: var(--color-ma-sleep);
+}
+
+.progress-graph__line--ma-fatigue {
+  stroke: var(--color-ma-fatigue);
+}
+
+.progress-graph__dot--ma-weight {
+  fill: var(--color-ma-weight);
+  cursor: pointer;
+}
+
+.progress-graph__dot--ma-sleep {
+  fill: var(--color-ma-sleep);
+  cursor: pointer;
+}
+
+.progress-graph__dot--ma-fatigue {
+  fill: var(--color-ma-fatigue);
+  cursor: pointer;
+}
+
+.progress-graph__area--ma-weight {
+  fill: var(--color-ma-weight);
+  opacity: 0.15;
+}
+
+.progress-graph__area--ma-sleep {
+  fill: var(--color-ma-sleep);
+  opacity: 0.15;
+}
+
+.progress-graph__area--ma-fatigue {
+  fill: var(--color-ma-fatigue);
+  opacity: 0.15;
+}
+
+.chart-card__tooltip {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-primary);
 }
 
 /* 部位別トレーニング頻度 */

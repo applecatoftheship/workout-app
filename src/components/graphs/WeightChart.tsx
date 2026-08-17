@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { DailyCondition } from '../../types'
+import type { MAPoint } from '../../utils/chartHelpers'
 import {
   CHART_HEIGHT,
   CHART_WIDTH,
@@ -16,17 +18,25 @@ import {
 
 type WeightChartProps = {
   periodConditions: DailyCondition[]
+  periodWeightMA: MAPoint[]
   targetWeight: number
   periodEnd: Date
   periodEndKey: string
 }
 
-export function WeightChart({ periodConditions, targetWeight, periodEnd, periodEndKey }: WeightChartProps) {
+export function WeightChart({ periodConditions, periodWeightMA, targetWeight, periodEnd, periodEndKey }: WeightChartProps) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+
   if (periodConditions.length === 0) {
     return <p className="progress-graph__empty">データがありません</p>
   }
 
+  const maByDate = new Map(periodWeightMA.map((point) => [point.date, point.movingAvg]))
   const weightValues = periodConditions.map((condition) => condition.weight)
+  // 期間の先頭付近ではmovingAverageが期間外のデータも含めて計算されているため、
+  // periodWeightMAに該当日のデータがない場合は実測値でフォールバックして線が途切れないようにする。
+  const maValues = periodConditions.map((condition) => maByDate.get(condition.date) ?? condition.weight)
+
   const firstCondition = periodConditions[0]
   const startDate = new Date(`${firstCondition.date}T00:00:00`)
   const endDate = periodEnd
@@ -42,15 +52,19 @@ export function WeightChart({ periodConditions, targetWeight, periodEnd, periodE
     cursor.setDate(cursor.getDate() + 1)
   }
 
-  const { min, range } = computeScale([...weightValues, ...idealValues, targetWeight])
+  const { min, range } = computeScale([...weightValues, ...maValues, ...idealValues, targetWeight])
   const actualPoints = pointsFor(weightValues, min, range)
+  const maPoints = pointsFor(maValues, min, range)
   const idealPoints = idealValues.length > 1 ? pointsFor(idealValues, min, range) : null
-  const areaPath = areaPathFor(weightValues, min, range)
+  const areaPath = areaPathFor(maValues, min, range)
   const targetY = valueToY(targetWeight, min, range)
   const ticks = buildAxisTicks(min, range, 1)
-  const latestWeight = periodConditions[periodConditions.length - 1].weight
-  const previousWeight = periodConditions.length > 1 ? periodConditions[periodConditions.length - 2].weight : null
-  const weightDiff = previousWeight != null ? latestWeight - previousWeight : null
+  const latestMA = maValues[maValues.length - 1]
+  const previousMA = maValues.length > 1 ? maValues[maValues.length - 2] : null
+  const maDiff = previousMA != null ? latestMA - previousMA : null
+
+  const selectedCondition = selectedDate ? periodConditions.find((condition) => condition.date === selectedDate) : null
+  const selectedMA = selectedDate ? maByDate.get(selectedDate) : null
 
   return (
     <div className="progress-graph__chart-wrapper">
@@ -58,13 +72,13 @@ export function WeightChart({ periodConditions, targetWeight, periodEnd, periodE
         <h3 className="chart-card__title">体重</h3>
         <div className="chart-card__value-group">
           <span className="chart-card__value metric-value">
-            {latestWeight.toFixed(1)}
-            <span className="chart-card__value-unit">kg</span>
+            {latestMA.toFixed(1)}
+            <span className="chart-card__value-unit">kg（7日平均）</span>
           </span>
-          {weightDiff != null && Math.abs(weightDiff) >= 0.05 ? (
-            <span className={`trend-badge ${weightDiff > 0 ? 'trend-badge--warning' : 'trend-badge--good'}`}>
-              {weightDiff > 0 ? '+' : ''}
-              {weightDiff.toFixed(1)}kg
+          {maDiff != null && Math.abs(maDiff) >= 0.05 ? (
+            <span className={`trend-badge ${maDiff > 0 ? 'trend-badge--warning' : 'trend-badge--good'}`}>
+              {maDiff > 0 ? '+' : ''}
+              {maDiff.toFixed(1)}kg
             </span>
           ) : null}
         </div>
@@ -73,8 +87,8 @@ export function WeightChart({ periodConditions, targetWeight, periodEnd, periodE
       <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="progress-graph__svg" aria-hidden="true">
         <defs>
           <linearGradient id="weightAreaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--color-ma-weight)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--color-ma-weight)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {ticks.map((tick) => (
@@ -96,17 +110,47 @@ export function WeightChart({ periodConditions, targetWeight, periodEnd, periodE
           <polyline points={idealPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--ideal" />
         ) : null}
         <path d={areaPath} className="progress-graph__area" fill="url(#weightAreaGradient)" />
-        <polyline points={actualPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--accent" />
+        <polyline points={actualPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--actual" />
+        <polyline points={maPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--ma-weight" />
         {actualPoints.map((point, index) => {
           const [cx, cy] = point.split(',').map(Number)
-          return <circle key={periodConditions[index].date} cx={cx} cy={cy} r="4" className="progress-graph__dot progress-graph__dot--accent" />
+          return (
+            <circle
+              key={`actual-${periodConditions[index].date}`}
+              cx={cx}
+              cy={cy}
+              r="3"
+              className="progress-graph__dot progress-graph__dot--actual"
+              onClick={() => setSelectedDate(periodConditions[index].date)}
+            />
+          )
+        })}
+        {maPoints.map((point, index) => {
+          const [cx, cy] = point.split(',').map(Number)
+          return (
+            <circle
+              key={`ma-${periodConditions[index].date}`}
+              cx={cx}
+              cy={cy}
+              r="4"
+              className="progress-graph__dot progress-graph__dot--ma-weight"
+              onClick={() => setSelectedDate(periodConditions[index].date)}
+            />
+          )
         })}
       </svg>
       <div className="progress-graph__legend">
         <span className="progress-graph__legend-item"><span className="progress-graph__legend-dot progress-graph__legend-dot--actual" />実測</span>
+        <span className="progress-graph__legend-item"><span className="progress-graph__legend-dot progress-graph__legend-dot--ma-weight" />7日移動平均</span>
         <span className="progress-graph__legend-item"><span className="progress-graph__legend-dot progress-graph__legend-dot--ideal" />理想ライン</span>
         <span className="progress-graph__legend-item"><span className="progress-graph__legend-dot progress-graph__legend-dot--target" />目標</span>
       </div>
+      {selectedCondition ? (
+        <p className="chart-card__tooltip">
+          {selectedCondition.date.replace(/-/g, '/')}｜実測: {selectedCondition.weight.toFixed(1)}kg
+          {selectedMA != null ? ` / 7日平均: ${selectedMA.toFixed(1)}kg` : ''}
+        </p>
+      ) : null}
       <div className="progress-graph__labels">
         {periodConditions.map((condition, index) => (
           <span key={condition.date}>
@@ -116,8 +160,8 @@ export function WeightChart({ periodConditions, targetWeight, periodEnd, periodE
       </div>
       <div className="progress-graph__metrics">
         <div className="progress-graph__metric">
-          <span className="progress-graph__metric-label">現在の体重</span>
-          <strong>{latestWeight.toFixed(1)}kg</strong>
+          <span className="progress-graph__metric-label">本日実測</span>
+          <strong>{weightValues[weightValues.length - 1].toFixed(1)}kg</strong>
         </div>
         <div className="progress-graph__metric">
           <span className="progress-graph__metric-label">目標体重</span>
@@ -125,7 +169,7 @@ export function WeightChart({ periodConditions, targetWeight, periodEnd, periodE
         </div>
         <div className="progress-graph__metric">
           <span className="progress-graph__metric-label">目標までの差</span>
-          <strong>{(latestWeight - targetWeight).toFixed(1)}kg</strong>
+          <strong>{(latestMA - targetWeight).toFixed(1)}kg</strong>
         </div>
       </div>
     </div>

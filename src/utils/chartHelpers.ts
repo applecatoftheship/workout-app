@@ -126,7 +126,7 @@ export interface MAPoint {
  * 計算コスト（windowItemsのfilterによる全件スキャン）は現状のデータ量では
  * 問題にならないため、最適化は行っていない（将来的な改善余地として認識のみ）。
  */
-export function calculateMovingAverage<T extends Record<string, unknown>>(
+export function calculateMovingAverage<T>(
   records: T[],
   dateKey: keyof T,
   valueKey: keyof T,

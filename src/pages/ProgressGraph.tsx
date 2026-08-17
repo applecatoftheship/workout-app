@@ -6,7 +6,7 @@ import { TrainingChart } from '../components/graphs/TrainingChart'
 import { WeightChart } from '../components/graphs/WeightChart'
 import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
-import { buildDateList, getPeriodGoalMultiplier, getPeriodRange, toDateKey } from '../utils/chartHelpers'
+import { buildDateList, calculateMovingAverage, getPeriodGoalMultiplier, getPeriodRange, toDateKey } from '../utils/chartHelpers'
 import type { Period } from '../utils/chartHelpers'
 
 const chartTabs = [
@@ -63,6 +63,26 @@ export function ProgressGraph({
   const periodConditions = useMemo(
     () => sortedConditions.filter((condition) => condition.date >= periodStartKey && condition.date <= periodEndKey),
     [sortedConditions, periodStartKey, periodEndKey],
+  )
+
+  // 7日移動平均（スプリント2、2026年8月17日）は、選択期間の先頭付近でも正しい直近7日分を
+  // 参照できるよう、期間で絞り込む前の全期間データ（sortedConditions）から算出し、
+  // 表示のタイミングで期間内の日付だけに絞り込む。
+  const weightMA = useMemo(() => calculateMovingAverage(sortedConditions, 'date', 'weight'), [sortedConditions])
+  const sleepMA = useMemo(() => calculateMovingAverage(sortedConditions, 'date', 'sleepHours'), [sortedConditions])
+  const fatigueMA = useMemo(() => calculateMovingAverage(sortedConditions, 'date', 'fatigue'), [sortedConditions])
+
+  const periodWeightMA = useMemo(
+    () => weightMA.filter((point) => point.date >= periodStartKey && point.date <= periodEndKey),
+    [weightMA, periodStartKey, periodEndKey],
+  )
+  const periodSleepMA = useMemo(
+    () => sleepMA.filter((point) => point.date >= periodStartKey && point.date <= periodEndKey),
+    [sleepMA, periodStartKey, periodEndKey],
+  )
+  const periodFatigueMA = useMemo(
+    () => fatigueMA.filter((point) => point.date >= periodStartKey && point.date <= periodEndKey),
+    [fatigueMA, periodStartKey, periodEndKey],
   )
 
   const trainingByDate = useMemo(() => {
@@ -167,15 +187,18 @@ export function ProgressGraph({
         {selectedChart === 'weight' ? (
           <WeightChart
             periodConditions={periodConditions}
+            periodWeightMA={periodWeightMA}
             targetWeight={targetWeight}
             periodEnd={end}
             periodEndKey={periodEndKey}
           />
         ) : null}
         {selectedChart === 'sleep' ? (
-          <SleepChart periodConditions={periodConditions} targetSleepHours={targetSleepHours} />
+          <SleepChart periodConditions={periodConditions} periodSleepMA={periodSleepMA} targetSleepHours={targetSleepHours} />
         ) : null}
-        {selectedChart === 'fatigue' ? <FatigueChart periodConditions={periodConditions} /> : null}
+        {selectedChart === 'fatigue' ? (
+          <FatigueChart periodConditions={periodConditions} periodFatigueMA={periodFatigueMA} />
+        ) : null}
       </div>
     </section>
   )
