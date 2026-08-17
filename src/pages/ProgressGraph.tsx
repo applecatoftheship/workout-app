@@ -1,13 +1,58 @@
 import { useMemo, useState } from 'react'
-import type { DailyCondition, TrainingLog } from '../types'
+import type { BodyPart, DailyCondition, TrainingLog } from '../types'
 import './ProgressGraph.css'
 import '../components/graphs/ChartCommon.css'
 import { TrainingChart } from '../components/graphs/TrainingChart'
+import type { BodyPartVolumeEntry } from '../components/graphs/TrainingChart'
 import { WeightChart } from '../components/graphs/WeightChart'
 import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
 import { buildDateList, calculateMovingAverage, getPeriodGoalMultiplier, getPeriodRange, toDateKey } from '../utils/chartHelpers'
 import type { Period } from '../utils/chartHelpers'
+
+// トレーニンググラフ刷新（2026年8月17日）：部位別ボリュームの識別色。
+// types.tsのBodyPart型（胸/肩/腕/背/脚/腹/有酸素/その他）に対応する固定色を
+// tokens.cssに追加済み（--color-bp-*）。指示書の例（背中/腹筋等）は実際の型の
+// 語彙と異なるため、背→背中の色、腹→腹筋の色として読み替えている。
+const BODY_PART_COLOR_VAR: Record<BodyPart, string> = {
+  胸: 'var(--color-bp-chest)',
+  肩: 'var(--color-bp-shoulder)',
+  腕: 'var(--color-bp-arm)',
+  背: 'var(--color-bp-back)',
+  脚: 'var(--color-bp-leg)',
+  腹: 'var(--color-bp-core)',
+  有酸素: 'var(--color-bp-cardio)',
+  その他: 'var(--color-bp-other)',
+}
+
+function sumVolumeByBodyPart(logs: TrainingLog[]) {
+  const map = new Map<BodyPart, number>()
+  logs.forEach((log) => {
+    log.exercises.forEach((exercise) => {
+      const bodyPart = exercise.exercise?.bodyPart
+      if (!bodyPart) return
+      const volume = exercise.sets.reduce((sum, set) => sum + (set.weight ?? 0) * (set.reps ?? 0), 0)
+      map.set(bodyPart, (map.get(bodyPart) ?? 0) + volume)
+    })
+  })
+  return map
+}
+
+function sumDailyVolumeByBodyPart(logs: TrainingLog[]) {
+  const map = new Map<BodyPart, Map<string, number>>()
+  logs.forEach((log) => {
+    log.exercises.forEach((exercise) => {
+      const bodyPart = exercise.exercise?.bodyPart
+      if (!bodyPart) return
+      const volume = exercise.sets.reduce((sum, set) => sum + (set.weight ?? 0) * (set.reps ?? 0), 0)
+      if (volume === 0) return
+      const inner = map.get(bodyPart) ?? new Map<string, number>()
+      inner.set(log.date, (inner.get(log.date) ?? 0) + volume)
+      map.set(bodyPart, inner)
+    })
+  })
+  return map
+}
 
 const chartTabs = [
   { id: 'training' as const, label: 'トレーニング' },
@@ -113,21 +158,70 @@ export function ProgressGraph({
     [periodDates, trainingByDate],
   )
 
-  const bodyPartFrequency = useMemo(() => {
-    const counts = new Map<string, number>()
-    trainingLogs
-      .filter((log) => log.date >= periodStartKey && log.date <= periodEndKey)
-      .forEach((log) => {
-        log.exercises.forEach((exercise) => {
-          const bodyPart = exercise.exercise?.bodyPart
-          if (!bodyPart) return
-          counts.set(bodyPart, (counts.get(bodyPart) ?? 0) + 1)
+  // 部位別ボリューム（トレーニンググラフ刷新、2026年8月17日）：ACWR・移動平均と同じく
+  // DBにはキャッシュせず呼び出しのたびに動的計算する。前週比・自己ベストバッジは
+  // 「全期間」選択時は比較対象となる同じ長さの期間が定義できないため算出しない
+  // （合計ボリュームのみ表示、判断は指示書委任事項）。
+  const bodyPartVolume = useMemo<BodyPartVolumeEntry[]>(() => {
+    const periodLogs = trainingLogs.filter((log) => log.date >= periodStartKey && log.date <= periodEndKey)
+    const currentVolumeByPart = sumVolumeByBodyPart(periodLogs)
+    const dailyByPart = sumDailyVolumeByBodyPart(periodLogs)
+
+    let previousVolumeByPart: Map<BodyPart, number> | null = null
+    let bestPriorVolumeByPart: Map<BodyPart, number> | null = null
+
+    if (period !== 'all') {
+      const periodLengthDays = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
+      const previousEnd = new Date(start)
+      previousEnd.setDate(previousEnd.getDate() - 1)
+      const previousStart = new Date(previousEnd)
+      previousStart.setDate(previousStart.getDate() - (periodLengthDays - 1))
+      const previousLogs = trainingLogs.filter(
+        (log) => log.date >= toDateKey(previousStart) && log.date <= toDateKey(previousEnd),
+      )
+      previousVolumeByPart = sumVolumeByBodyPart(previousLogs)
+
+      // 自己ベスト＝現在の期間より前の、同じ長さの非重複な過去の期間群の中での最大ボリューム
+      bestPriorVolumeByPart = new Map<BodyPart, number>()
+      let windowEnd = new Date(previousEnd)
+      let windowStart = new Date(previousStart)
+      let guard = 0
+      while (earliestDate && windowEnd >= earliestDate && guard < 520) {
+        const windowLogs = trainingLogs.filter(
+          (log) => log.date >= toDateKey(windowStart) && log.date <= toDateKey(windowEnd),
+        )
+        const windowVolume = sumVolumeByBodyPart(windowLogs)
+        windowVolume.forEach((volume, bodyPart) => {
+          const current = bestPriorVolumeByPart?.get(bodyPart) ?? 0
+          if (volume > current) bestPriorVolumeByPart?.set(bodyPart, volume)
         })
+        windowEnd = new Date(windowStart)
+        windowEnd.setDate(windowEnd.getDate() - 1)
+        windowStart = new Date(windowEnd)
+        windowStart.setDate(windowStart.getDate() - (periodLengthDays - 1))
+        guard += 1
+      }
+    }
+
+    return Array.from(currentVolumeByPart.entries())
+      .filter(([, volume]) => volume > 0)
+      .map(([bodyPart, volume]) => {
+        const diff = previousVolumeByPart ? volume - (previousVolumeByPart.get(bodyPart) ?? 0) : null
+        const bestPrior = bestPriorVolumeByPart?.get(bodyPart) ?? 0
+        const isPersonalBest = bestPriorVolumeByPart != null && volume > bestPrior
+        const dailyMap = dailyByPart.get(bodyPart) ?? new Map<string, number>()
+        const dailyVolumes = periodDates.map((date) => ({ date, volume: dailyMap.get(date) ?? 0 }))
+        return {
+          bodyPart,
+          color: BODY_PART_COLOR_VAR[bodyPart],
+          volume,
+          diff,
+          isPersonalBest,
+          dailyVolumes,
+        }
       })
-    return Array.from(counts.entries())
-      .map(([bodyPart, count]) => ({ bodyPart, count }))
-      .sort((a, b) => b.count - a.count)
-  }, [trainingLogs, periodStartKey, periodEndKey])
+      .sort((a, b) => b.volume - a.volume)
+  }, [trainingLogs, periodStartKey, periodEndKey, period, start, end, earliestDate, periodDates])
 
   const periodGoalMultiplier = useMemo(
     () => getPeriodGoalMultiplier(period, today, earliestDate),
@@ -181,7 +275,7 @@ export function ProgressGraph({
             totalSets={totalSets}
             totalVolume={totalVolume}
             achievementRate={achievementRate}
-            bodyPartFrequency={bodyPartFrequency}
+            bodyPartVolume={bodyPartVolume}
           />
         ) : null}
         {selectedChart === 'weight' ? (

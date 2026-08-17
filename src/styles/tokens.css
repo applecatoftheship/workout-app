@@ -137,3 +137,24 @@
   --color-ma-fatigue: #F59E0B;
   --color-actual-line: #A0AEC0;
 }
+
+/*
+ * トレーニンググラフ刷新（2026年8月17日）：部位別ボリューム表示の識別色。
+ * --color-ma-*と同じ考え方（ライト/ダーク共通の固定色、テーマ切替で変化させない）。
+ * types.tsのBodyPart型（胸/肩/腕/背/脚/腹/有酸素/その他の8値）に対応。指示書の
+ * プロット例（胸・背中・脚・肩・腕・お尻・腹筋等）は実際の型と語彙が一部異なるため、
+ * 背中→背、腹筋→腹に読み替え、型に無い「お尻」は割り当てず、型にはあるが指示書の
+ * 例にない「有酸素」「その他」には別途配色した。
+ * 既存トークンとの重複がないことを確認済み（--color-ma-sleepの#8B5CF6とは
+ * 別値の#A78BFAを背に割り当て、混同を避けている）。
+ */
+:root {
+  --color-bp-chest: #E5484D;
+  --color-bp-shoulder: #F76B15;
+  --color-bp-arm: #F5B700;
+  --color-bp-back: #A78BFA;
+  --color-bp-leg: #22C55E;
+  --color-bp-core: #3B82F6;
+  --color-bp-cardio: #06B6D4;
+  --color-bp-other: #9CA3AF;
+}
