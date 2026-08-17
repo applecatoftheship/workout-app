@@ -27,10 +27,13 @@ src/
                   trainingLogs.ts（種目マスタ・実績・DEFAULT_USER_ID）,
                   trainingTemplates.ts, trainingSchedules.ts, foodItems.ts, mealLogs.ts,
                   soccerLogs.ts
-  utils/          calendarHelpers.ts, chartHelpers.ts, soccerCalorieHelpers.ts,
+  utils/          calendarHelpers.ts,
+                  chartHelpers.ts（calculateMovingAverage・TREND_DIRECTION・getTrendTone、
+                  2026年8月17日追加）, soccerCalorieHelpers.ts,
                   acwrHelpers.ts（ACWR疲労残高計算、2026年8月16〜17日新設）
   hooks/          useTheme.ts（ダーク/ライト切替、UIブラッシュアップPhase 1）
-  styles/         tokens.css（デザイントークン本体、UIブラッシュアップPhase 1）
+  styles/         tokens.css（デザイントークン本体、UIブラッシュアップPhase 1。
+                  --color-ma-weight/-sleep/-fatigue等を2026年8月17日追加）
   pages/          Dashboard(.css), MonthlyCalendar(.css), ProgressGraph(.css),
                   Settings(.css)（UIブラッシュアップPhase 2で新規）
   components/
@@ -450,6 +453,48 @@ ACWR>1.5→🔴警戒、ACWR<0.8→🔵低下、1.3〜1.5→張りなしなら�
 バリデーション、データ不足表示、ACWR4ステータス（🟢🟡🔴🔵）すべての再現、ラベルの
 可変表示、ダーク/ライト両モード表示、既存機能への影響なしを確認済み。
 
+## 2026年8月17日：移動平均（体重・睡眠・疲労度）機能の追加
+
+日々の水分量・便通・食事タイミング等に起因する単日の数値ノイズに惑わされず、
+純粋なトレンドを可視化するため、体重・睡眠時間・疲労度の3指標に7日移動平均を
+導入した。ダッシュボードの統計カード・グラフ画面（`ProgressGraph.tsx`）の両方に反映。
+
+**`calculateMovingAverage`の汎用設計**（`src/utils/chartHelpers.ts`）：任意のレコード
+配列・日付キー・値キーを受け取り、各日について「その日を含む直近7日間のうち実際に
+記録がある日数分」で平均を算出する汎用関数として実装（ジェネリック`T`、値0以下・
+非数値は除外）。ACWR機能（`acwrHelpers.ts`）と同じく**DBにはキャッシュせず、
+呼び出しのたびに動的計算する**方針を踏襲。指示書は`Record<string, any>`制約を
+想定していたが、`DailyCondition`型がインデックスシグネチャを持たず型エラーになる
+ため、制約なしの素の`T`に変更した（判断理由）。
+
+**トレンド向きの一元管理**：体重・疲労度は「減少が良い」、睡眠時間は「増加が良い」と
+指標によって向きの意味が逆になるため、`TREND_DIRECTION`定数
+（`Record<TrendMetricKey, 'lower_is_better' | 'higher_is_better'>`）で一箇所管理し、
+`getTrendTone(metricKey, diff)`が向きを踏まえてトレンドバッジのトーン
+（good/alert/neutral）を返す。新しい指標を追加する場合は`TREND_DIRECTION`に1行
+追加するだけで対応できる設計。Dashboard.tsx（Phase 3）で確立していた個別の
+weightTrend/sleepTrend/fatigueTrendロジックを、この共通関数を使う形に統合した。
+
+**グラフ描画は既存の手書きSVGパターンを踏襲**：指示書はrecharts使用を想定した
+記述だったが、`WeightChart.tsx`等の既存実装が独自の手書きSVG（`pointsFor`・
+`areaPathFor`等のヘルパーで座標計算）だったため、一貫性を優先してそのパターンを
+拡張する形にした（判断理由）。実測値（薄い破線＋小ドット）と7日移動平均（太い実線＋
+グラデーションエリア＋大ドット）の2系列表示にし、ドットタップで
+「日付｜実測: X / 7日平均: Y」形式のツールチップを表示する。移動平均は
+`ProgressGraph.tsx`側で全期間データから計算してから選択期間で絞り込む方式にした
+（期間の先頭付近でも直近7日分のデータを正しく参照するため）。
+
+**指標識別色**：`tokens.css`に`--color-ma-weight`（#00E5FF シアン）・
+`--color-ma-sleep`（#8B5CF6 パープル）・`--color-ma-fatigue`（#F59E0B アンバー）・
+`--color-actual-line`（#A0AEC0）を追加。既存トークンとの衝突はなし。指標を視覚的に
+一意に識別するための色のため、ライト/ダーク共通の固定色として定義している
+（他のトークンのようなテーマ別の出し分けはしていない）。
+
+本番環境（workout-app-suke4.vercel.app）で、実測/移動平均の2系列表示、ツールチップ、
+少量データでの表示継続、ダッシュボード統計カードの7日平均＋本日実測表示、
+前週比トレンドバッジの色分け、ダーク/ライト両モード、体重チャートの理想ライン/
+目標ラインのリグレッションを確認済み。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
@@ -494,6 +539,15 @@ ACWR>1.5→🔴警戒、ACWR<0.8→🔵低下、1.3〜1.5→張りなしなら�
    セット単位の削除ボタン（詳細入力モード時）はあるが、種目行そのものを削除する
    ボタンがない。実績を編集中に特定の種目だけを取り除きたい場合、現状は種目名を
    空にする等の回避策しかない。
+
+7. （監視事項）ACWR・移動平均とも「DBキャッシュせず呼び出しのたびに全件から
+   動的計算する」方針を採用している（`acwrHelpers.ts`の`calculateACWR`、
+   `chartHelpers.ts`の`calculateMovingAverage`、いずれも2026年8月16〜17日）。
+   現在のデータ量では実害はないが、`calculateMovingAverage`は日ごとに直近7日分を
+   フィルタで全件スキャンする実装のため、将来的にtraining_logs・daily_conditions等が
+   大幅に増えた場合（数年分の運用等）、計算コストが問題になる可能性がある。
+   現時点では対応不要だが、体感速度が悪化した場合は集計期間の絞り込みや
+   メモ化を検討すること。
 
 ## 進行中の計画（現在地）
 
