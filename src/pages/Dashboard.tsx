@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
+import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
 import { FatigueIcon, HistoryIcon, SleepIcon, WeightIcon } from '../components/icons'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { getDayIcons, toDateKey, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
+import { calculateACWR, daysUntilACWRAvailable } from '../utils/acwrHelpers'
 import type { Goals } from '../api/goals'
 import type {
   DailyCondition,
@@ -58,6 +60,7 @@ export function Dashboard({
   const [isNutritionOpen, setIsNutritionOpen] = useState(false)
   const [weekSchedules, setWeekSchedules] = useState<TrainingSchedule[]>([])
   const [weekSoccerLogs, setWeekSoccerLogs] = useState<SoccerLog[]>([])
+  const [acwrSoccerLogs, setAcwrSoccerLogs] = useState<SoccerLog[]>([])
   const [expandedWeekDateKey, setExpandedWeekDateKey] = useState<DateString | null>(null)
 
   const weekStart = useMemo(() => {
@@ -98,6 +101,33 @@ export function Dashboard({
       isMounted = false
     }
   }, [weekStartKey, weekEndKey])
+
+  // ACWR（急性:慢性負荷比、スプリント1）の慢性負荷計算に必要な直近28日分のサッカー記録。
+  // trainingLogsは既に全期間分がApp.tsxから渡されているため別途フェッチ不要だが、
+  // soccerLogsは範囲指定フェッチのみのため、週間ストリップ用（7日）とは別に取得する。
+  const acwrChronicStartKey = useMemo(() => {
+    const start = new Date(today)
+    start.setDate(today.getDate() - 27)
+    return toDateKey(start.getFullYear(), start.getMonth() + 1, start.getDate())
+  }, [today])
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchSoccerLogs(acwrChronicStartKey, todayString)
+      .then((data) => {
+        if (isMounted) {
+          setAcwrSoccerLogs(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから疲労残高計算用のサッカー記録の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [acwrChronicStartKey, todayString])
 
   const weekSchedulesByDate = useMemo(() => {
     const map = new Map<string, TrainingSchedule[]>()
@@ -154,6 +184,22 @@ export function Dashboard({
   const todayCondition = useMemo(
     () => dailyConditions.find((condition) => condition.date === todayString),
     [dailyConditions, todayString],
+  )
+
+  const acwrResult = useMemo(
+    () =>
+      calculateACWR(
+        trainingLogs,
+        acwrSoccerLogs,
+        todayString,
+        todayCondition?.muscleSorenessLevel,
+        todayCondition?.muscleSorenessLocation,
+      ),
+    [trainingLogs, acwrSoccerLogs, todayString, todayCondition],
+  )
+  const acwrDaysUntilAvailable = useMemo(
+    () => daysUntilACWRAvailable(trainingLogs, acwrSoccerLogs, todayString),
+    [trainingLogs, acwrSoccerLogs, todayString],
   )
   const todayMealLogs = useMemo(
     () => mealLogs.filter((log) => log.date === todayString),
@@ -377,6 +423,8 @@ export function Dashboard({
           ) : null}
         </section>
       ) : null}
+
+      <ACWRGaugeCard result={acwrResult} daysUntilAvailable={acwrDaysUntilAvailable} />
 
       <section className="panel-card week-strip">
         <h2 className="panel-card__title">今週の記録</h2>

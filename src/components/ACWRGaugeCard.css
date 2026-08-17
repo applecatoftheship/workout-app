@@ -1,0 +1,125 @@
+.acwr-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.acwr-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.acwr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.acwr-badge--good {
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
+}
+
+.acwr-badge--warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+.acwr-badge--danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}
+
+.acwr-badge--data {
+  background: var(--color-data-soft);
+  color: var(--color-data);
+}
+
+.acwr-card__score {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.acwr-card__score-value {
+  font-size: var(--font-size-metric-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.acwr-card__score-label {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.acwr-card__bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.acwr-bar {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.acwr-bar__label {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
+.acwr-bar__track {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-base);
+  overflow: hidden;
+}
+
+.acwr-bar__fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+
+.acwr-bar__fill--acute {
+  background: var(--color-accent);
+}
+
+.acwr-bar__fill--chronic {
+  background: var(--color-data);
+}
+
+.acwr-bar__value {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+}
+
+.acwr-soreness-tag {
+  align-self: flex-start;
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+.acwr-card__message {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.acwr-card__pending {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-muted);
+}
