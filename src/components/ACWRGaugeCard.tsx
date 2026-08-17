@@ -1,9 +1,12 @@
 import './ACWRGaugeCard.css'
-import type { ACWRResult } from '../types'
+import type { ACWRResult, MuscleLocation, SorenessLevel } from '../types'
+import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../utils/acwrHelpers'
 
 type ACWRGaugeCardProps = {
   result: ACWRResult | null
   daysUntilAvailable: number
+  sorenessLocation?: MuscleLocation
+  sorenessLevel?: SorenessLevel
 }
 
 const STATUS_META: Record<ACWRResult['status'], { emoji: string; label: string; tone: string }> = {
@@ -13,7 +16,7 @@ const STATUS_META: Record<ACWRResult['status'], { emoji: string; label: string; 
   unload: { emoji: '🔵', label: '低下', tone: 'data' },
 }
 
-export function ACWRGaugeCard({ result, daysUntilAvailable }: ACWRGaugeCardProps) {
+export function ACWRGaugeCard({ result, daysUntilAvailable, sorenessLocation, sorenessLevel }: ACWRGaugeCardProps) {
   if (!result) {
     return (
       <section className="panel-card acwr-card">
@@ -65,7 +68,13 @@ export function ACWRGaugeCard({ result, daysUntilAvailable }: ACWRGaugeCardProps
         </div>
       </div>
 
-      {result.hasSorenessWarning ? <span className="acwr-soreness-tag">⚠️ 局所疲労あり</span> : null}
+      {result.hasSorenessWarning && sorenessLocation && sorenessLocation !== 'none' ? (
+        <span className="acwr-soreness-tag">
+          ⚠️ {MUSCLE_LOCATION_LABELS[sorenessLocation]}：{sorenessLevel ? SORENESS_LEVEL_LABELS[sorenessLevel] : '張りあり'}
+        </span>
+      ) : result.hasSorenessWarning ? (
+        <span className="acwr-soreness-tag">⚠️ 局所疲労あり</span>
+      ) : null}
 
       <p className="acwr-card__message">{result.message}</p>
     </section>

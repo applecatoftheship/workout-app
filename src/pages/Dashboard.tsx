@@ -424,7 +424,12 @@ export function Dashboard({
         </section>
       ) : null}
 
-      <ACWRGaugeCard result={acwrResult} daysUntilAvailable={acwrDaysUntilAvailable} />
+      <ACWRGaugeCard
+        result={acwrResult}
+        daysUntilAvailable={acwrDaysUntilAvailable}
+        sorenessLocation={todayCondition?.muscleSorenessLocation}
+        sorenessLevel={todayCondition?.muscleSorenessLevel}
+      />
 
       <section className="panel-card week-strip">
         <h2 className="panel-card__title">今週の記録</h2>
