@@ -2,9 +2,31 @@ import { useEffect, useMemo, useState } from 'react'
 import { createSchedule, deleteSchedule, updateSchedule } from '../../api/trainingSchedules'
 import { fetchTrainingTemplates } from '../../api/trainingTemplates'
 import { useToast } from '../../hooks/useToast'
-import type { DateString, TrainingSchedule, TrainingScheduleStatus, TrainingTemplate } from '../../types'
+import type { BodyPart, DateString, TrainingSchedule, TrainingScheduleStatus, TrainingTemplate } from '../../types'
 
 const QUICK_EMOJIS = ['🏋️', '🏃', '🧘', '💪', '🚴', '😴']
+
+// 予定作成時のテンプレート自動連携（2026年8月18日、技術的負債1番対応の一部）。
+// training_schedulesには部位を保持する列がなく、新規列追加は本指示書の
+// スコープ外（スキーマ変更は要確認）のため、部位情報はタイトルに反映する形にした。
+function deriveDominantBodyParts(template: TrainingTemplate, max = 2): BodyPart[] {
+  const bodyParts = template.exercises
+    .map((exercise) => exercise.exercise?.bodyPart)
+    .filter((bodyPart): bodyPart is BodyPart => Boolean(bodyPart))
+
+  const counts = new Map<BodyPart, number>()
+  bodyParts.forEach((bodyPart) => counts.set(bodyPart, (counts.get(bodyPart) ?? 0) + 1))
+
+  // 出現回数の多い順（同数の場合はテンプレート内での出現順）で上位max件を採用
+  return Array.from(new Set(bodyParts))
+    .sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0))
+    .slice(0, max)
+}
+
+function buildAutoTitle(template: TrainingTemplate): string {
+  const dominantBodyParts = deriveDominantBodyParts(template)
+  return dominantBodyParts.length > 0 ? `${template.name}（${dominantBodyParts.join('・')}）` : template.name
+}
 
 type ScheduleFormState = {
   title: string
@@ -97,6 +119,18 @@ export function ScheduleForm({
     )
     setFormError(null)
     setIsScheduleFormOpen(true)
+  }
+
+  const handleTemplateChange = (templateId: string) => {
+    const template = templates.find((candidate) => candidate.id === templateId)
+    setFormState((current) => ({
+      ...current,
+      templateId,
+      // テンプレート選択は初期値の提案であり、保存後もタイトルは自由に手直しできる。
+      // 選択解除（''）した場合は入力済みのタイトルをクリアしない方が自然と判断し、
+      // そのまま維持する。
+      title: template ? buildAutoTitle(template) : current.title,
+    }))
   }
 
   const saveSchedule = async () => {
@@ -272,10 +306,7 @@ export function ScheduleForm({
 
           <label className="calendar-detail__field">
             <span>テンプレート（任意）</span>
-            <select
-              value={formState.templateId}
-              onChange={(event) => setFormState((current) => ({ ...current, templateId: event.target.value }))}
-            >
+            <select value={formState.templateId} onChange={(event) => handleTemplateChange(event.target.value)}>
               <option value="">選択しない</option>
               {templates.map((template) => (
                 <option key={template.id} value={template.id}>
