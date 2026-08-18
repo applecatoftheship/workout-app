@@ -19,6 +19,9 @@ export type RecordModalRequest = {
   trainingLogIndex?: number
   mealLogIndex?: number
   scheduleId?: string
+  /** テンプレート管理UI（Settings.tsx）の「予定を作成」ボタンから開いた場合、
+   * 新規予定フォームにこのテンプレートを事前選択する（2026年8月18日追加）。 */
+  templateId?: string
 }
 
 const TITLES: Record<RecordType, string> = {
@@ -217,6 +220,7 @@ export function RecordFormModal({
               setIsScheduleFormOpen={setIsScheduleFormOpen}
               autoOpenToken={autoOpenToken}
               autoOpenScheduleId={request.scheduleId}
+              autoSelectTemplateId={request.templateId}
             />
           ) : null}
 

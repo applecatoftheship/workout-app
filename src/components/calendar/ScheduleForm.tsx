@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createSchedule, deleteSchedule, updateSchedule } from '../../api/trainingSchedules'
 import { fetchTrainingTemplates } from '../../api/trainingTemplates'
 import { useToast } from '../../hooks/useToast'
@@ -59,6 +59,9 @@ type ScheduleFormProps = {
   /** RecordFormModal（Phase B）からの自動オープン用。既存利用への影響なし。 */
   autoOpenToken?: number
   autoOpenScheduleId?: string
+  /** テンプレート管理UI（Settings.tsx）の「予定を作成」ボタンから開いた場合、
+   * 新規予定フォームにこのテンプレートを事前選択する（2026年8月18日追加）。 */
+  autoSelectTemplateId?: string
 }
 
 export function ScheduleForm({
@@ -69,6 +72,7 @@ export function ScheduleForm({
   setIsScheduleFormOpen,
   autoOpenToken,
   autoOpenScheduleId,
+  autoSelectTemplateId,
 }: ScheduleFormProps) {
   const { showToast } = useToast()
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
@@ -76,6 +80,7 @@ export function ScheduleForm({
   const [formError, setFormError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [templates, setTemplates] = useState<TrainingTemplate[]>([])
+  const appliedAutoTemplateToken = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     fetchTrainingTemplates()
@@ -103,6 +108,25 @@ export function ScheduleForm({
     openForm(target)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenToken])
+
+  // テンプレート管理UI（Settings.tsx）の「予定を作成」ボタンから開いた場合の
+  // テンプレート事前選択（2026年8月18日）。テンプレート一覧の読み込みタイミングに
+  // 依存するため、autoOpenTokenとtemplatesの両方を監視し、1回のトークンにつき
+  // 一度だけ適用する（新規作成時のみ。既存予定の編集オープンとは併用しない）。
+  useEffect(() => {
+    if (autoOpenToken === undefined || !autoSelectTemplateId || autoOpenScheduleId) {
+      return
+    }
+    if (appliedAutoTemplateToken.current === autoOpenToken) {
+      return
+    }
+    const template = templates.find((candidate) => candidate.id === autoSelectTemplateId)
+    if (!template) {
+      return
+    }
+    appliedAutoTemplateToken.current = autoOpenToken
+    setFormState((current) => ({ ...current, templateId: template.id as string, title: buildAutoTitle(template) }))
+  }, [autoOpenToken, autoSelectTemplateId, autoOpenScheduleId, templates])
 
   const openForm = (schedule?: TrainingSchedule) => {
     setEditingScheduleId(schedule?.id ?? null)

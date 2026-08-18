@@ -77,3 +77,46 @@ export async function fetchTrainingTemplates(): Promise<TrainingTemplate[]> {
   }))
 }
 
+// テンプレート管理UI（技術的負債#7対応、2026年8月18日）。Phase Fで廃止したのは
+// 「実績記録時にその場でテンプレートを適用する」機能であり、テンプレート自体の
+// 作成・削除は別機能として今回新設する。
+export async function createTrainingTemplate(name: string, exerciseIds: string[]): Promise<void> {
+  const { data: insertedTemplate, error: templateError } = await supabase
+    .from('training_templates')
+    .insert({ name, user_id: DEFAULT_USER_ID })
+    .select()
+    .single()
+
+  if (templateError) {
+    throw templateError
+  }
+
+  const templateId = (insertedTemplate as TrainingTemplateRow).id
+
+  if (exerciseIds.length > 0) {
+    const { error: exercisesError } = await supabase.from('training_template_exercises').insert(
+      exerciseIds.map((exerciseId, index) => ({
+        template_id: templateId,
+        exercise_id: exerciseId,
+        order_index: index,
+      })),
+    )
+
+    if (exercisesError) {
+      throw exercisesError
+    }
+  }
+}
+
+// training_templatesにis_deleted列は存在しないため物理削除とする（食材マスタ・
+// 種目マスタの論理削除とは異なるパターン）。training_template_exercisesはON DELETE
+// CASCADEで自動削除され、既存のtraining_schedules.template_idを参照している
+// 予定はON DELETE SET NULLで参照のみが外れる（予定自体は消えない）。
+export async function deleteTrainingTemplate(id: string): Promise<void> {
+  const { error } = await supabase.from('training_templates').delete().eq('id', id).eq('user_id', DEFAULT_USER_ID)
+
+  if (error) {
+    throw error
+  }
+}
+

@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import './Settings.css'
 import { GoalPanel } from '../components/GoalPanel'
+import { TrainingTemplateManager } from '../components/TrainingTemplateManager'
+import type { RecordModalRequest } from '../components/RecordFormModal'
 import type { Goals } from '../api/goals'
-import type { DailyCondition, TrainingLog } from '../types'
+import type { DailyCondition, DateString, TrainingLog } from '../types'
 import type { Theme } from '../hooks/useTheme'
 
 const ACCENT_PRESETS = [
@@ -38,11 +40,23 @@ type SettingsProps = {
   trainingLogs: TrainingLog[]
   dailyConditions: DailyCondition[]
   today: Date
+  todayString: DateString
   theme: Theme
   setTheme: React.Dispatch<React.SetStateAction<Theme>>
+  openRecordModal: (request: Omit<RecordModalRequest, 'requestId'>) => void
 }
 
-export function Settings({ goals, setGoals, trainingLogs, dailyConditions, today, theme, setTheme }: SettingsProps) {
+export function Settings({
+  goals,
+  setGoals,
+  trainingLogs,
+  dailyConditions,
+  today,
+  todayString,
+  theme,
+  setTheme,
+  openRecordModal,
+}: SettingsProps) {
   // 記録リマインダーは見た目のみ（実装指示書4節：通知機能は今回スコープ外）
   const [isReminderEnabled, setIsReminderEnabled] = useState(false)
 
@@ -57,6 +71,8 @@ export function Settings({ goals, setGoals, trainingLogs, dailyConditions, today
       </section>
 
       <GoalPanel goals={goals} setGoals={setGoals} trainingLogs={trainingLogs} dailyConditions={dailyConditions} today={today} />
+
+      <TrainingTemplateManager todayString={todayString} openRecordModal={openRecordModal} />
 
       <section className="panel-card">
         <h3 className="settings-section__title">表示</h3>

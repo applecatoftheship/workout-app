@@ -200,8 +200,10 @@ function AppShell() {
                 trainingLogs={trainingLogs}
                 dailyConditions={dailyConditions}
                 today={today}
+                todayString={todayString}
                 theme={theme}
                 setTheme={setTheme}
+                openRecordModal={openRecordModal}
               />
             }
           />
