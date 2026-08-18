@@ -10,6 +10,7 @@ import { fetchSoccerLogs } from '../api/soccerLogs'
 import { getDayIcons, toDateKey, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
 import { calculateACWR, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../utils/acwrHelpers'
+import { calculateAdjustedGoals, getMatchDayStatus } from '../utils/periodizationHelpers'
 import { calculateMovingAverage, getTrendTone, toDateKey as toChartDateKey } from '../utils/chartHelpers'
 import type { MAPoint } from '../utils/chartHelpers'
 import type { Goals } from '../api/goals'
@@ -177,6 +178,51 @@ export function Dashboard({
     }
   }, [acwrChronicStartKey, todayString])
 
+  // スプリント3（MD基準の栄養調整、2026年8月18日）：MD判定には選択日の前日〜
+  // 3日後を含む範囲の予定が必要だが、週間ストリップ用のweekSchedules（週境界で
+  // 区切られる）をそのまま使うと、選択日が週の先頭/末尾付近の場合に必要な試合
+  // 予定が範囲外になり判定を誤る可能性がある。このため週の取得範囲とは独立して、
+  // selectedDateKeyを中心とした専用の窓でスケジュールを取得する。カロリーリング
+  // 等の他のカードと同じくselectedDateKey基準（ACWRGaugeCardのようなtodayString
+  // 固定カードではない）とした——補正対象のカロリーリング自体がselectedDateKey
+  // 基準のため、一致させる方が自然と判断。
+  const [mdWindowSchedules, setMdWindowSchedules] = useState<TrainingSchedule[]>([])
+  const mdWindowStartKey = useMemo(() => {
+    const date = new Date(`${selectedDateKey}T00:00:00`)
+    date.setDate(date.getDate() - 1)
+    return toChartDateKey(date)
+  }, [selectedDateKey])
+  const mdWindowEndKey = useMemo(() => {
+    const date = new Date(`${selectedDateKey}T00:00:00`)
+    date.setDate(date.getDate() + 3)
+    return toChartDateKey(date)
+  }, [selectedDateKey])
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchTrainingSchedules(mdWindowStartKey, mdWindowEndKey)
+      .then((data) => {
+        if (isMounted) {
+          setMdWindowSchedules(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから試合日判定用の予定の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [mdWindowStartKey, mdWindowEndKey])
+
+  const mdStatus = useMemo(
+    () => getMatchDayStatus(mdWindowSchedules, selectedDateKey),
+    [mdWindowSchedules, selectedDateKey],
+  )
+  const periodizationTarget = useMemo(() => calculateAdjustedGoals(goals, mdStatus), [goals, mdStatus])
+  const mdBadgeLabel = mdStatus === 'MD' ? 'MATCH DAY' : mdStatus
+
   const weekSchedulesByDate = useMemo(() => {
     const map = new Map<string, TrainingSchedule[]>()
     weekSchedules.forEach((schedule) => {
@@ -270,9 +316,18 @@ export function Dashboard({
   const calorieRate = goals.dailyCalorieGoal > 0
     ? Math.min(100, Math.round((todayMealTotals.calories / goals.dailyCalorieGoal) * 100))
     : 0
+
+  // スプリント3（MD基準の栄養調整、2026年8月18日）：カロリーリング自体は
+  // periodizationTarget（MD補正後、非補正時は基本目標値と同値）を分母に採用する。
+  // 下部の「栄養詳細」アコーディオン（calorieRateを使用）は基本目標値のまま据え置き、
+  // 補正の反映範囲はカロリーリング周辺（本カード内）に限定した（指示書5-2節の
+  // 「ダッシュボードのカロリーリング周辺」という記載範囲の判断）。
+  const calorieRingRate = periodizationTarget.calorieTarget > 0
+    ? Math.min(100, Math.round((todayMealTotals.calories / periodizationTarget.calorieTarget) * 100))
+    : 0
   const calorieRingData = useMemo(
-    () => [{ name: 'calorie', value: calorieRate, fill: 'var(--color-accent)' }],
-    [calorieRate],
+    () => [{ name: 'calorie', value: calorieRingRate, fill: 'var(--color-accent)' }],
+    [calorieRingRate],
   )
 
   // 移動平均（スプリント2、2026年8月17日）：DBにはキャッシュせず、ACWR機能と同じ方針で
@@ -431,7 +486,10 @@ export function Dashboard({
       </div>
 
       <section className="panel-card calorie-card">
-        <h2 className="panel-card__title">{calorieCardTitle}</h2>
+        <div className="calorie-card__header">
+          <h2 className="panel-card__title">{calorieCardTitle}</h2>
+          {mdBadgeLabel ? <span className="md-badge">{mdBadgeLabel}</span> : null}
+        </div>
         <div className="calorie-ring">
           <RadialBarChart
             width={180}
@@ -450,18 +508,27 @@ export function Dashboard({
           </RadialBarChart>
           <div className="calorie-ring__center">
             <span className="calorie-ring__value metric-value">{todayMealTotals.calories}</span>
-            <span className="calorie-ring__goal">/ {goals.dailyCalorieGoal} kcal</span>
+            <span className="calorie-ring__goal">/ {periodizationTarget.calorieTarget} kcal</span>
           </div>
         </div>
+        {periodizationTarget.isAdjusted && goals.dailyCalorieGoal > 0 ? (
+          <p className="calorie-card__adjustment-note">
+            試合前調整 {periodizationTarget.calorieTarget >= goals.dailyCalorieGoal ? '+' : ''}
+            {Math.round((periodizationTarget.calorieTarget / goals.dailyCalorieGoal - 1) * 100)}%
+          </p>
+        ) : null}
         <div className="calorie-ring__pfc">
           <span className="pfc-dot">
-            <i className="pfc-dot__marker pfc-dot__marker--protein" />P {todayMealTotals.protein}g
+            <i className="pfc-dot__marker pfc-dot__marker--protein" />P {todayMealTotals.protein}
+            /{periodizationTarget.proteinTarget}g
           </span>
           <span className="pfc-dot">
-            <i className="pfc-dot__marker pfc-dot__marker--fat" />F {todayMealTotals.fat}g
+            <i className="pfc-dot__marker pfc-dot__marker--fat" />F {todayMealTotals.fat}
+            /{periodizationTarget.fatTarget}g
           </span>
           <span className="pfc-dot">
-            <i className="pfc-dot__marker pfc-dot__marker--carb" />C {todayMealTotals.carbohydrates}g
+            <i className="pfc-dot__marker pfc-dot__marker--carb" />C {todayMealTotals.carbohydrates}
+            /{periodizationTarget.carbsTarget}g
           </span>
         </div>
       </section>

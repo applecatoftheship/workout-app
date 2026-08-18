@@ -53,6 +53,39 @@
   align-items: center;
 }
 
+/* スプリント3：試合日（MD）基準の栄養調整（2026年8月18日） */
+
+.calorie-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.calorie-card__header .panel-card__title {
+  margin-bottom: 0;
+}
+
+.md-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: var(--font-size-body-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  letter-spacing: 0.02em;
+}
+
+.calorie-card__adjustment-note {
+  margin: 6px 0 0;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
 .calorie-ring {
   position: relative;
   display: flex;
