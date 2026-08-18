@@ -579,3 +579,42 @@ grant/RLSは既存の`exercises`テーブルへの列追加のみのため新規
   挙動を維持）、`fetchTrainingLogs`・`fetchTrainingTemplates`内部の種目名解決
   呼び出しのみ`{ includeDeleted: true }`を指定するよう修正した。これにより、
   種目マスタを論理削除しても過去の実績・テンプレートの表示は影響を受けない。
+
+## 2026年8月18日: スプリント3（試合日MD基準の栄養・トレーニング調整）training_schedulesへのschedule_type列追加
+
+**未実行（人間が手動で実行する必要あり）**。予定が「試合」か「練習」かを区別し、
+試合日（Match Day）からの日数差でPFC目標・トレーニング負荷警告を動的補正する
+ピリオダイゼーション機能のための列追加。
+
+実行前に、対象列が既に存在しないか確認する場合は以下で確認できる。
+
+```sql
+select column_name from information_schema.columns
+where table_name = 'training_schedules' and column_name = 'schedule_type';
+```
+
+```sql
+alter table training_schedules
+add column if not exists schedule_type text default 'practice';
+-- 選択肢: 'match'(試合) / 'practice'(練習/トレーニング) / 'event'(その他)
+```
+
+`training_schedules`のgrant（`grant all on training_schedules to anon, authenticated,
+service_role;`）・RLS（`for all using (true) with check (true)`）は2026-08-12 (3)節で
+テーブル新設時に既に設定済みで、列追加のみでは変更不要（新規grant文の実行は
+冪等なため害はないが、今回は追加不要と判断し省略）。
+
+### 実装メモ
+
+- `src/types.ts`：`ScheduleType = 'match' | 'practice' | 'event'`を新設、
+  `TrainingSchedule`に`scheduleType?: ScheduleType`を追加（DBの`schedule_type`列に
+  対応、命名は既存のcamelCase規則に合わせた）。`PeriodizationTarget`型も新設。
+- `src/api/trainingSchedules.ts`：`TrainingScheduleRow`・`rowToSchedule`・
+  `scheduleInputToRow`に`schedule_type`↔`scheduleType`の読み書きを追加
+  （未設定時はDBのデフォルト`'practice'`と一致させてフォールバック）。
+- `src/utils/periodizationHelpers.ts`（新規）：`MD_ADJUSTMENT_TABLE`・
+  `getMatchDayStatus`・`calculateAdjustedGoals`を実装。ACWR・移動平均と同じく
+  DBキャッシュなしで呼び出しのたびに動的計算する方針。
+- MD判定に必要な予定データの取得範囲（週表示に紐づく`weekSchedules`とは別に、
+  対象日の前後を含む窓で取得する必要がある点）の対応内容は、コミットメッセージ・
+  最終レポート側に判断理由を記載。

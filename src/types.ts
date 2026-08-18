@@ -144,6 +144,7 @@ export interface ACWRResult {
 }
 
 export type TrainingScheduleStatus = 'scheduled' | 'completed' | 'cancelled';
+export type ScheduleType = 'match' | 'practice' | 'event';
 
 export interface TrainingSchedule extends BaseRecord {
   userId: string;
@@ -152,7 +153,18 @@ export interface TrainingSchedule extends BaseRecord {
   title: string;
   emoji: string;
   status: TrainingScheduleStatus;
+  scheduleType?: ScheduleType;
   notes?: string | null;
+}
+
+// スプリント3：試合日（MD）基準のピリオダイゼーション（2026年8月18日）
+export interface PeriodizationTarget {
+  statusLabel: string; // 'MD-1' | 'MD' | 'MD+1' 等
+  calorieTarget: number;
+  proteinTarget: number;
+  carbsTarget: number;
+  fatTarget: number;
+  isAdjusted: boolean;
 }
 
 export interface SoccerLog extends BaseRecord {

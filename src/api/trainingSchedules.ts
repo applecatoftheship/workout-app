@@ -10,6 +10,7 @@ type TrainingScheduleRow = {
   title: string
   emoji: string
   status: TrainingSchedule['status']
+  schedule_type: TrainingSchedule['scheduleType'] | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -24,6 +25,8 @@ function rowToSchedule(row: TrainingScheduleRow): TrainingSchedule {
     title: row.title,
     emoji: row.emoji,
     status: row.status,
+    // DB列のデフォルトは'practice'。旧スキーマ時代の行でnullの場合も同じ扱いにする
+    scheduleType: row.schedule_type ?? 'practice',
     notes: row.notes ?? undefined,
     createdAt: row.created_at as DateString,
     updatedAt: row.updated_at as DateString,
@@ -40,6 +43,7 @@ function scheduleInputToRow(schedule: ScheduleInput) {
     title: schedule.title,
     emoji: schedule.emoji,
     status: schedule.status,
+    schedule_type: schedule.scheduleType ?? 'practice',
     notes: schedule.notes ?? null,
   }
 }
@@ -98,6 +102,7 @@ export async function updateSchedule(id: string, updates: Partial<TrainingSchedu
   if (updates.title !== undefined) payload.title = updates.title
   if (updates.emoji !== undefined) payload.emoji = updates.emoji
   if (updates.status !== undefined) payload.status = updates.status
+  if (updates.scheduleType !== undefined) payload.schedule_type = updates.scheduleType
   if (updates.notes !== undefined) payload.notes = updates.notes
 
   const { data, error } = await supabase.from('training_schedules').update(payload).eq('id', id).select().single()
