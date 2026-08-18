@@ -14,6 +14,17 @@ const scheduleStatusLabel: Record<TrainingSchedule['status'], string> = {
   cancelled: 'キャンセル',
 }
 
+// スプリント3：試合日（MD）基準の栄養・トレーニング調整（2026年8月18日）。
+// ScheduleForm.tsx（編集モーダル内の一覧）と同じラベルだが、こちらは
+// MonthlyCalendarの閲覧専用サマリー側で別コンポーネントとして定義されているため、
+// 同じ内容を重複定義している（判断理由：共通化のための新規ファイル作成は
+// 今回のバグ修正の範囲を超えるため見送った）。
+const scheduleTypeLabel: Record<NonNullable<TrainingSchedule['scheduleType']>, string> = {
+  practice: '練習',
+  match: '試合',
+  event: 'その他',
+}
+
 type TrainingSummaryProps = {
   trainingLogs: TrainingLog[]
   selectedDate: DateString
@@ -82,7 +93,11 @@ export function ScheduleSummary({ schedules, selectedDate, onAdd, onEdit }: Sche
             <div key={schedule.id} className="calendar-detail__log-item">
               <div className="calendar-detail__log-head">
                 <span>
-                  {schedule.emoji} {schedule.title}（{scheduleStatusLabel[schedule.status]}）
+                  {schedule.emoji} {schedule.title}（{scheduleStatusLabel[schedule.status]}
+                  {schedule.scheduleType && schedule.scheduleType !== 'practice'
+                    ? `・${scheduleTypeLabel[schedule.scheduleType]}`
+                    : ''}
+                  ）
                 </span>
                 <button
                   type="button"
