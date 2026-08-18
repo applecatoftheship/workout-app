@@ -94,7 +94,6 @@ export function TrainingChart({
 }: TrainingChartProps) {
   const [expandedBodyPart, setExpandedBodyPart] = useState<string | null>(null)
   const hasAnyLog = periodTrainingDays.some((day) => day.hasLog)
-  const maxSets = Math.max(1, ...periodTrainingDays.map((day) => day.sets))
 
   return (
     <div className="progress-graph__chart-wrapper">
@@ -131,34 +130,7 @@ export function TrainingChart({
         <div className="progress-meter__fill" style={{ width: `${achievementRate}%` }} />
       </div>
 
-      {hasAnyLog ? (
-        <div
-          className="progress-graph__bars-wrapper"
-          style={{ gridTemplateColumns: `repeat(${periodTrainingDays.length}, 1fr)` }}
-        >
-          {periodTrainingDays.map((day, index) => (
-            <div key={day.date} className="progress-graph__bar-column">
-              <div
-                className={`progress-graph__bar ${
-                  day.hasLog
-                    ? day.completed
-                      ? 'progress-graph__bar--done'
-                      : 'progress-graph__bar--pending'
-                    : 'progress-graph__bar--empty'
-                }`}
-                style={{ height: day.sets > 0 ? `${Math.max(12, (day.sets / maxSets) * 100)}%` : '4%' }}
-              >
-                {day.sets > 0 ? <span>{day.sets}</span> : null}
-              </div>
-              <span className="progress-graph__bar-label">
-                {shouldShowLabel(index, periodTrainingDays.length) ? formatShortDate(day.date) : ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="progress-graph__empty">この期間の記録はまだありません</p>
-      )}
+      {!hasAnyLog ? <p className="progress-graph__empty">この期間の記録はまだありません</p> : null}
 
       {bodyPartVolume.length > 0 ? (
         <div className="body-part-volume">

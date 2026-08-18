@@ -191,6 +191,37 @@ export function getTrendTone(
   return isIncrease ? 'alert' : 'good'
 }
 
+export interface DenseMAPoint {
+  date: string
+  movingAvg: number
+}
+
+/**
+ * 日付に欠損がない連続した日次系列（休養日も0として含む）に対して、
+ * 直近windowSize日間の単純移動平均を計算する。calculateMovingAverageは
+ * 値が0以下/非数値のレコードを平均対象から除外する設計（体重・睡眠時間等、
+ * 「記録がない日」を除外して平均したい指標向け）だが、トレーニングボリュームの
+ * ような活動量指標では休養日の0も平均に含めて「週あたりの負荷」を正しく
+ * 表現する必要があるため、calculateMovingAverageは流用せず専用の関数として
+ * 分離した（2026年8月18日、進捗グラフ トレーニング画面刷新v2の判断）。
+ * seriesは呼び出し側でbuildDateList等により1日も欠けなく作成されている前提
+ * （インデックスベースの単純な範囲平均のため、日付の欠損があると不正確になる）。
+ */
+export function calculateDenseMovingAverage(
+  series: { date: string; volume: number }[],
+  windowSize = 7,
+): DenseMAPoint[] {
+  return series.map((point, index) => {
+    const windowStart = Math.max(0, index - (windowSize - 1))
+    const windowItems = series.slice(windowStart, index + 1)
+    const sum = windowItems.reduce((acc, item) => acc + item.volume, 0)
+    return {
+      date: point.date,
+      movingAvg: Math.round((sum / windowItems.length) * 10) / 10,
+    }
+  })
+}
+
 export function buildAxisTicks(min: number, range: number, decimals: number) {
   const tickCount = 4
   return Array.from({ length: tickCount }, (_, i) => {

@@ -4,10 +4,18 @@ import './ProgressGraph.css'
 import '../components/graphs/ChartCommon.css'
 import { TrainingChart } from '../components/graphs/TrainingChart'
 import type { BodyPartVolumeEntry } from '../components/graphs/TrainingChart'
+import { TrainingVolumeChart } from '../components/graphs/TrainingVolumeChart'
 import { WeightChart } from '../components/graphs/WeightChart'
 import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
-import { buildDateList, calculateMovingAverage, getPeriodGoalMultiplier, getPeriodRange, toDateKey } from '../utils/chartHelpers'
+import {
+  buildDateList,
+  calculateDenseMovingAverage,
+  calculateMovingAverage,
+  getPeriodGoalMultiplier,
+  getPeriodRange,
+  toDateKey,
+} from '../utils/chartHelpers'
 import type { Period } from '../utils/chartHelpers'
 
 // トレーニンググラフ刷新（2026年8月17日）：部位別ボリュームの識別色。
@@ -158,6 +166,25 @@ export function ProgressGraph({
     [periodDates, trainingByDate],
   )
 
+  // 総ボリューム推移（トレーニング画面刷新v2、2026年8月18日）：7日移動平均は
+  // 選択期間の先頭付近でも正しい直近7日分を参照できるよう、履歴の最初の記録日から
+  // 今日までの欠損のない日次系列（休養日=0）を先に作ってから期間で絞り込む
+  // （体重・睡眠・疲労度の移動平均と同じ「全期間計算→期間で絞り込み」の方針）。
+  const dailyVolumeSeries = useMemo(() => {
+    if (!earliestDate) return []
+    return buildDateList(earliestDate, today).map((date) => ({
+      date,
+      volume: trainingByDate.get(date)?.volume ?? 0,
+    }))
+  }, [earliestDate, today, trainingByDate])
+
+  const volumeMA = useMemo(() => calculateDenseMovingAverage(dailyVolumeSeries), [dailyVolumeSeries])
+
+  const periodVolumeMA = useMemo(
+    () => volumeMA.filter((point) => point.date >= periodStartKey && point.date <= periodEndKey).map((point) => ({ date: point.date, volume: point.movingAvg })),
+    [volumeMA, periodStartKey, periodEndKey],
+  )
+
   // 部位別ボリューム（トレーニンググラフ刷新、2026年8月17日）：ACWR・移動平均と同じく
   // DBにはキャッシュせず呼び出しのたびに動的計算する。前週比・自己ベストバッジは
   // 「全期間」選択時は比較対象となる同じ長さの期間が定義できないため算出しない
@@ -233,6 +260,26 @@ export function ProgressGraph({
   const totalVolume = periodTrainingDays.reduce((sum, day) => sum + day.volume, 0)
   const achievementRate = trainingGoal > 0 ? Math.min(100, Math.round((trainingCount / trainingGoal) * 100)) : 0
 
+  // 前期間比（ヒーローグラフのトレンドバッジ、2026年8月18日）：部位別ボリュームの
+  // 前週比と同じ「同じ長さの直前の期間」との比較方式を踏襲する。「全期間」選択時は
+  // 比較対象となる同じ長さの期間が定義できないためnull（バッジ非表示、部位別
+  // ボリュームの前週比と同じ判断）。
+  const previousPeriodTotalVolume = useMemo(() => {
+    if (period === 'all') return null
+    const periodLengthDays = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
+    const previousEnd = new Date(start)
+    previousEnd.setDate(previousEnd.getDate() - 1)
+    const previousStart = new Date(previousEnd)
+    previousStart.setDate(previousStart.getDate() - (periodLengthDays - 1))
+    const previousStartKey = toDateKey(previousStart)
+    const previousEndKey = toDateKey(previousEnd)
+    const previousLogs = trainingLogs.filter((log) => log.date >= previousStartKey && log.date <= previousEndKey)
+    const volumeByPart = sumVolumeByBodyPart(previousLogs)
+    return Array.from(volumeByPart.values()).reduce((sum, volume) => sum + volume, 0)
+  }, [trainingLogs, period, start, end])
+
+  const volumeDiff = previousPeriodTotalVolume != null ? totalVolume - previousPeriodTotalVolume : null
+
   return (
     <section className="progress-graph">
       <div className="progress-graph__header">
@@ -268,15 +315,23 @@ export function ProgressGraph({
 
       <div className="progress-graph__panel">
         {selectedChart === 'training' ? (
-          <TrainingChart
-            periodTrainingDays={periodTrainingDays}
-            trainingGoal={trainingGoal}
-            trainingCount={trainingCount}
-            totalSets={totalSets}
-            totalVolume={totalVolume}
-            achievementRate={achievementRate}
-            bodyPartVolume={bodyPartVolume}
-          />
+          <>
+            <TrainingChart
+              periodTrainingDays={periodTrainingDays}
+              trainingGoal={trainingGoal}
+              trainingCount={trainingCount}
+              totalSets={totalSets}
+              totalVolume={totalVolume}
+              achievementRate={achievementRate}
+              bodyPartVolume={bodyPartVolume}
+            />
+            <TrainingVolumeChart
+              periodDailyVolume={periodTrainingDays}
+              periodVolumeMA={periodVolumeMA}
+              totalVolume={totalVolume}
+              volumeDiff={volumeDiff}
+            />
+          </>
         ) : null}
         {selectedChart === 'weight' ? (
           <WeightChart
