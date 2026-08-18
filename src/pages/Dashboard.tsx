@@ -352,7 +352,11 @@ export function Dashboard({
     ? Math.min(100, Math.round((currentMonthTrainingCount / goals.monthlyTrainingGoal) * 100))
     : 0
 
-  const hasTrainingBlock = todayTrainingLogs.length > 0 || todaySchedules.length > 0
+  // 技術的負債#7対応（2026年8月18日）：種目単位削除により全種目が削除された
+  // training_logsレコードは「実施した実績」として扱わない。todayTrainingLogs.length
+  // ではなくtodayLoggedExercises.length（実際の種目数）で判定し、記録があっても
+  // 種目0件なら「予定」表示（予定があれば）または非表示にフォールバックする。
+  const hasTrainingBlock = todayLoggedExercises.length > 0 || todaySchedules.length > 0
   const hasSoccerBlock = todaySoccerLog !== null
   const hasExerciseCard = hasTrainingBlock || hasSoccerBlock
 
@@ -463,12 +467,12 @@ export function Dashboard({
             <div className="exercise-block">
               <div className="exercise-block__header">
                 <span className="exercise-block__title">{todayBodyPartsLabel}</span>
-                <span className={`status-chip status-chip--${todayTrainingLogs.length > 0 ? 'good' : 'warning'}`}>
-                  {todayTrainingLogs.length > 0 ? '完了' : '予定'}
+                <span className={`status-chip status-chip--${todayLoggedExercises.length > 0 ? 'good' : 'warning'}`}>
+                  {todayLoggedExercises.length > 0 ? '完了' : '予定'}
                 </span>
               </div>
               <ul className="exercise-block__list">
-                {todayTrainingLogs.length > 0
+                {todayLoggedExercises.length > 0
                   ? todayLoggedExercises.map((exercise, index) => (
                       <li key={exercise.id ?? `${exercise.exerciseId}-${index}`}>{formatExerciseCompact(exercise)}</li>
                     ))
