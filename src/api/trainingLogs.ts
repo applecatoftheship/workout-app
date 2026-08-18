@@ -27,18 +27,39 @@ function rowToExerciseDefinition(row: ExerciseRow): ExerciseDefinition {
   }
 }
 
-export async function fetchExercises(): Promise<ExerciseDefinition[]> {
-  const { data, error } = await supabase
+// includeDeleted: true は、過去の実績（training_log_exercises）・テンプレートの
+// 種目名解決など、論理削除された種目も参照し続ける必要がある場面専用。
+// 種目選択UI（ExercisePicker等）からの通常呼び出しはfalse（デフォルト）のまま、
+// 削除済み種目を候補から除外する。
+export async function fetchExercises(options?: { includeDeleted?: boolean }): Promise<ExerciseDefinition[]> {
+  let query = supabase
     .from('exercises')
     .select('*')
     .or(`is_preset.eq.true,user_id.eq.${DEFAULT_USER_ID}`)
     .order('name', { ascending: true })
+
+  if (!options?.includeDeleted) {
+    query = query.eq('is_deleted', false)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     throw error
   }
 
   return (data as ExerciseRow[]).map(rowToExerciseDefinition)
+}
+
+// food_itemsの論理削除（2026年8月13日実装）と同じ方式。実績データ
+// （training_log_exercises）はexercise_idを保持したまま参照を維持するため、
+// 過去の記録は削除後も影響を受けない。
+export async function deleteExercise(id: string): Promise<void> {
+  const { error } = await supabase.from('exercises').update({ is_deleted: true }).eq('id', id)
+
+  if (error) {
+    throw error
+  }
 }
 
 export async function createExercise(input: {
@@ -161,7 +182,10 @@ export async function fetchTrainingLogs(): Promise<TrainingLog[]> {
     throw setError
   }
 
-  const exercises = await fetchExercises()
+  // 過去の実績が参照する種目は、論理削除された後も名前解決できる必要があるため
+  // includeDeletedで取得する（削除は種目マスタからの除外のみで、過去記録の
+  // スナップショット的な表示には影響しない設計、技術的負債#9対応）。
+  const exercises = await fetchExercises({ includeDeleted: true })
   const exerciseMap = new Map(exercises.map((exercise) => [exercise.id as string, exercise]))
 
   return (logRows as TrainingLogRow[]).map((row) => {

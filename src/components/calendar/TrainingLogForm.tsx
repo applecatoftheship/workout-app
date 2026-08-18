@@ -120,12 +120,17 @@ export function TrainingLogForm({
   const [previousRecordHints, setPreviousRecordHints] = useState<Record<number, string>>({})
   const [isSaving, setIsSaving] = useState(false)
 
-  useEffect(() => {
+  const loadExercises = () => {
     fetchExercises()
       .then(setExercises)
       .catch((error) => {
         console.error('Supabaseから種目一覧の取得に失敗しました', error)
       })
+  }
+
+  useEffect(() => {
+    loadExercises()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const selectedTrainingLogs = useMemo(
@@ -600,7 +605,11 @@ export function TrainingLogForm({
 
           {formState.exercises.map((exercise, index) => (
             <div key={exercise.key} className="calendar-detail__exercise-form">
-              <ExercisePicker exercises={exercises} onSelect={(exerciseId, name) => handleExerciseNameChange(index, name, exerciseId)} />
+              <ExercisePicker
+                exercises={exercises}
+                onSelect={(exerciseId, name) => handleExerciseNameChange(index, name, exerciseId)}
+                onExerciseDeleted={loadExercises}
+              />
               <ExerciseNameInput
                 exercises={exercises}
                 onExerciseCreated={handleExerciseCreated}

@@ -535,3 +535,47 @@ DBへのキャッシュは行わない（3-3節参照）。
 - 本SQLは列追加のみで、既存行への影響はない（`default 'none'`のため、実行後は
   既存行も`muscle_soreness_location='none'`・`muscle_soreness_level='none'`として
   読み出される）。
+
+## 2026年8月18日: 技術的負債#9（種目マスタ削除UI）exercisesへのis_deleted列追加
+
+**未実行（人間が手動で実行する必要あり）**。food_items（2026-08-12 (2)節参照）と
+同じ論理削除方式をexercisesにも適用する。
+
+実行前に、対象列が既に存在しないか確認する場合は以下で確認できる。
+
+```sql
+select column_name from information_schema.columns
+where table_name = 'exercises' and column_name = 'is_deleted';
+```
+
+```sql
+alter table exercises add column if not exists is_deleted boolean not null default false;
+```
+
+grant/RLSは既存の`exercises`テーブルへの列追加のみのため新規設定不要
+（テーブル新設ではなく、既存のgrant/RLSポリシーがそのまま新規列にも適用される）。
+
+### 実装メモ
+
+- `src/api/trainingLogs.ts`の`fetchExercises`に`.eq('is_deleted', false)`を追加し、
+  論理削除済みの種目を一覧・選択候補から除外するようにした。新規`deleteExercise(id)`
+  関数を追加（`update({ is_deleted: true })`、food_itemsの`deleteFoodItem`と同型）。
+- `src/components/calendar/ExercisePicker.tsx`に、`GenreFoodPicker.tsx`と同じパターン
+  で「削除する種目」ドロップダウン＋確認ダイアログ付き削除ボタンを追加した
+  （既存の追加用ドロップダウンとは独立させ、誤操作を防止）。削除確認ダイアログは
+  種目名を具体的に含む文言（例：「『テスト種目KEEP』を削除しますか？」）。
+- 削除成功後は`TrainingLogForm.tsx`の`loadExercises`（`fetchExercises`の再実行、
+  今回のために既存の匿名useEffect内ロジックを再利用可能な関数へ切り出した）を
+  呼び出し、リロードなしで一覧から即座に消えるようにした
+  （`MealLogForm.tsx`の`loadFoodItems`と同じパターン）。
+- **注意点として実装中に判明**：`TrainingLogExercise.exercise`は`fetchTrainingLogs`側
+  で`fetchExercises`の結果からマップして解決しているため、`fetchExercises`に
+  `is_deleted=false`フィルタを単純に追加しただけでは、論理削除された種目を含む
+  過去の実績の`exercise`が`undefined`になり、過去の記録の種目名が表示されなく
+  なってしまう（`training_template_exercises`側の`fetchTrainingTemplates`も同様）。
+  これは指示書2-3節の「過去の実績データには影響しない」という要件に反するため、
+  `fetchExercises`に`includeDeleted`オプションを追加し（デフォルトfalseで
+  `ExercisePicker`等の選択UIからの通常呼び出しは削除済み種目を除外する従来通りの
+  挙動を維持）、`fetchTrainingLogs`・`fetchTrainingTemplates`内部の種目名解決
+  呼び出しのみ`{ includeDeleted: true }`を指定するよう修正した。これにより、
+  種目マスタを論理削除しても過去の実績・テンプレートの表示は影響を受けない。

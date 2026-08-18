@@ -58,7 +58,10 @@ export async function fetchTrainingTemplates(): Promise<TrainingTemplate[]> {
     throw exerciseError
   }
 
-  const exercises = await fetchExercises()
+  // テンプレートが参照する種目も、論理削除後に名前解決できなくならないよう
+  // includeDeletedで取得する（技術的負債#9対応、trainingLogs.tsのfetchTrainingLogs
+  // と同じ理由）。
+  const exercises = await fetchExercises({ includeDeleted: true })
   const exerciseMap = new Map(exercises.map((exercise) => [exercise.id as string, exercise]))
 
   return (templateRows as TrainingTemplateRow[]).map((row) => ({
