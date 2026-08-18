@@ -310,7 +310,7 @@ export async function fetchLatestExerciseRecord(exerciseId: string): Promise<Lat
 }
 
 export async function deleteTrainingLogRemote(id: string): Promise<void> {
-  const { error } = await supabase.from('training_logs').delete().eq('id', id)
+  const { error } = await supabase.from('training_logs').delete().eq('id', id).eq('user_id', DEFAULT_USER_ID)
 
   if (error) {
     throw error
@@ -319,8 +319,11 @@ export async function deleteTrainingLogRemote(id: string): Promise<void> {
 
 // training_sets は training_log_exercise_id に on delete cascade が設定されているため、
 // このテーブルの行を削除するだけで配下のセットも自動的に削除される。
+// user_idでの絞り込みは、RLSが全許可のためセキュリティ境界にはならないが、
+// アプリ側の誤操作（他ユーザーのIDを誤って渡すバグ等）を防ぐガードとして付与している
+// （技術的負債5番、2026年8月18日の調査を踏まえた対応）。
 export async function deleteTrainingLogExerciseRemote(id: string): Promise<void> {
-  const { error } = await supabase.from('training_log_exercises').delete().eq('id', id)
+  const { error } = await supabase.from('training_log_exercises').delete().eq('id', id).eq('user_id', DEFAULT_USER_ID)
 
   if (error) {
     throw error

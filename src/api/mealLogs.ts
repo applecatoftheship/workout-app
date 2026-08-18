@@ -128,7 +128,7 @@ export async function upsertMealLog(input: MealLogInput): Promise<void> {
 }
 
 export async function deleteMealLogRemote(id: string): Promise<void> {
-  const { error } = await supabase.from('meal_logs').delete().eq('id', id)
+  const { error } = await supabase.from('meal_logs').delete().eq('id', id).eq('user_id', DEFAULT_USER_ID)
 
   if (error) {
     throw error

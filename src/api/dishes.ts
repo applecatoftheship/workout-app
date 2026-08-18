@@ -137,13 +137,20 @@ export async function createDish(name: string, items: DishItemInput[]): Promise<
 }
 
 export async function deleteDish(dishId: string): Promise<void> {
-  const { error: itemsError } = await supabase.from('dish_food_items').delete().eq('dish_id', dishId)
+  // user_idでの絞り込みは、RLSが全許可のためセキュリティ境界にはならないが、
+  // アプリ側の誤操作（他ユーザーのIDを誤って渡すバグ等）を防ぐガードとして付与している
+  // （技術的負債5番、2026年8月18日の調査を踏まえた対応）。
+  const { error: itemsError } = await supabase
+    .from('dish_food_items')
+    .delete()
+    .eq('dish_id', dishId)
+    .eq('user_id', DEFAULT_USER_ID)
 
   if (itemsError) {
     throw itemsError
   }
 
-  const { error: dishError } = await supabase.from('dishes').delete().eq('id', dishId)
+  const { error: dishError } = await supabase.from('dishes').delete().eq('id', dishId).eq('user_id', DEFAULT_USER_ID)
 
   if (dishError) {
     throw dishError
