@@ -5,6 +5,7 @@ import '../components/graphs/ChartCommon.css'
 import { TrainingChart } from '../components/graphs/TrainingChart'
 import type { BodyPartVolumeEntry } from '../components/graphs/TrainingChart'
 import { TrainingVolumeChart } from '../components/graphs/TrainingVolumeChart'
+import { TrainingBodyPartDonut } from '../components/graphs/TrainingBodyPartDonut'
 import { WeightChart } from '../components/graphs/WeightChart'
 import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
@@ -331,6 +332,7 @@ export function ProgressGraph({
               totalVolume={totalVolume}
               volumeDiff={volumeDiff}
             />
+            <TrainingBodyPartDonut bodyPartVolume={bodyPartVolume} />
           </>
         ) : null}
         {selectedChart === 'weight' ? (

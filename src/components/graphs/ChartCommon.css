@@ -324,6 +324,42 @@
   background: var(--color-accent);
 }
 
+/* 部位バランス円グラフ（トレーニング画面刷新v2、2026年8月18日） */
+
+.body-part-donut {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  max-width: 100%;
+  height: 200px;
+  margin: 0 auto;
+}
+
+.body-part-donut__center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.body-part-donut__center-label {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.body-part-donut__center-value {
+  font-size: var(--font-size-metric);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
 .chart-card__tooltip {
   margin: 0;
   padding: 6px 10px;
