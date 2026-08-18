@@ -85,6 +85,17 @@
   color: var(--color-text-primary);
 }
 
+.button--danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}
+
+.goal-panel__header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .form-error {
   margin: 0;
   color: var(--color-danger-text);

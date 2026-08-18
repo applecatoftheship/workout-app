@@ -142,3 +142,15 @@ export async function upsertGoals(goals: Goals): Promise<void> {
     throw error
   }
 }
+
+// goalsに論理削除の概念（is_deleted列）はないため物理削除とする（technical
+// debt #8対応、2026年8月18日）。呼び出し元（GoalPanel.tsx）で当月の削除は
+// UI上できないようにガードしている（当月のgoalsはDashboardの進捗比較カード等が
+// 常に存在する前提で参照しているため）。
+export async function deleteGoalByMonth(yearMonth: string): Promise<void> {
+  const { error } = await supabase.from('goals').delete().eq('user_id', DEFAULT_USER_ID).eq('year_month', yearMonth)
+
+  if (error) {
+    throw error
+  }
+}

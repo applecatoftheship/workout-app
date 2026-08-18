@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './GoalPanel.css'
 import { useToast } from '../hooks/useToast'
-import { fetchGoalYearMonths, fetchGoalsByMonthReadOnly, upsertGoals } from '../api/goals'
+import { deleteGoalByMonth, fetchGoalYearMonths, fetchGoalsByMonthReadOnly, upsertGoals } from '../api/goals'
 import type { Goals } from '../api/goals'
 import type { DailyCondition, TrainingLog } from '../types'
 
@@ -65,6 +65,7 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
   const [availableYearMonths, setAvailableYearMonths] = useState<string[]>([goals.yearMonth])
   const [historyGoals, setHistoryGoals] = useState<Goals | null>(null)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [isDeletingGoals, setIsDeletingGoals] = useState(false)
 
   const isCurrentMonth = selectedYearMonth === goals.yearMonth
   const displayedGoals = isCurrentMonth ? goals : historyGoals
@@ -256,6 +257,31 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
     setGoalFormSummaryError(null)
   }
 
+  // goals削除機能（technical debt #8対応、2026年8月18日）。当月は削除不可
+  // （呼び出し元のボタン表示自体を!isCurrentMonthでガードしているため、
+  // ここに到達する時点で過去月であることが前提）。
+  const handleDeleteGoalMonth = async () => {
+    const confirmed = window.confirm(`${formatYearMonthLabel(selectedYearMonth)}の目標を削除しますか？この操作は取り消せません`)
+    if (!confirmed) {
+      return
+    }
+
+    setIsDeletingGoals(true)
+    try {
+      await deleteGoalByMonth(selectedYearMonth)
+      setAvailableYearMonths((current) => current.filter((yearMonth) => yearMonth !== selectedYearMonth))
+      setHistoryGoals(null)
+      setSelectedYearMonth(goals.yearMonth)
+      setIsEditingGoals(false)
+      showToast('目標を削除しました', 'success')
+    } catch (error) {
+      console.error('Supabaseへの目標削除に失敗しました', error)
+      showToast('削除に失敗しました。もう一度お試しください', 'error')
+    } finally {
+      setIsDeletingGoals(false)
+    }
+  }
+
   return (
     <section className="panel-card accordion-item goal-panel">
       <button
@@ -273,9 +299,16 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
               {isCurrentMonth ? '今月の進捗を確認し、目標を調整できます。' : `${formatYearMonthLabel(selectedYearMonth)}の目標です。`}
             </p>
             {!isEditingGoals ? (
-              <button type="button" className="button button--secondary" onClick={openGoalEditor}>
-                {isCurrentMonth ? '目標を編集' : displayedGoals ? '編集' : 'この月の目標を設定する'}
-              </button>
+              <div className="goal-panel__header-actions">
+                <button type="button" className="button button--secondary" onClick={openGoalEditor}>
+                  {isCurrentMonth ? '目標を編集' : displayedGoals ? '編集' : 'この月の目標を設定する'}
+                </button>
+                {!isCurrentMonth && historyGoals ? (
+                  <button type="button" className="button button--danger" onClick={handleDeleteGoalMonth} disabled={isDeletingGoals}>
+                    {isDeletingGoals ? '削除中...' : '削除'}
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
 
