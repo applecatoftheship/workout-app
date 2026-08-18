@@ -1,9 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './GoalPanel.css'
 import { useToast } from '../hooks/useToast'
-import { upsertGoals } from '../api/goals'
+import { fetchGoalYearMonths, fetchGoalsByMonthReadOnly, upsertGoals } from '../api/goals'
 import type { Goals } from '../api/goals'
 import type { DailyCondition, TrainingLog } from '../types'
+
+function formatYearMonthLabel(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-')
+  return `${year}年${Number(month)}月`
+}
 
 type GoalFormState = {
   targetWeight: string
@@ -53,6 +58,47 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
   const [goalFormSummaryError, setGoalFormSummaryError] = useState<string | null>(null)
   const [isSavingGoals, setIsSavingGoals] = useState(false)
 
+  // goals過去月一覧表示（2026年8月18日追加）。selectedYearMonthが当月
+  // （goals.yearMonth）の場合は既存のgoals/setGoals（App.tsx側のstate）を
+  // そのまま使い、過去月が選択された場合のみhistoryGoalsを個別に読み込む。
+  const [selectedYearMonth, setSelectedYearMonth] = useState(goals.yearMonth)
+  const [availableYearMonths, setAvailableYearMonths] = useState<string[]>([goals.yearMonth])
+  const [historyGoals, setHistoryGoals] = useState<Goals | null>(null)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
+  const isCurrentMonth = selectedYearMonth === goals.yearMonth
+  const displayedGoals = isCurrentMonth ? goals : historyGoals
+
+  useEffect(() => {
+    if (!isGoalPanelOpen) {
+      return
+    }
+    fetchGoalYearMonths()
+      .then((months) => {
+        setAvailableYearMonths((current) => {
+          const merged = Array.from(new Set([...current, ...months]))
+          return merged.sort((a, b) => b.localeCompare(a))
+        })
+      })
+      .catch((error) => {
+        console.error('Supabaseから目標設定の月一覧の取得に失敗しました', error)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGoalPanelOpen])
+
+  useEffect(() => {
+    if (isCurrentMonth) {
+      return
+    }
+    setIsLoadingHistory(true)
+    fetchGoalsByMonthReadOnly(selectedYearMonth)
+      .then(setHistoryGoals)
+      .catch((error) => {
+        console.error('Supabaseから過去月の目標設定の取得に失敗しました', error)
+      })
+      .finally(() => setIsLoadingHistory(false))
+  }, [selectedYearMonth, isCurrentMonth])
+
   const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   const currentMonthConditions = dailyConditions.filter((condition) => condition.date.startsWith(currentMonthKey))
   const averageSleepHours =
@@ -87,15 +133,19 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
   ).length
 
   const openGoalEditor = () => {
+    // 過去月にまだ目標データがない場合（displayedGoalsがnull）は、当月の値を
+    // 初期値として提案する（fetchGoalsByMonthの繰り越しロジックと同じ考え方。
+    // ゼロ埋めより手直しが少なく済むための判断）。
+    const baseGoals = displayedGoals ?? goals
     setGoalFormState({
-      targetWeight: String(goals.targetWeight),
-      targetSleepHours: String(goals.targetSleepHours),
-      weeklyTrainingGoal: String(goals.weeklyTrainingGoal),
-      monthlyTrainingGoal: String(goals.monthlyTrainingGoal),
-      dailyCalorieGoal: String(goals.dailyCalorieGoal),
-      dailyProteinGoal: String(goals.dailyProteinGoal),
-      dailyFatGoal: String(goals.dailyFatGoal),
-      dailyCarbohydrateGoal: String(goals.dailyCarbohydrateGoal),
+      targetWeight: String(baseGoals.targetWeight),
+      targetSleepHours: String(baseGoals.targetSleepHours),
+      weeklyTrainingGoal: String(baseGoals.weeklyTrainingGoal),
+      monthlyTrainingGoal: String(baseGoals.monthlyTrainingGoal),
+      dailyCalorieGoal: String(baseGoals.dailyCalorieGoal),
+      dailyProteinGoal: String(baseGoals.dailyProteinGoal),
+      dailyFatGoal: String(baseGoals.dailyFatGoal),
+      dailyCarbohydrateGoal: String(baseGoals.dailyCarbohydrateGoal),
     })
     setGoalFormErrors({})
     setGoalFormSummaryError(null)
@@ -158,7 +208,7 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
     }
 
     const nextGoals: Goals = {
-      yearMonth: goals.yearMonth,
+      yearMonth: selectedYearMonth,
       targetWeight: Number(goalFormState.targetWeight),
       targetSleepHours: Number(goalFormState.targetSleepHours),
       weeklyTrainingGoal: Number(goalFormState.weeklyTrainingGoal),
@@ -175,7 +225,12 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
       // useEffectは廃止済み（2026年8月17日、データ損失事故の調査を踏まえ、
       // フェッチ失敗時にデフォルト値で上書きされるリスクを避けるため）。
       await upsertGoals(nextGoals)
-      setGoals(nextGoals)
+      if (isCurrentMonth) {
+        setGoals(nextGoals)
+      } else {
+        setHistoryGoals(nextGoals)
+        setAvailableYearMonths((current) => (current.includes(selectedYearMonth) ? current : [...current, selectedYearMonth].sort((a, b) => b.localeCompare(a))))
+      }
       setIsEditingGoals(false)
       showToast('目標を保存しました', 'success')
     } catch (error) {
@@ -188,6 +243,14 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
   }
 
   const cancelGoalEdit = () => {
+    setIsEditingGoals(false)
+    setGoalFormErrors({})
+    setGoalFormSummaryError(null)
+  }
+
+  const handleSelectYearMonth = (yearMonth: string) => {
+    setSelectedYearMonth(yearMonth)
+    // 月をまたいで編集フォームを開いたままにすると保存先の月があいまいになるため閉じる
     setIsEditingGoals(false)
     setGoalFormErrors({})
     setGoalFormSummaryError(null)
@@ -206,11 +269,26 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
       {isGoalPanelOpen ? (
         <div className="accordion-body">
           <div className="panel-card__header-row">
-            <p className="panel-card__description">今月の進捗を確認し、目標を調整できます。</p>
-            <button type="button" className="button button--secondary" onClick={openGoalEditor}>
-              目標を編集
-            </button>
+            <p className="panel-card__description">
+              {isCurrentMonth ? '今月の進捗を確認し、目標を調整できます。' : `${formatYearMonthLabel(selectedYearMonth)}の目標です。`}
+            </p>
+            {!isEditingGoals ? (
+              <button type="button" className="button button--secondary" onClick={openGoalEditor}>
+                {isCurrentMonth ? '目標を編集' : displayedGoals ? '編集' : 'この月の目標を設定する'}
+              </button>
+            ) : null}
           </div>
+
+          <label className="dashboard-goals-field">
+            <span>表示する月</span>
+            <select value={selectedYearMonth} onChange={(event) => handleSelectYearMonth(event.target.value)}>
+              {availableYearMonths.map((yearMonth) => (
+                <option key={yearMonth} value={yearMonth}>
+                  {formatYearMonthLabel(yearMonth)}
+                </option>
+              ))}
+            </select>
+          </label>
 
           {isEditingGoals ? (
             <div className="dashboard-goals-form">
@@ -250,7 +328,7 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
                 {goalFormErrors.weeklyTrainingGoal ? <p className="form-error">{goalFormErrors.weeklyTrainingGoal}</p> : null}
               </label>
               <label className="dashboard-goals-field">
-                <span>8月の目標トレーニング回数</span>
+                <span>{formatYearMonthLabel(selectedYearMonth)}の目標トレーニング回数</span>
                 <input
                   type="number"
                   min="0"
@@ -313,7 +391,7 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
                 </button>
               </div>
             </div>
-          ) : (
+          ) : isCurrentMonth ? (
             <div className="goal-grid">
               <article className="goal-card">
                 <div className="goal-card__title">目標体重</div>
@@ -335,6 +413,43 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
                 <div className="goal-card__note">この週の進捗を確認できます。</div>
               </article>
             </div>
+          ) : isLoadingHistory ? (
+            <p className="panel-card__description">読み込み中...</p>
+          ) : historyGoals ? (
+            // 過去月は「その月に実際にどれだけ進捗したか」を再計算する機能ではなく、
+            // 設定されていた目標値そのものを確認するための一覧表示にとどめる
+            // （指示書2-2節「その月の目標値を表示する」の範囲。当月のような
+            // 現在値との比較カードは過去月には存在しないため実装していない）。
+            <div className="goal-grid">
+              <article className="goal-card">
+                <div className="goal-card__title">目標体重</div>
+                <div className="goal-card__stat">{historyGoals.targetWeight.toFixed(1)}kg</div>
+              </article>
+              <article className="goal-card">
+                <div className="goal-card__title">目標睡眠時間</div>
+                <div className="goal-card__stat">{historyGoals.targetSleepHours.toFixed(1)}時間</div>
+              </article>
+              <article className="goal-card">
+                <div className="goal-card__title">週の目標トレーニング回数</div>
+                <div className="goal-card__stat">{historyGoals.weeklyTrainingGoal}回</div>
+              </article>
+              <article className="goal-card">
+                <div className="goal-card__title">{formatYearMonthLabel(selectedYearMonth)}の目標トレーニング回数</div>
+                <div className="goal-card__stat">{historyGoals.monthlyTrainingGoal}回</div>
+              </article>
+              <article className="goal-card">
+                <div className="goal-card__title">1日の目標カロリー</div>
+                <div className="goal-card__stat">{historyGoals.dailyCalorieGoal}kcal</div>
+              </article>
+              <article className="goal-card">
+                <div className="goal-card__title">1日の目標PFC</div>
+                <div className="goal-card__stat">
+                  P{historyGoals.dailyProteinGoal}g / F{historyGoals.dailyFatGoal}g / C{historyGoals.dailyCarbohydrateGoal}g
+                </div>
+              </article>
+            </div>
+          ) : (
+            <p className="panel-card__description">この月の目標は設定されていません</p>
           )}
         </div>
       ) : null}

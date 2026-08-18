@@ -83,6 +83,42 @@ export async function fetchGoalsByMonth(yearMonth: string): Promise<Goals | null
   return carriedForward
 }
 
+/**
+ * 指定した年月（YYYY-MM）の目標を取得する。fetchGoalsByMonthと異なり、
+ * データが存在しない場合はnullを返すのみで、直近過去月からの繰り越し・
+ * DBへの新規作成は行わない（過去月の一覧閲覧UI専用の読み取り専用版。
+ * 閲覧しただけで意図せず新しいgoals行が作成されるのを防ぐため）。
+ */
+export async function fetchGoalsByMonthReadOnly(yearMonth: string): Promise<Goals | null> {
+  const { data, error } = await supabase
+    .from('goals')
+    .select('*')
+    .eq('user_id', DEFAULT_USER_ID)
+    .eq('year_month', yearMonth)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data ? rowToGoals(data as GoalsRow) : null
+}
+
+/** データが存在する年月（YYYY-MM）の一覧を新しい順に取得する（過去月選択UI用）。 */
+export async function fetchGoalYearMonths(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('goals')
+    .select('year_month')
+    .eq('user_id', DEFAULT_USER_ID)
+    .order('year_month', { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return (data as { year_month: string }[]).map((row) => row.year_month)
+}
+
 export async function upsertGoals(goals: Goals): Promise<void> {
   const { error } = await supabase
     .from('goals')
