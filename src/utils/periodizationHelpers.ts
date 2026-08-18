@@ -72,12 +72,19 @@ export type BaseGoalsForPeriodization = {
   dailyCalorieGoal: number
   dailyProteinGoal: number
   dailyFatGoal: number
+  dailyCarbohydrateGoal: number
 }
 
 /**
  * MD_ADJUSTMENT_TABLEを参照し、PFC目標を逆算方式で算出する。
  * エネルギー目標を最優先し、タンパク質・脂質を確定させた後、残りのエネルギーを
  * すべて炭水化物に変換する。mdStatusがnullの場合は補正なし（基本目標値のまま）。
+ *
+ * 補正なしの場合はbaseGoals.dailyCarbohydrateGoal（Settingsで設定された実際の値）を
+ * そのまま返す。カロリー・タンパク質・脂質の合計から逆算した値で置き換えると、
+ * ユーザーが設定した値と一致しない場合に補正が発動していない通常の日でも
+ * 表示上の炭水化物量が変わってしまうため（例：デフォルト値の場合、逆算すると
+ * 265gになるが実際の設定値は250g）。逆算はMD補正が実際に発動している場合のみ行う。
  */
 export function calculateAdjustedGoals(
   baseGoals: BaseGoalsForPeriodization,
@@ -86,18 +93,12 @@ export function calculateAdjustedGoals(
   const ratio = mdStatus ? MD_ADJUSTMENT_TABLE[mdStatus] : undefined
 
   if (!ratio) {
-    // 補正なし：基本目標値からそのまま炭水化物量も逆算して一貫した値を返す
-    const calorieTarget = baseGoals.dailyCalorieGoal
-    const proteinTarget = baseGoals.dailyProteinGoal
-    const fatTarget = baseGoals.dailyFatGoal
-    const residualEnergy = calorieTarget - (proteinTarget * 4 + fatTarget * 9)
-    const carbsTarget = Math.max(0, Math.round(residualEnergy / 4))
     return {
       statusLabel: mdStatus ?? '',
-      calorieTarget,
-      proteinTarget,
-      carbsTarget,
-      fatTarget,
+      calorieTarget: baseGoals.dailyCalorieGoal,
+      proteinTarget: baseGoals.dailyProteinGoal,
+      carbsTarget: baseGoals.dailyCarbohydrateGoal,
+      fatTarget: baseGoals.dailyFatGoal,
       isAdjusted: false,
     }
   }
