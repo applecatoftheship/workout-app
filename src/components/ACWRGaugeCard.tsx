@@ -7,6 +7,8 @@ type ACWRGaugeCardProps = {
   daysUntilAvailable: number
   sorenessLocation?: MuscleLocation
   sorenessLevel?: SorenessLevel
+  /** 3日連続で🔴警戒状態が続いているか（実装指示書Phase C、2026年8月18日追加） */
+  showDeloadWarning?: boolean
 }
 
 const STATUS_META: Record<ACWRResult['status'], { emoji: string; label: string; tone: string }> = {
@@ -16,7 +18,7 @@ const STATUS_META: Record<ACWRResult['status'], { emoji: string; label: string; 
   unload: { emoji: '🔵', label: '低下', tone: 'data' },
 }
 
-export function ACWRGaugeCard({ result, daysUntilAvailable, sorenessLocation, sorenessLevel }: ACWRGaugeCardProps) {
+export function ACWRGaugeCard({ result, daysUntilAvailable, sorenessLocation, sorenessLevel, showDeloadWarning }: ACWRGaugeCardProps) {
   if (!result) {
     return (
       <section className="panel-card acwr-card">
@@ -67,6 +69,12 @@ export function ACWRGaugeCard({ result, daysUntilAvailable, sorenessLocation, so
           <span className="acwr-bar__value metric-value">{result.chronicLoad.toFixed(0)}</span>
         </div>
       </div>
+
+      {showDeloadWarning ? (
+        <p className="acwr-card__deload-warning">
+          ⚠️ 3日連続で高負荷状態が続いています。ディロード（負荷を20〜30%程度落とす）を検討してください
+        </p>
+      ) : null}
 
       {result.hasSorenessWarning && sorenessLocation && sorenessLocation !== 'none' ? (
         <span className="acwr-soreness-tag">

@@ -9,7 +9,7 @@ import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { getDayIcons, toDateKey, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
-import { calculateACWR, daysUntilACWRAvailable } from '../utils/acwrHelpers'
+import { calculateACWR, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../utils/acwrHelpers'
 import { calculateMovingAverage, getTrendTone, toDateKey as toChartDateKey } from '../utils/chartHelpers'
 import type { MAPoint } from '../utils/chartHelpers'
 import type { Goals } from '../api/goals'
@@ -218,6 +218,13 @@ export function Dashboard({
   const acwrDaysUntilAvailable = useMemo(
     () => daysUntilACWRAvailable(trainingLogs, acwrSoccerLogs, todayString),
     [trainingLogs, acwrSoccerLogs, todayString],
+  )
+  // ディロード自動提案（実装指示書Phase C、2026年8月18日）：直近3日連続で
+  // 🔴警戒状態が続いている場合に警告を表示する。ACWRGaugeCard同様、日付選択の
+  // 対象外でtodayString基準のまま。
+  const showDeloadWarning = useMemo(
+    () => hasConsecutiveDangerDays(trainingLogs, acwrSoccerLogs, dailyConditions, todayString),
+    [trainingLogs, acwrSoccerLogs, dailyConditions, todayString],
   )
 
   // ホーム日付選択（A-2）：カロリーリング・「選択日の運動」カード・統計カードは
@@ -508,6 +515,7 @@ export function Dashboard({
         daysUntilAvailable={acwrDaysUntilAvailable}
         sorenessLocation={todayCondition?.muscleSorenessLocation}
         sorenessLevel={todayCondition?.muscleSorenessLevel}
+        showDeloadWarning={showDeloadWarning}
       />
 
       <section className="panel-card week-strip">

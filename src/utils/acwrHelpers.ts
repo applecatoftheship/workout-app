@@ -1,4 +1,4 @@
-import type { ACWRResult, DateString, MuscleLocation, SoccerLog, SorenessLevel, TrainingLog } from '../types'
+import type { ACWRResult, DailyCondition, DateString, MuscleLocation, SoccerLog, SorenessLevel, TrainingLog } from '../types'
 
 // 運動負荷の正規化定数（将来的なチューニングに対応できるよう分離）
 export const GYM_VOLUME_DIVISOR = 100 // 筋トレ総挙上量(kg) → 負荷スコア換算
@@ -182,6 +182,38 @@ export function calculateACWR(
   const { status, message, hasSorenessWarning } = determineACWRStatus(acwr, todaySorenessLevel, todaySorenessLocation)
 
   return { acuteLoad, chronicLoad, acuteDays, chronicDays, acwr, status, message, hasSorenessWarning }
+}
+
+/**
+ * ディロード自動提案（実装指示書Phase C、2026年8月18日）：直近consecutiveDays日
+ * （デフォルト3日）が連続して🔴警戒（danger）状態だったかを判定する。DBキャッシュは
+ * せず、calculateACWR・determineACWRStatusと同じロジックを日ごとに再利用して
+ * 動的に計算する。各日の判定に必要な局所疲労情報は、その日のdaily_conditionsから
+ * 取得する（当日の値だけでなく、対象の各日の値をそれぞれ参照する必要があるため）。
+ * 判定できない日（データ不足でcalculateACWRがnullを返す日）が1日でもあれば
+ * 連続とはみなさずfalseを返す（安全側の判断）。
+ */
+export function hasConsecutiveDangerDays(
+  trainingLogs: TrainingLog[],
+  soccerLogs: SoccerLog[],
+  dailyConditions: DailyCondition[],
+  todayDate: DateString,
+  consecutiveDays = 3,
+): boolean {
+  const conditionByDate = new Map(dailyConditions.map((condition) => [condition.date, condition]))
+  const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
+
+  for (let offset = 0; offset < consecutiveDays; offset += 1) {
+    const date = toDateKey(new Date(todayTime - offset * 86_400_000))
+    const condition = conditionByDate.get(date)
+    const result = calculateACWR(trainingLogs, soccerLogs, date, condition?.muscleSorenessLevel, condition?.muscleSorenessLocation)
+
+    if (result?.status !== 'danger') {
+      return false
+    }
+  }
+
+  return true
 }
 
 /** データ蓄積があと何日で7日分に達するか（表示用）。7日分以上ある場合は0。 */
