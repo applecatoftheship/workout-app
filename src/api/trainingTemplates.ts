@@ -108,6 +108,44 @@ export async function createTrainingTemplate(name: string, exerciseIds: string[]
   }
 }
 
+// テンプレート編集機能（2026年8月19日）。名前はtraining_templates本体を更新し、
+// 種目構成はtraining_template_exercisesを全削除してから再登録する（新規作成時と
+// 同じ挿入ロジックを流用）。これはtraining_templates本体の削除ではなく、対象
+// templateIdが既に確定している1レコード分の子テーブルのみの入れ替えであり、
+// 全件diff同期のような危険なパターンではない。training_schedules.template_idの
+// 参照はtemplateId自体を変更しないため影響を受けない。
+export async function updateTrainingTemplate(templateId: string, name: string, exerciseIds: string[]): Promise<void> {
+  const { error: templateError } = await supabase
+    .from('training_templates')
+    .update({ name })
+    .eq('id', templateId)
+    .eq('user_id', DEFAULT_USER_ID)
+
+  if (templateError) {
+    throw templateError
+  }
+
+  const { error: deleteError } = await supabase.from('training_template_exercises').delete().eq('template_id', templateId)
+
+  if (deleteError) {
+    throw deleteError
+  }
+
+  if (exerciseIds.length > 0) {
+    const { error: exercisesError } = await supabase.from('training_template_exercises').insert(
+      exerciseIds.map((exerciseId, index) => ({
+        template_id: templateId,
+        exercise_id: exerciseId,
+        order_index: index,
+      })),
+    )
+
+    if (exercisesError) {
+      throw exercisesError
+    }
+  }
+}
+
 // training_templatesにis_deleted列は存在しないため物理削除とする（食材マスタ・
 // 種目マスタの論理削除とは異なるパターン）。training_template_exercisesはON DELETE
 // CASCADEで自動削除され、既存のtraining_schedules.template_idを参照している

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import './calendar/CalendarForms.css'
-import { createTrainingTemplate, deleteTrainingTemplate, fetchTrainingTemplates } from '../api/trainingTemplates'
+import { createTrainingTemplate, deleteTrainingTemplate, fetchTrainingTemplates, updateTrainingTemplate } from '../api/trainingTemplates'
 import { fetchExercises } from '../api/trainingLogs'
 import { useToast } from '../hooks/useToast'
 import { ExercisePicker } from './calendar/ExercisePicker'
@@ -35,6 +35,7 @@ export function TrainingTemplateManager({ todayString, openRecordModal }: Traini
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true)
   const [exercises, setExercises] = useState<ExerciseDefinition[]>([])
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [templateName, setTemplateName] = useState('')
   const [slots, setSlots] = useState<TemplateExerciseSlot[]>([createEmptySlot()])
   const [formError, setFormError] = useState<string | null>(null)
@@ -64,8 +65,25 @@ export function TrainingTemplateManager({ todayString, openRecordModal }: Traini
   }, [])
 
   const openCreateForm = () => {
+    setEditingTemplateId(null)
     setTemplateName('')
     setSlots([createEmptySlot()])
+    setFormError(null)
+    setIsFormOpen(true)
+  }
+
+  const openEditForm = (template: TrainingTemplate) => {
+    setEditingTemplateId(template.id as string)
+    setTemplateName(template.name)
+    setSlots(
+      template.exercises.length > 0
+        ? template.exercises.map((exercise) => ({
+            key: createSlotKey(),
+            exerciseId: exercise.exerciseId,
+            exerciseName: exercise.exercise?.name ?? '',
+          }))
+        : [createEmptySlot()],
+    )
     setFormError(null)
     setIsFormOpen(true)
   }
@@ -98,14 +116,20 @@ export function TrainingTemplateManager({ todayString, openRecordModal }: Traini
     setIsSaving(true)
     setFormError(null)
     try {
-      await createTrainingTemplate(trimmedName, selectedExerciseIds)
+      if (editingTemplateId) {
+        await updateTrainingTemplate(editingTemplateId, trimmedName, selectedExerciseIds)
+        showToast('テンプレートを更新しました', 'success')
+      } else {
+        await createTrainingTemplate(trimmedName, selectedExerciseIds)
+        showToast('テンプレートを作成しました', 'success')
+      }
       loadTemplates()
       setIsFormOpen(false)
-      showToast('テンプレートを作成しました', 'success')
+      setEditingTemplateId(null)
     } catch (error) {
-      console.error('Supabaseへのテンプレート作成に失敗しました', error)
-      setFormError('作成に失敗しました。もう一度お試しください')
-      showToast('テンプレートの作成に失敗しました', 'error')
+      console.error('Supabaseへのテンプレート保存に失敗しました', error)
+      setFormError('保存に失敗しました。もう一度お試しください')
+      showToast('テンプレートの保存に失敗しました', 'error')
     } finally {
       setIsSaving(false)
     }
@@ -164,6 +188,9 @@ export function TrainingTemplateManager({ todayString, openRecordModal }: Traini
                   >
                     予定を作成
                   </button>
+                  <button type="button" className="calendar-detail__edit-button" onClick={() => openEditForm(template)}>
+                    編集
+                  </button>
                   <button type="button" className="calendar-detail__delete-button" onClick={() => handleDeleteTemplate(template)}>
                     削除
                   </button>
@@ -181,6 +208,7 @@ export function TrainingTemplateManager({ todayString, openRecordModal }: Traini
 
       {isFormOpen ? (
         <div className="calendar-detail__form">
+          <p className="calendar-detail__description">{editingTemplateId ? 'テンプレートを編集' : '新しいテンプレートを作成'}</p>
           {formError ? <p className="calendar-detail__form-error">{formError}</p> : null}
 
           <label className="calendar-detail__field calendar-detail__field--full">
@@ -219,7 +247,14 @@ export function TrainingTemplateManager({ todayString, openRecordModal }: Traini
             <button type="button" className="calendar-detail__button" onClick={saveTemplate} disabled={isSaving}>
               {isSaving ? '保存中...' : '保存する'}
             </button>
-            <button type="button" className="calendar-detail__secondary-button" onClick={() => setIsFormOpen(false)}>
+            <button
+              type="button"
+              className="calendar-detail__secondary-button"
+              onClick={() => {
+                setIsFormOpen(false)
+                setEditingTemplateId(null)
+              }}
+            >
               キャンセル
             </button>
           </div>
