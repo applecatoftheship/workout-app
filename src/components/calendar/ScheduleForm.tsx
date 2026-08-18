@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createSchedule, deleteSchedule, updateSchedule } from '../../api/trainingSchedules'
 import { fetchTrainingTemplates } from '../../api/trainingTemplates'
 import { useToast } from '../../hooks/useToast'
-import type { BodyPart, DateString, TrainingSchedule, TrainingScheduleStatus, TrainingTemplate } from '../../types'
+import type { BodyPart, DateString, ScheduleType, TrainingSchedule, TrainingScheduleStatus, TrainingTemplate } from '../../types'
 
 const QUICK_EMOJIS = ['🏋️', '🏃', '🧘', '💪', '🚴', '😴']
 
@@ -34,6 +34,7 @@ type ScheduleFormState = {
   status: TrainingScheduleStatus
   notes: string
   templateId: string
+  scheduleType: ScheduleType
 }
 
 const createEmptyScheduleFormState = (): ScheduleFormState => ({
@@ -42,12 +43,20 @@ const createEmptyScheduleFormState = (): ScheduleFormState => ({
   status: 'scheduled',
   notes: '',
   templateId: '',
+  scheduleType: 'practice',
 })
 
 const statusLabel: Record<TrainingScheduleStatus, string> = {
   scheduled: '予定',
   completed: '完了',
   cancelled: 'キャンセル',
+}
+
+// スプリント3：試合日（MD）基準の栄養・トレーニング調整（2026年8月18日）
+const scheduleTypeLabel: Record<ScheduleType, string> = {
+  practice: '練習',
+  match: '試合',
+  event: 'その他',
 }
 
 type ScheduleFormProps = {
@@ -138,6 +147,7 @@ export function ScheduleForm({
             status: schedule.status,
             notes: schedule.notes ?? '',
             templateId: schedule.templateId ?? '',
+            scheduleType: schedule.scheduleType ?? 'practice',
           }
         : createEmptyScheduleFormState(),
     )
@@ -174,6 +184,7 @@ export function ScheduleForm({
           status: formState.status,
           notes: formState.notes.trim() || null,
           templateId: formState.templateId || null,
+          scheduleType: formState.scheduleType,
         })
         setSchedules((current) => current.map((schedule) => (schedule.id === updated.id ? updated : schedule)))
       } else {
@@ -184,6 +195,7 @@ export function ScheduleForm({
           status: formState.status,
           notes: formState.notes.trim() || null,
           templateId: formState.templateId || null,
+          scheduleType: formState.scheduleType,
         })
         setSchedules((current) => [...current, created])
       }
@@ -246,7 +258,11 @@ export function ScheduleForm({
             <div key={schedule.id} className="calendar-detail__log-item">
               <div className="calendar-detail__log-head">
                 <span>
-                  {schedule.emoji} {schedule.title}（{statusLabel[schedule.status]}）
+                  {schedule.emoji} {schedule.title}（{statusLabel[schedule.status]}
+                  {schedule.scheduleType && schedule.scheduleType !== 'practice'
+                    ? `・${scheduleTypeLabel[schedule.scheduleType]}`
+                    : ''}
+                  ）
                 </span>
                 <div className="calendar-detail__log-actions">
                   <button type="button" className="calendar-detail__edit-button" onClick={() => openForm(schedule)}>
@@ -304,6 +320,20 @@ export function ScheduleForm({
               onChange={(event) => setFormState((current) => ({ ...current, title: event.target.value }))}
               placeholder="例: 上半身トレーニング"
             />
+          </label>
+
+          <label className="calendar-detail__field">
+            <span>予定種別</span>
+            <select
+              value={formState.scheduleType}
+              onChange={(event) =>
+                setFormState((current) => ({ ...current, scheduleType: event.target.value as ScheduleType }))
+              }
+            >
+              <option value="practice">{scheduleTypeLabel.practice}</option>
+              <option value="match">{scheduleTypeLabel.match}</option>
+              <option value="event">{scheduleTypeLabel.event}</option>
+            </select>
           </label>
 
           <label className="calendar-detail__field">
