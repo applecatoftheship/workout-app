@@ -16,7 +16,7 @@
 - PWA：vite-plugin-pwa
 - リポジトリ：applecatoftheship/workout-app
 
-## 現在のファイル構成（2026年8月16日時点）
+## 現在のファイル構成（2026年8月17日時点）
 
 画面（pages）・フォーム/グラフ部品（components）・API層（api）・
 ユーティリティ（utils）・型定義（types.ts）に分離済み。
@@ -33,20 +33,27 @@ src/
                   acwrHelpers.ts（ACWR疲労残高計算、2026年8月16〜17日新設）
   hooks/          useTheme.ts（ダーク/ライト切替、UIブラッシュアップPhase 1）
   styles/         tokens.css（デザイントークン本体、UIブラッシュアップPhase 1。
-                  --color-ma-weight/-sleep/-fatigue等を2026年8月17日追加）
-  pages/          Dashboard(.css), MonthlyCalendar(.css), ProgressGraph(.css),
-                  Settings(.css)（UIブラッシュアップPhase 2で新規）
+                  --color-ma-weight/-sleep/-fatigue等を2026年8月17日、
+                  部位別ボリューム表示用の--color-bp-*8色を2026年8月17日追加）
+  pages/          Dashboard(.css)（週移動・日付選択の閲覧専用モードを2026年8月17日追加）,
+                  MonthlyCalendar(.css), ProgressGraph(.css)（部位別ボリューム表示・
+                  ドリルダウン対応を2026年8月17日追加）, Settings(.css)
+                  （UIブラッシュアップPhase 2で新規）
   components/
     GoalPanel(.css)
     BottomNav(.tsx/.css), RecordSheet(.tsx/.css), icons.tsx
                   （下部ナビ・記録シート・アイコン集、UIブラッシュアップPhase 2で新規）
     ACWRGaugeCard(.tsx/.css)（疲労残高ゲージ、2026年8月16〜17日新設）
     calendar/     TrainingLogForm.tsx, MealLogForm.tsx, ConditionForm.tsx, ScheduleForm.tsx,
-                  BulkScheduleImportModal(.css), ExerciseNameInput.tsx,
-                  TrainingTemplateSection.tsx, DishFormModal(.tsx/.css),
+                  BulkScheduleImportModal(.tsx/.css)（予定に加えトレーニング/食事/体調の
+                  一括取り込みと種目名・食材名のフォールバックマッチングに2026年8月17〜18日拡張）,
+                  ExerciseNameInput.tsx, TrainingTemplateSection.tsx, DishFormModal(.tsx/.css),
                   GenreFoodPicker.tsx, SoccerLogForm.tsx, CalendarForms.css
-    graphs/       TrainingChart, WeightChart, SleepChart, FatigueChart, ChartCommon.css
-  App.tsx / App.css   状態管理・データ取得・ビュー切替のみ
+    graphs/       TrainingChart（部位別ボリューム表示・ドリルダウンに2026年8月17日刷新）,
+                  WeightChart, SleepChart, FatigueChart, ChartCommon.css
+  App.tsx / App.css   状態管理・データ取得・ビュー切替のみ（AI一括取り込み後の
+                  グローバル状態再取得用に2026年8月17日、setTrainingLogs等を
+                  MonthlyCalendar経由でBulkScheduleImportModalに受け渡し）
   types.ts        全ドメイン型を集約
 ```
 
@@ -495,6 +502,60 @@ weightTrend/sleepTrend/fatigueTrendロジックを、この共通関数を使う
 前週比トレンドバッジの色分け、ダーク/ライト両モード、体重チャートの理想ライン/
 目標ラインのリグレッションを確認済み。
 
+## 2026年8月17日：ホーム画面日付選択・部位別ボリューム表示・AI一括取り込み拡張
+
+**Phase A：ホーム画面の日付選択機能**（`src/pages/Dashboard.tsx`）：週間ストリップに
+前週/翌週移動（`weekOffset`）と「今週に戻る」を追加。日付タップでカロリーリング・
+今日の運動カード・統計カード（体重/睡眠/疲労度）が選択日（`selectedDateKey`）基準の
+閲覧専用モードに切り替わる。目標ストリップと`ACWRGaugeCard`は「常に本日の値を示す
+べき」指標のため対象外とし、`todayString`固定のまま維持した（判断理由）。移動平均の
+基準日も選択日に連動して切り替わるが、過去日選択時にその日の記録がない場合は
+直近値へフォールバックせずカード自体を非表示にする（実測値のない日に移動平均だけ
+表示すると誤解を招くため）。既存のインライン展開（`expandedWeekDateKey`）はこの
+日付選択モードに統合され撤去した。
+
+**Phase B：部位別ボリューム表示への刷新**（`src/components/graphs/TrainingChart.tsx`・
+`src/pages/ProgressGraph.tsx`）：Phase 5で実装した「部位別トレーニング頻度」
+（回数のプログレスバー）を、部位別ボリューム（Σ重量×回数）ベースの詳細リストに
+置き換えた。部位ごとに色分けバー（`tokens.css`に`--color-bp-chest`等8色を新設）・
+今週のボリューム・前週比・自己ベストバッジ（🔥）を表示し、行タップで日別ボリューム
+推移の折れ線グラフをアコーディオン展開できる（ドリルダウン）。ACWR・移動平均と
+同じくDBキャッシュせず期間選択のたびに動的計算する方針を踏襲。前週比・自己ベストは
+「全期間」選択時は比較対象の期間が定義できないため算出しない。
+
+**Phase C：AI一括取り込みの対象拡大**（`src/components/calendar/BulkScheduleImportModal.tsx`）：
+従来は予定専用だった一括取り込みを、日付ごとに予定・トレーニング実績・食事記録・
+体調記録を柔軟に含められる形式に拡張した。トレーニング実績は`training_logs`の
+「1日1件」制約を維持するため、対象日に既存の実績（親レコード）があればそこに
+種目を追加して`upsertTrainingLog`、なければ新規作成してから種目を追加する
+（個別CRUD方式を踏襲し、全件をローカルで組み立てて一括保存する設計にはしていない。
+上記「2026年8月16日：トレーニング実績データ消失事故と対応」で確立した方針の遵守）。
+食事記録は`meal_logs`が1日複数件
+可能なため重複チェックなしで新規追加、体調記録は`daily_conditions`のunique制約に
+合わせ既存があれば上書き・なければ新規作成する。取り込み完了後は`App.tsx`側の
+グローバル状態（`trainingLogs`/`mealLogs`/`dailyConditions`）もバケツリレー経由で
+まとめて再取得・更新する（`Promise.all`による単発フェッチで、全件diff同期の
+再導入ではない）。
+
+**追加修正：種目名・食材名のフォールバックマッチング**：記録画面のドロップダウンが
+「ショルダープレス（バーベル）」のように装備種別・カロリー情報を括弧書きで
+併記表示するため、ユーザーがその表示をそのままAIに伝えると完全一致せず未一致に
+なる問題が動作確認で判明した。`matchByNameWithFallback`関数を新設し、完全一致が
+失敗した場合に末尾の括弧書き（全角（）・半角()どちらも対応）を1つ除去して
+再マッチを試みるようにした。それでも一致しない場合は従来通りスキップ＋警告表示。
+プロンプトテンプレートにも、種目名に器具種別を含めない・食材名にカロリー等の
+括弧書きを含めない旨の注意書きを追加した。マスタ名の全件一覧をプロンプトに
+埋め込む案は、種目・食材とも件数が多くプロンプトが冗長になるため見送り、
+注意書き＋フォールバックマッチングの組み合わせで対応する判断とした
+（下記「既知の技術的負債」に改善余地として記録）。
+
+本番環境（workout-app-suke4.vercel.app）で、週移動・日付選択・閲覧専用モード
+（目標ストリップ/ACWRGaugeCard対象外の確認含む）、部位別ボリューム表示・
+ドリルダウン、AI一括取り込みでの予定/トレーニング/食事/体調の混在取り込み
+（特にトレーニング実績の1日1件マージが既存データを破壊しないこと）、
+フォールバックマッチング（装備種別・カロリー括弧書き付きの名称、および
+完全に存在しない名称でのスキップ動作）、ダーク/ライト両モードを確認済み。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
@@ -548,6 +609,16 @@ weightTrend/sleepTrend/fatigueTrendロジックを、この共通関数を使う
    大幅に増えた場合（数年分の運用等）、計算コストが問題になる可能性がある。
    現時点では対応不要だが、体感速度が悪化した場合は集計期間の絞り込みや
    メモ化を検討すること。
+
+8. AI一括取り込みのマスタ名一覧未同梱
+   （2026年8月17〜18日、AI一括取り込み拡張・名称マッチング改善時の判断）。
+   種目名・食材名のマッチングは、完全一致→末尾括弧書き除去の再マッチという
+   フォールバックのみで対応しており、プロンプトに`exercises`/`food_items`の
+   実際のマスタ名一覧は埋め込んでいない（件数が多くプロンプトが冗長になるため
+   見送った判断）。表記ゆれ（送り仮名違い・別名等）がフォールバックでも拾えない
+   場合は引き続きスキップ＋警告表示となる。マスタ件数が今後絞り込める、または
+   プロンプト長の制約が緩和されるようであれば、代表例の同梱や候補選択UIの追加を
+   検討の余地あり。
 
 ## 進行中の計画（現在地）
 
