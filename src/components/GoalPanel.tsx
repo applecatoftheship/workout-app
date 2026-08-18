@@ -263,7 +263,7 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
         className="accordion-header"
         onClick={() => setIsGoalPanelOpen((current) => !current)}
       >
-        8月の目標
+        {formatYearMonthLabel(selectedYearMonth)}の目標
         <span className="accordion-chevron">{isGoalPanelOpen ? '▼' : '▶'}</span>
       </button>
       {isGoalPanelOpen ? (
