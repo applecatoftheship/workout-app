@@ -8,6 +8,7 @@ import { SoccerLogForm } from './calendar/SoccerLogForm'
 import { CloseIcon } from './icons'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
+import { toDateKey } from '../utils/chartHelpers'
 import type { RecordType } from './RecordSheet'
 import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../types'
 import './RecordFormModal.css'
@@ -104,6 +105,29 @@ export function RecordFormModal({
           setIsLoadingSideData(false)
           setAutoOpenToken(request.requestId)
         })
+    } else if (request.type === 'training') {
+      // スプリント3（MD基準の栄養・トレーニング調整、2026年8月18日）：下半身
+      // トレーニングの警告表示に、対象日の前後（前日〜3日後）を含む窓で予定を
+      // 取得しgetMatchDayStatusの判定に使う。request.dateは単一日付でナビゲート
+      // されないため（Dashboard.tsxのselectedDateKeyのような週送りはない）、
+      // request.date基準で固定の窓を都度計算すればよい。
+      setIsLoadingSideData(true)
+      const mdWindowStart = new Date(`${request.date}T00:00:00`)
+      mdWindowStart.setDate(mdWindowStart.getDate() - 1)
+      const mdWindowEnd = new Date(`${request.date}T00:00:00`)
+      mdWindowEnd.setDate(mdWindowEnd.getDate() + 3)
+      fetchTrainingSchedules(toDateKey(mdWindowStart), toDateKey(mdWindowEnd))
+        .then((data) => {
+          setModalSchedules(data)
+        })
+        .catch((error) => {
+          console.error('Supabaseから試合日判定用の予定の取得に失敗しました', error)
+          setModalSchedules([])
+        })
+        .finally(() => {
+          setIsLoadingSideData(false)
+          setAutoOpenToken(request.requestId)
+        })
     } else {
       setAutoOpenToken(request.requestId)
     }
@@ -179,6 +203,7 @@ export function RecordFormModal({
               setIsFormOpen={setIsTrainingFormOpen}
               autoOpenToken={autoOpenToken}
               autoOpenIndex={request.trainingLogIndex}
+              schedulesForMdCheck={modalSchedules}
             />
           ) : null}
 

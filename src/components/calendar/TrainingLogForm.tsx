@@ -9,10 +9,27 @@ import {
 } from '../../api/trainingLogs'
 import { completeScheduleForDate } from '../../api/trainingSchedules'
 import { formatTrainingLogItem } from '../../utils/calendarHelpers'
+import { getMatchDayStatus } from '../../utils/periodizationHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
 import { ExercisePicker } from './ExercisePicker'
 import { useToast } from '../../hooks/useToast'
-import type { DateString, ExerciseDefinition, TrainingLog, TrainingLogExercise, TrainingSet } from '../../types'
+import type { DateString, ExerciseDefinition, TrainingLog, TrainingLogExercise, TrainingSchedule, TrainingSet } from '../../types'
+
+// スプリント3（MD基準の栄養・トレーニング調整、2026年8月18日）：下半身（脚）の
+// 高負荷トレーニングを控えたい範囲。試合直後（MD+1）は対象外（指示書
+// 5-3節の対象範囲：MD-2/MD-1/MD）。
+const LEG_WARNING_MD_STATUSES = new Set(['MD-2', 'MD-1', 'MD'])
+
+const LEG_WARNING_DAY_PHRASE: Record<string, string> = {
+  'MD-2': '2日後は試合日',
+  'MD-1': '明日は試合日（MD-1）',
+  MD: '今日は試合日',
+}
+
+function buildLegDayMdWarningMessage(mdStatus: string): string {
+  const dayPhrase = LEG_WARNING_DAY_PHRASE[mdStatus] ?? '試合日が近づいています'
+  return `⚠️ ${dayPhrase}です。下半身（脚）の高負荷トレーニングは疲労蓄積を防ぐため控えめを推奨します`
+}
 
 type SimpleSetInput = {
   sets: string
@@ -99,6 +116,12 @@ type TrainingLogFormProps = {
    */
   autoOpenToken?: number
   autoOpenIndex?: number
+  /**
+   * スプリント3（MD基準の栄養・トレーニング調整、2026年8月18日）：下半身
+   * トレーニング警告のMD判定用。selectedDateの前日〜3日後を含む窓の予定を
+   * 呼び出し側（RecordFormModal.tsx）が取得して渡す。未指定の場合は警告なし。
+   */
+  schedulesForMdCheck?: TrainingSchedule[]
 }
 
 export function TrainingLogForm({
@@ -110,6 +133,7 @@ export function TrainingLogForm({
   onScheduleUpdated,
   autoOpenToken,
   autoOpenIndex,
+  schedulesForMdCheck,
 }: TrainingLogFormProps) {
   const { showToast } = useToast()
   const [editingLogIndex, setEditingLogIndex] = useState<number | null>(null)
@@ -137,6 +161,13 @@ export function TrainingLogForm({
     () => trainingLogs.map((log, index) => ({ log, index })).filter(({ log }) => log.date === selectedDate),
     [selectedDate, trainingLogs],
   )
+
+  // スプリント3（MD基準の栄養・トレーニング調整、2026年8月18日）
+  const mdStatus = useMemo(
+    () => getMatchDayStatus(schedulesForMdCheck ?? [], selectedDate),
+    [schedulesForMdCheck, selectedDate],
+  )
+  const showLegDayMdWarning = mdStatus != null && LEG_WARNING_MD_STATUSES.has(mdStatus)
 
   useEffect(() => {
     setIsFormOpen(false)
@@ -620,6 +651,10 @@ export function TrainingLogForm({
               />
               {previousRecordHints[index] ? (
                 <p className="calendar-detail__description">{previousRecordHints[index]}</p>
+              ) : null}
+
+              {showLegDayMdWarning && exercises.find((candidate) => candidate.id === exercise.exerciseId)?.bodyPart === '脚' ? (
+                <p className="calendar-detail__warning">{buildLegDayMdWarningMessage(mdStatus as string)}</p>
               ) : null}
 
               <button type="button" className="calendar-detail__secondary-button" onClick={() => toggleDetailedMode(index)}>

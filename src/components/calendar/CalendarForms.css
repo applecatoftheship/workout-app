@@ -113,6 +113,17 @@
   font-size: var(--font-size-body-sm);
 }
 
+/* スプリント3：MD基準の下半身トレーニング警告（2026年8月18日）。保存はブロックしない
+   ため、form-errorとは別に注意喚起トーン（warning系）で区別する。 */
+.calendar-detail__warning {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+  font-size: var(--font-size-body-sm);
+}
+
 .calendar-detail__error {
   margin: 3px 0 0;
   color: var(--color-danger-text);
