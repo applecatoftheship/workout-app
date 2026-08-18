@@ -121,9 +121,11 @@ export function TrainingVolumeChart({ periodDailyVolume, periodVolumeMA, totalVo
         </span>
       </div>
       <div className="progress-graph__labels">
-        {periodDailyVolume.map((point, index) => (
-          <span key={point.date}>{shouldShowLabel(index, periodDailyVolume.length) ? formatShortDate(point.date) : ''}</span>
-        ))}
+        {periodDailyVolume.map((point, index) =>
+          shouldShowLabel(index, periodDailyVolume.length) ? (
+            <span key={point.date}>{formatShortDate(point.date)}</span>
+          ) : null,
+        )}
       </div>
     </div>
   )

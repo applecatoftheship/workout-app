@@ -63,9 +63,11 @@ function BodyPartDrilldownChart({
         })}
       </svg>
       <div className="progress-graph__labels">
-        {dailyVolumes.map((point, index) => (
-          <span key={point.date}>{shouldShowLabel(index, dailyVolumes.length) ? formatShortDate(point.date) : ''}</span>
-        ))}
+        {dailyVolumes.map((point, index) =>
+          shouldShowLabel(index, dailyVolumes.length) ? (
+            <span key={point.date}>{formatShortDate(point.date)}</span>
+          ) : null,
+        )}
       </div>
     </>
   )

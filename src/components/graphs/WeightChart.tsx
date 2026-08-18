@@ -152,11 +152,11 @@ export function WeightChart({ periodConditions, periodWeightMA, targetWeight, pe
         </p>
       ) : null}
       <div className="progress-graph__labels">
-        {periodConditions.map((condition, index) => (
-          <span key={condition.date}>
-            {shouldShowLabel(index, periodConditions.length) ? formatShortDate(condition.date) : ''}
-          </span>
-        ))}
+        {periodConditions.map((condition, index) =>
+          shouldShowLabel(index, periodConditions.length) ? (
+            <span key={condition.date}>{formatShortDate(condition.date)}</span>
+          ) : null,
+        )}
       </div>
       <div className="progress-graph__metrics">
         <div className="progress-graph__metric">
