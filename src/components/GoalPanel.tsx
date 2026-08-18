@@ -80,7 +80,11 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
   weekEnd.setDate(weekStart.getDate() + 6)
   const weekStartKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
   const weekEndKey = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, '0')}-${String(weekEnd.getDate()).padStart(2, '0')}`
-  const weekTrainingCount = trainingLogs.filter((log) => log.date >= weekStartKey && log.date <= weekEndKey).length
+  // exercises が0件の実績（種目単位削除機能により発生しうる）は
+  // 「トレーニングを行った日」としてカウントしない
+  const weekTrainingCount = trainingLogs.filter(
+    (log) => log.date >= weekStartKey && log.date <= weekEndKey && log.exercises.length > 0,
+  ).length
 
   const openGoalEditor = () => {
     setGoalFormState({
