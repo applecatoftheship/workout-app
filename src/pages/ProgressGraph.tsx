@@ -3,9 +3,10 @@ import type { BodyPart, DailyCondition, TrainingLog } from '../types'
 import './ProgressGraph.css'
 import '../components/graphs/ChartCommon.css'
 import { TrainingChart } from '../components/graphs/TrainingChart'
-import type { BodyPartVolumeEntry } from '../components/graphs/TrainingChart'
 import { TrainingVolumeChart } from '../components/graphs/TrainingVolumeChart'
 import { TrainingBodyPartDonut } from '../components/graphs/TrainingBodyPartDonut'
+import { TrainingBodyPartList } from '../components/graphs/TrainingBodyPartList'
+import type { BodyPartVolumeEntry } from '../components/graphs/TrainingBodyPartList'
 import { WeightChart } from '../components/graphs/WeightChart'
 import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
@@ -324,7 +325,6 @@ export function ProgressGraph({
               totalSets={totalSets}
               totalVolume={totalVolume}
               achievementRate={achievementRate}
-              bodyPartVolume={bodyPartVolume}
             />
             <TrainingVolumeChart
               periodDailyVolume={periodTrainingDays}
@@ -333,6 +333,7 @@ export function ProgressGraph({
               volumeDiff={volumeDiff}
             />
             <TrainingBodyPartDonut bodyPartVolume={bodyPartVolume} />
+            <TrainingBodyPartList bodyPartVolume={bodyPartVolume} />
           </>
         ) : null}
         {selectedChart === 'weight' ? (

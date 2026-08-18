@@ -1,5 +1,5 @@
 import { Cell, Pie, PieChart } from 'recharts'
-import type { BodyPartVolumeEntry } from './TrainingChart'
+import type { BodyPartVolumeEntry } from './TrainingBodyPartList'
 
 const DONUT_SIZE = 200
 

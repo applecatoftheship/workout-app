@@ -370,27 +370,15 @@
   color: var(--color-text-primary);
 }
 
-/* 部位別トレーニング頻度 */
+/* 部位別詳細リスト */
 
 /*
- * 部位別ボリューム（トレーニンググラフ刷新、2026年8月17日）：旧「部位別トレーニング頻度」
- * （プログレスバーのリスト、body-part-frequency）を置き換え。
+ * 部位別詳細リスト（トレーニング画面刷新v2、2026年8月18日）：各行を角丸カード化し、
+ * 左端の色付きボーダー（インラインstyleでitem.colorを指定）で部位を識別する。
+ * 旧実装（2026年8月17日、body-part-frequencyの置き換え時点）は枠のない
+ * フラットな行に小さな丸ドットのスウォッチだったため、カード・ボーダー系の
+ * スタイルとswatch用クラスを刷新した。
  */
-
-.body-part-volume {
-  border-top: 1px solid var(--color-border);
-  padding-top: var(--space-sm);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.body-part-volume__title {
-  margin: 0;
-  font-size: var(--font-size-body-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
 
 .body-part-volume__list {
   margin: 0;
@@ -398,11 +386,15 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
 }
 
 .body-part-volume__item {
-  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -412,7 +404,7 @@
   grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 10px;
-  padding: 8px 4px;
+  padding: 14px 16px;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -424,17 +416,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--font-size-body-sm);
+  font-size: var(--font-size-body);
   color: var(--color-text-primary);
-  font-weight: 500;
-}
-
-.body-part-volume__swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  display: inline-block;
-  flex-shrink: 0;
+  font-weight: 700;
 }
 
 .body-part-volume__pr {
@@ -442,9 +426,9 @@
 }
 
 .body-part-volume__value {
-  font-size: var(--font-size-body-sm);
+  font-size: var(--font-size-body);
   color: var(--color-text-primary);
-  font-weight: 600;
+  font-weight: 700;
   text-align: right;
 }
 
@@ -454,5 +438,5 @@
 }
 
 .body-part-volume__drilldown {
-  padding: 4px 4px 12px;
+  padding: 0 16px 16px;
 }
