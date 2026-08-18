@@ -47,7 +47,7 @@ src/
     calendar/     TrainingLogForm.tsx, MealLogForm.tsx, ConditionForm.tsx, ScheduleForm.tsx,
                   BulkScheduleImportModal(.tsx/.css)（予定に加えトレーニング/食事/体調の
                   一括取り込みと種目名・食材名のフォールバックマッチングに2026年8月17〜18日拡張）,
-                  ExerciseNameInput.tsx, TrainingTemplateSection.tsx, DishFormModal(.tsx/.css),
+                  ExerciseNameInput.tsx, DishFormModal(.tsx/.css),
                   GenreFoodPicker.tsx, SoccerLogForm.tsx, CalendarForms.css
     graphs/       TrainingChart（部位別ボリューム表示・ドリルダウンに2026年8月17日刷新）,
                   WeightChart, SleepChart, FatigueChart, ChartCommon.css
@@ -614,13 +614,29 @@ weightTrend/sleepTrend/fatigueTrendロジックを、この共通関数を使う
    追加せずに済む`HashRouter`を採用したため、URLに常に`#`が入る。rewrites設定を
    追加すれば`BrowserRouter`への移行は可能だが、現状は未着手。
 
-5. 子テーブルのuser_id列はAPI側でフィルタしていない
-   （2026年8月16日、user_id整備時の判断）。`training_log_exercises`・`training_sets`・
-   `training_template_exercises`・`meal_log_food_items`・`dish_food_items`にはuser_id列を
-   追加したが、API層のクエリはこれらの子テーブル自体をuser_idでフィルタしておらず、
-   親テーブル（training_logs・meal_logs等）のuser_idスコープ・外部キー経由で
-   結果的にスコープされている状態。将来的な複数ユーザー化の際、親経由のスコープが
-   崩れるケース（子テーブルを直接操作するコードの追加等）がないか要確認。
+5. 子テーブルの一覧取得クエリはuser_idでフィルタしていない（案A・見送り）
+   （2026年8月18日、技術的負債棚卸しに伴う調査・対応。旧記載を調査結果に基づき
+   書き換え）。`training_log_exercises`・`training_sets`・`training_template_exercises`・
+   `meal_log_food_items`・`dish_food_items`にはuser_id列があるが、一覧取得系の
+   クエリ（`fetchTrainingLogs`・`fetchTrainingTemplates`・`fetchMealLogs`・
+   `fetchDishesWithDetails`・`fetchLatestExerciseRecord`）は`select('*')`等で
+   子テーブルを全ユーザー分取得したうえで、親テーブル（training_logs・meal_logs等）の
+   user_idスコープと突き合わせてJS側でフィルタしている。最終的な表示結果は正しく
+   スコープされるが、複数ユーザー化した際は他ユーザーの生データが一度クライアントに
+   送信される（ネットワークレスポンスには含まれる）点に注意が必要。この是正
+   （案C：全クエリへのuser_idフィルタ明示追加）は今回は見送り、Supabase Auth導入
+   （認証実装）とRLS設計の見直しをセットで行う際にまとめて対応する方が二度手間に
+   ならないと判断した。
+
+   なお、削除系の「IDのみで直接delete」パターン（`deleteTrainingLogExerciseRemote`・
+   `deleteTrainingLogRemote`・`deleteMealLogRemote`・`deleteDish`）については、
+   削除クエリに`.eq('user_id', DEFAULT_USER_ID)`を追加する軽微な修正（案B）を
+   2026年8月18日に実施済み。ただし、**RLSポリシーは対象テーブルすべて
+   `for all using (true) with check (true)`（全許可）のままであり、
+   アプリ側のuser_idフィルタは「アプリ自身のバグによる誤操作を防ぐガード」で
+   あって「セキュリティ境界」ではない**点に注意。悪意ある第三者への防御は
+   Supabase Auth導入により`auth.uid()`ベースのRLSポリシーへ切り替えない限り
+   実現できない（認証実装自体が別の未着手の大きな課題）。
 
 6. （監視事項）ACWR・移動平均とも「DBキャッシュせず呼び出しのたびに全件から
    動的計算する」方針を採用している（`acwrHelpers.ts`の`calculateACWR`、
