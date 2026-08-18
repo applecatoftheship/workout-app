@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { deleteTrainingLogRemote, fetchExercises, fetchLatestExerciseRecord, fetchTrainingLogs, upsertTrainingLog } from '../../api/trainingLogs'
+import {
+  deleteTrainingLogExerciseRemote,
+  deleteTrainingLogRemote,
+  fetchExercises,
+  fetchLatestExerciseRecord,
+  fetchTrainingLogs,
+  upsertTrainingLog,
+} from '../../api/trainingLogs'
 import { completeScheduleForDate } from '../../api/trainingSchedules'
 import { formatTrainingLogItem } from '../../utils/calendarHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
@@ -21,6 +28,8 @@ type DetailedSetInput = {
 
 type TrainingLogFormExercise = {
   key: string
+  /** 既存の training_log_exercises 行のID。フォーム上で新規追加した未保存の種目行はundefined。 */
+  id?: string
   exerciseName: string
   exerciseId: string | null
   mode: 'simple' | 'detailed'
@@ -148,6 +157,7 @@ export function TrainingLogForm({
       existingLog?.exercises.length
         ? existingLog.exercises.map((exercise) => ({
             key: createExerciseKey(),
+            id: exercise.id,
             exerciseName: exercise.exercise?.name ?? '',
             exerciseId: exercise.exerciseId,
             mode: 'detailed',
@@ -311,6 +321,54 @@ export function TrainingLogForm({
       exercises: [...current.exercises, createEmptyExercise()],
     }))
     setFormErrors((current) => [...current, {}])
+  }
+
+  const removeExerciseRow = async (index: number) => {
+    const exercise = formState.exercises[index]
+    if (!exercise) {
+      return
+    }
+
+    const trimmedName = exercise.exerciseName.trim()
+    const setCount = exercise.mode === 'simple' ? Number(exercise.simple.sets) || 0 : exercise.detailedSets.length
+
+    // 未入力の空行を消す場合は確認不要（保存済みデータを失うリスクがないため）
+    if (trimmedName) {
+      const confirmed = window.confirm(`『${trimmedName}』（${setCount}セット）を削除しますか？`)
+      if (!confirmed) {
+        return
+      }
+    }
+
+    if (exercise.id) {
+      try {
+        await deleteTrainingLogExerciseRemote(exercise.id)
+        const refreshed = await fetchTrainingLogs()
+        setTrainingLogs(refreshed)
+        showToast('種目を削除しました', 'success')
+      } catch (error) {
+        console.error('Supabaseからの種目削除に失敗しました', error)
+        showToast('種目の削除に失敗しました。もう一度お試しください', 'error')
+        return
+      }
+    }
+
+    setFormState((current) => ({
+      ...current,
+      exercises: current.exercises.filter((_, exerciseIndex) => exerciseIndex !== index),
+    }))
+    setFormErrors((current) => current.filter((_, exerciseIndex) => exerciseIndex !== index))
+    setPreviousRecordHints((current) => {
+      const next: Record<number, string> = {}
+      Object.entries(current).forEach(([key, value]) => {
+        const keyIndex = Number(key)
+        if (keyIndex === index) {
+          return
+        }
+        next[keyIndex > index ? keyIndex - 1 : keyIndex] = value
+      })
+      return next
+    })
   }
 
   const validateForm = () => {
@@ -641,6 +699,14 @@ export function TrainingLogForm({
                   </button>
                 </>
               )}
+
+              <button
+                type="button"
+                className="calendar-detail__delete-button"
+                onClick={() => removeExerciseRow(index)}
+              >
+                この種目を削除
+              </button>
             </div>
           ))}
 

@@ -316,3 +316,13 @@ export async function deleteTrainingLogRemote(id: string): Promise<void> {
     throw error
   }
 }
+
+// training_sets は training_log_exercise_id に on delete cascade が設定されているため、
+// このテーブルの行を削除するだけで配下のセットも自動的に削除される。
+export async function deleteTrainingLogExerciseRemote(id: string): Promise<void> {
+  const { error } = await supabase.from('training_log_exercises').delete().eq('id', id)
+
+  if (error) {
+    throw error
+  }
+}
