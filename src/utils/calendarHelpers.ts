@@ -15,14 +15,20 @@ export function formatMonthLabel(date: Date) {
   }).format(date)
 }
 
-// カレンダー実績アイコン機能（日付ベース簡易マッチング方式、2026年8月20日）：
+// カレンダー実績アイコン機能（日付ベース簡易マッチング方式、2026年8月20〜21日）：
 // その日の複数training_schedules行から表示する絵文字を1つ選ぶ部分のみを
-// 独立させたもの。既存仕様と同じく、最初に見つかったscheduledステータスの
-// 1件の絵文字を使う（completed/cancelled行は考慮しない）。ステータスに応じた
-// アイコン切り替え（✅/⚠️等）はgetCalendarCellState側の責務に分離した。
+// 独立させたもの。cancelled行のみ除外し、scheduled/completedの中から
+// 最初に見つかった1件の絵文字を使う。ステータスに応じたアイコン切り替え
+// （✅/⚠️等）はgetCalendarCellState側の責務に分離した。
+// 注意（2026年8月21日修正）：当初はscheduled行のみを対象としていたが、
+// completeScheduleForDate（TrainingLogForm.tsx）によりトレーニング実績保存時に
+// 対応するtraining_schedules.statusがscheduled→completedへ自動変更されるため、
+// scheduled限定のままだとcompleted_planned判定時に対象の予定が見つからず、
+// 常にデフォルト🏋️にフォールバックしてしまい「完了予定でもカスタム絵文字を
+// 維持する」という設計意図が機能しなかった。cancelled以外を対象にすることで解消した。
 export function getScheduleIcon(daySchedules: TrainingSchedule[]): string {
-  const nextScheduled = daySchedules.find((schedule) => schedule.status === 'scheduled')
-  return nextScheduled?.emoji || '🏋️'
+  const target = daySchedules.find((schedule) => schedule.status !== 'cancelled')
+  return target?.emoji || '🏋️'
 }
 
 // その日に予定（cancelled以外）・実績（training_logs/soccer_logs）が
