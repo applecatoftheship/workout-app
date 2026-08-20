@@ -109,9 +109,32 @@
 }
 
 .calendar-day__content {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   font-size: 13px;
   min-height: 13px;
-  text-align: center;
+  line-height: 1;
+}
+
+/* カレンダー実績アイコン機能（日付ベース簡易マッチング方式、2026年8月20日） */
+
+.calendar-day__item {
+  position: relative;
+  line-height: 1;
+}
+
+.calendar-day__item--planned {
+  opacity: 0.5;
+}
+
+.calendar-day__item-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -4px;
+  font-size: 8px;
   line-height: 1;
 }
 

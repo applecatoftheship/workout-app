@@ -1,4 +1,5 @@
 import type { DateString, DailyCondition, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule } from '../types'
+import type { ActivityType, CalendarCellItem } from '../types/calendar'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from './acwrHelpers'
 
 export const weekDays = ['日', '月', '火', '水', '木', '金', '土']
@@ -14,36 +15,81 @@ export function formatMonthLabel(date: Date) {
   }).format(date)
 }
 
-export function getScheduleDayIcon(daySchedules: TrainingSchedule[], dateKey: string, todayKey: string) {
-  if (daySchedules.length === 0) {
-    return ''
-  }
-
-  if (daySchedules.some((schedule) => schedule.status === 'completed')) {
-    return '✅'
-  }
-
-  if (daySchedules.some((schedule) => schedule.status === 'cancelled' || (schedule.status === 'scheduled' && dateKey < todayKey))) {
-    return '⚠️'
-  }
-
+// カレンダー実績アイコン機能（日付ベース簡易マッチング方式、2026年8月20日）：
+// その日の複数training_schedules行から表示する絵文字を1つ選ぶ部分のみを
+// 独立させたもの。既存仕様と同じく、最初に見つかったscheduledステータスの
+// 1件の絵文字を使う（completed/cancelled行は考慮しない）。ステータスに応じた
+// アイコン切り替え（✅/⚠️等）はgetCalendarCellState側の責務に分離した。
+export function getScheduleIcon(daySchedules: TrainingSchedule[]): string {
   const nextScheduled = daySchedules.find((schedule) => schedule.status === 'scheduled')
   return nextScheduled?.emoji || '🏋️'
 }
 
-export function getDayIcons(daySchedules: TrainingSchedule[], daySoccerLogs: SoccerLog[], dateKey: string, todayKey: string) {
-  const icons: string[] = []
+// その日に予定（cancelled以外）・実績（training_logs/soccer_logs）が
+// それぞれ存在するかを日付単位でSet集計する。MonthlyCalendar・Dashboardの
+// 週間ストリップ双方から同一ロジックを参照し、判定基準がずれないようにする。
+export function buildActivityByDate(
+  schedulesByDate: Map<string, TrainingSchedule[]>,
+  soccerLogsByDate: Map<string, SoccerLog[]>,
+): Map<string, Set<ActivityType>> {
+  const map = new Map<string, Set<ActivityType>>()
 
-  const scheduleIcon = getScheduleDayIcon(daySchedules, dateKey, todayKey)
-  if (scheduleIcon) {
-    icons.push(scheduleIcon)
+  const addActivity = (dateKey: string, type: ActivityType) => {
+    const set = map.get(dateKey) ?? new Set<ActivityType>()
+    set.add(type)
+    map.set(dateKey, set)
   }
 
-  if (daySoccerLogs.length > 0) {
-    icons.push('⚽')
+  schedulesByDate.forEach((daySchedules, dateKey) => {
+    if (daySchedules.some((schedule) => schedule.status !== 'cancelled')) {
+      addActivity(dateKey, 'workout')
+    }
+  })
+
+  soccerLogsByDate.forEach((daySoccerLogs, dateKey) => {
+    if (daySoccerLogs.length > 0) {
+      addActivity(dateKey, 'soccer')
+    }
+  })
+
+  return map
+}
+
+export interface GetCellStateParams {
+  isPast: boolean
+  hasSchedule: boolean // 当日にcancelled以外のtraining_schedulesが存在するか
+  scheduleIcon: string // getScheduleIconで選定した表示絵文字
+  hasTrainingLog: boolean
+  hasSoccerLog: boolean
+}
+
+// 予定と実績を日付ベースで突き合わせ、カレンダーセルに表示するアイテムを
+// 判定する（日付ベース簡易マッチング方式）。「未達成の過去予定」
+// （hasSchedule && isPast && !hasTrainingLog）は意図的に何も追加しない
+// （＝missedはセル非表示）。
+export function getCalendarCellState(params: GetCellStateParams): CalendarCellItem[] {
+  const { isPast, hasSchedule, scheduleIcon, hasTrainingLog, hasSoccerLog } = params
+  const items: CalendarCellItem[] = []
+
+  if (hasTrainingLog) {
+    items.push({
+      type: 'workout',
+      icon: scheduleIcon || '🏋️',
+      status: hasSchedule ? 'completed_planned' : 'completed_unplanned',
+    })
+  } else if (hasSchedule && !isPast) {
+    items.push({
+      type: 'workout',
+      icon: scheduleIcon || '🏋️',
+      status: 'planned',
+    })
   }
 
-  return icons
+  if (hasSoccerLog) {
+    items.push({ type: 'soccer', icon: '⚽', status: 'completed_unplanned' })
+  }
+
+  return items
 }
 
 export function formatTrainingLogItem(exercise: TrainingLogExercise) {

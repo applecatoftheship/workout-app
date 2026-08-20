@@ -7,7 +7,7 @@ import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
 import { ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, WeightIcon } from '../components/icons'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
-import { getDayIcons, toDateKey, weekDays } from '../utils/calendarHelpers'
+import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
 import { calculateACWR, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../utils/acwrHelpers'
 import { calculateAdjustedGoals, getMatchDayStatus } from '../utils/periodizationHelpers'
@@ -242,6 +242,27 @@ export function Dashboard({
     })
     return map
   }, [weekSoccerLogs])
+
+  // カレンダー実績アイコン機能（日付ベース簡易マッチング方式、2026年8月20日）：
+  // MonthlyCalendarと同じ判定ロジック（buildActivityByDate・getCalendarCellState）を
+  // 使い、月次カレンダーと週間ストリップの表示が食い違わないようにする。
+  const trainingLogsByDate = useMemo(() => {
+    const map = new Map<string, TrainingLog[]>()
+    trainingLogs.forEach((log) => {
+      if (log.exercises.length === 0) {
+        return
+      }
+      const list = map.get(log.date) ?? []
+      list.push(log)
+      map.set(log.date, list)
+    })
+    return map
+  }, [trainingLogs])
+
+  const weekActivityByDate = useMemo(
+    () => buildActivityByDate(weekSchedulesByDate, weekSoccerLogsByDate),
+    [weekSchedulesByDate, weekSoccerLogsByDate],
+  )
 
   // ACWRGaugeCard・目標ストリップは日付選択の対象外のため、常にtodayString基準の
   // 実測値を使う（ホーム日付選択機能の影響を受けない）。
@@ -610,12 +631,15 @@ export function Dashboard({
           {weekDates.map(({ date, dateKey }, index) => {
             const isToday = dateKey === todayString
             const isSelected = dateKey === selectedDateKey
-            const icons = getDayIcons(
-              weekSchedulesByDate.get(dateKey) ?? [],
-              weekSoccerLogsByDate.get(dateKey) ?? [],
-              dateKey,
-              todayString,
-            )
+            const daySchedules = weekSchedulesByDate.get(dateKey) ?? []
+            const dayTrainingLogs = trainingLogsByDate.get(dateKey) ?? []
+            const items = getCalendarCellState({
+              isPast: dateKey < todayString,
+              hasSchedule: weekActivityByDate.get(dateKey)?.has('workout') ?? false,
+              scheduleIcon: getScheduleIcon(daySchedules),
+              hasTrainingLog: dayTrainingLogs.length > 0,
+              hasSoccerLog: weekActivityByDate.get(dateKey)?.has('soccer') ?? false,
+            })
 
             return (
               <button
@@ -628,7 +652,14 @@ export function Dashboard({
               >
                 <span className="week-strip__day-label">{weekDays[index]}</span>
                 <span className="week-strip__date metric-value">{date.getDate()}</span>
-                <span className="week-strip__icons">{icons.join('')}</span>
+                <span className="week-strip__icons">
+                  {items.map((item, itemIndex) => (
+                    <span key={`${item.type}-${itemIndex}`} className={`week-strip__item week-strip__item--${item.status}`}>
+                      {item.icon}
+                      {item.status === 'completed_planned' ? <span className="week-strip__item-badge">✅</span> : null}
+                    </span>
+                  ))}
+                </span>
               </button>
             )
           })}

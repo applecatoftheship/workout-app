@@ -6,7 +6,7 @@ import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, Soccer
 import { BulkScheduleImportModal } from '../components/calendar/BulkScheduleImportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
-import { weekDays, toDateKey, formatMonthLabel, getDayIcons } from '../utils/calendarHelpers'
+import { weekDays, toDateKey, formatMonthLabel, getScheduleIcon, buildActivityByDate, getCalendarCellState } from '../utils/calendarHelpers'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import type { RecordModalRequest } from '../components/RecordFormModal'
 
@@ -148,6 +148,27 @@ export function MonthlyCalendar({
     return map
   }, [soccerLogs])
 
+  // カレンダー実績アイコン機能（日付ベース簡易マッチング方式、2026年8月20日）：
+  // training_logsは種目0件の実績を「実施した実績」として扱わない
+  // （既存のhasTrainingBlock/weekTrainingCountと同じ判定基準）。
+  const trainingLogsByDate = useMemo(() => {
+    const map = new Map<string, TrainingLog[]>()
+    trainingLogs.forEach((log) => {
+      if (log.exercises.length === 0) {
+        return
+      }
+      const list = map.get(log.date) ?? []
+      list.push(log)
+      map.set(log.date, list)
+    })
+    return map
+  }, [trainingLogs])
+
+  const activityByDate = useMemo(
+    () => buildActivityByDate(schedulesByDate, soccerLogsByDate),
+    [schedulesByDate, soccerLogsByDate],
+  )
+
   const refetchSoccerLogs = () => {
     if (!scheduleRangeStart || !scheduleRangeEnd) {
       return
@@ -235,8 +256,14 @@ export function MonthlyCalendar({
           const isSelected = selectedDate === day.dateKey
           const isToday = day.dateKey === todayKey
           const daySchedules = schedulesByDate.get(day.dateKey) ?? []
-          const daySoccerLogs = soccerLogsByDate.get(day.dateKey) ?? []
-          const icons = getDayIcons(daySchedules, daySoccerLogs, day.dateKey, todayKey)
+          const dayTrainingLogs = trainingLogsByDate.get(day.dateKey) ?? []
+          const items = getCalendarCellState({
+            isPast: day.dateKey < todayKey,
+            hasSchedule: activityByDate.get(day.dateKey)?.has('workout') ?? false,
+            scheduleIcon: getScheduleIcon(daySchedules),
+            hasTrainingLog: dayTrainingLogs.length > 0,
+            hasSoccerLog: activityByDate.get(day.dateKey)?.has('soccer') ?? false,
+          })
 
           return (
             <button
@@ -246,7 +273,14 @@ export function MonthlyCalendar({
               onClick={() => setSelectedDate(day.dateKey)}
             >
               <span className="calendar-day__number">{day.date.getDate()}</span>
-              <span className="calendar-day__content">{icons.join(' ')}</span>
+              <span className="calendar-day__content">
+                {items.map((item, index) => (
+                  <span key={`${item.type}-${index}`} className={`calendar-day__item calendar-day__item--${item.status}`}>
+                    {item.icon}
+                    {item.status === 'completed_planned' ? <span className="calendar-day__item-badge">✅</span> : null}
+                  </span>
+                ))}
+              </span>
             </button>
           )
         })}
