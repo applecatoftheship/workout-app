@@ -8,6 +8,7 @@ import { fetchDishesWithDetails, fetchMealSizes, deleteDish } from '../../api/di
 import { GenreFoodPicker } from './GenreFoodPicker'
 import { DishFormModal } from './DishFormModal'
 import { useToast } from '../../hooks/useToast'
+import { findMostSimilarName } from '../../utils/nameMatching'
 
 type MealLogFoodSelectionForm = {
   key: string
@@ -111,6 +112,10 @@ export function MealLogForm({
   const [selectedMealSizeId, setSelectedMealSizeId] = useState('')
   const [isDishModalOpen, setIsDishModalOpen] = useState(false)
   const [isDeletingDish, setIsDeletingDish] = useState(false)
+  // 食材マスタ新規登録時の類似名確認（実装指示書v2 Phase C、2026年8月19日新設）：
+  // 表記ゆれによる重複登録を防ぐため、登録前に類似名がないか確認する。
+  // 食材名を編集したら確認状態はリセットする。
+  const [duplicateFoodSuggestion, setDuplicateFoodSuggestion] = useState<{ name: string } | null>(null)
 
   const loadFoodItems = () => {
     fetchFoodItems()
@@ -234,6 +239,9 @@ export function MealLogForm({
       | 'newFoodEmoji',
     value: string,
   ) => {
+    if (field === 'newFoodName') {
+      setDuplicateFoodSuggestion(null)
+    }
     setMealFormState((current) => ({ ...current, [field]: value }))
   }
 
@@ -315,7 +323,9 @@ export function MealLogForm({
     }))
   }
 
-  const handleAddNewFoodItem = async () => {
+  // 実際のInsert処理本体。類似名確認（handleAddNewFoodItem）を経てから、
+  // または「はい、新規登録する」確定後に呼び出される。
+  const performCreateFoodItem = async () => {
     const name = mealFormState.newFoodName.trim()
     const servingAmount = Number(mealFormState.newFoodServingAmount)
     const servingUnit = mealFormState.newFoodServingUnit.trim()
@@ -325,19 +335,6 @@ export function MealLogForm({
     const carbohydrates = Number(mealFormState.newFoodCarbohydrates)
     const category = mealFormState.newFoodCategory.trim() || undefined
     const emoji = mealFormState.newFoodEmoji.trim() || undefined
-
-    if (!name) {
-      setMealFormErrors((current) => ({ ...current, newFoodName: '食材名は必須です' }))
-      return
-    }
-    if (!Number.isFinite(servingAmount) || servingAmount <= 0 || !servingUnit) {
-      setMealFormErrors((current) => ({ ...current, newFoodServingAmount: '基準量は0より大きい数値、単位は必須です' }))
-      return
-    }
-    if (![calories, protein, fat, carbohydrates].every((value) => Number.isFinite(value) && value >= 0)) {
-      setMealFormErrors((current) => ({ ...current, newFoodCalories: 'カロリー・PFCは0以上の数値で入力してください' }))
-      return
-    }
 
     try {
       const created = await createFoodItem({
@@ -371,12 +368,67 @@ export function MealLogForm({
         newFoodServingAmount: undefined,
         newFoodCalories: undefined,
       }))
+      setDuplicateFoodSuggestion(null)
       showToast('食材を登録しました', 'success')
     } catch (error) {
       console.error('Supabaseへの食材登録に失敗しました', error)
       setMealFormErrors((current) => ({ ...current, newFoodName: '食材の登録に失敗しました' }))
       showToast('食材の登録に失敗しました', 'error')
     }
+  }
+
+  const handleAddNewFoodItem = async () => {
+    const name = mealFormState.newFoodName.trim()
+    const servingAmount = Number(mealFormState.newFoodServingAmount)
+    const servingUnit = mealFormState.newFoodServingUnit.trim()
+    const calories = Number(mealFormState.newFoodCalories)
+    const protein = Number(mealFormState.newFoodProtein)
+    const fat = Number(mealFormState.newFoodFat)
+    const carbohydrates = Number(mealFormState.newFoodCarbohydrates)
+
+    if (!name) {
+      setMealFormErrors((current) => ({ ...current, newFoodName: '食材名は必須です' }))
+      return
+    }
+    if (!Number.isFinite(servingAmount) || servingAmount <= 0 || !servingUnit) {
+      setMealFormErrors((current) => ({ ...current, newFoodServingAmount: '基準量は0より大きい数値、単位は必須です' }))
+      return
+    }
+    if (![calories, protein, fat, carbohydrates].every((value) => Number.isFinite(value) && value >= 0)) {
+      setMealFormErrors((current) => ({ ...current, newFoodCalories: 'カロリー・PFCは0以上の数値で入力してください' }))
+      return
+    }
+
+    // 食材マスタ新規登録時の類似名確認（実装指示書v2 Phase C、2026年8月19日新設）。
+    // 類似の既存食材が見つかった場合は即登録せず、確認UI（JSX側）を表示する。
+    const similarMatch = findMostSimilarName(foodItems, name)
+    if (similarMatch) {
+      setDuplicateFoodSuggestion({ name: similarMatch.item.name })
+      return
+    }
+
+    await performCreateFoodItem()
+  }
+
+  const handleUseSimilarFoodItem = () => {
+    const similarMatch = findMostSimilarName(foodItems, mealFormState.newFoodName.trim())
+    if (!similarMatch || !similarMatch.item.id) {
+      return
+    }
+    setDuplicateFoodSuggestion(null)
+    setMealFormState((current) => ({
+      ...current,
+      selections: [...current.selections, { key: createSelectionKey(), foodItemId: similarMatch.item.id as string, amount: '' }],
+      newFoodName: '',
+      newFoodServingAmount: '100',
+      newFoodServingUnit: 'g',
+      newFoodCalories: '',
+      newFoodProtein: '',
+      newFoodFat: '',
+      newFoodCarbohydrates: '',
+      newFoodCategory: '',
+      newFoodEmoji: '',
+    }))
   }
 
   const mealFormPreviewTotals = useMemo(() => {
@@ -803,9 +855,25 @@ export function MealLogForm({
               </label>
             </div>
             {mealFormErrors.newFoodCalories ? <p className="calendar-detail__error">{mealFormErrors.newFoodCalories}</p> : null}
-            <button type="button" className="calendar-detail__secondary-button" onClick={handleAddNewFoodItem}>
-              この食材を登録して追加
-            </button>
+
+            {duplicateFoodSuggestion ? (
+              <div className="calendar-detail__warning">
+                「{mealFormState.newFoodName.trim()}」という類似の食材「{duplicateFoodSuggestion.name}」が既に存在します。
+                それでも新規登録しますか？
+                <div className="calendar-detail__inline-fields">
+                  <button type="button" className="calendar-detail__secondary-button" onClick={performCreateFoodItem}>
+                    はい（新規登録する）
+                  </button>
+                  <button type="button" className="calendar-detail__secondary-button" onClick={handleUseSimilarFoodItem}>
+                    いいえ（「{duplicateFoodSuggestion.name}」を使う）
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="calendar-detail__secondary-button" onClick={handleAddNewFoodItem}>
+                この食材を登録して追加
+              </button>
+            )}
           </div>
 
           <label className="calendar-detail__field calendar-detail__field--full">
