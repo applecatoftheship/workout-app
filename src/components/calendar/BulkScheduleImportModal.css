@@ -142,6 +142,22 @@
   color: var(--color-warning-text);
 }
 
+/* 類似名の確認ダイアログ機能（実装指示書v2、2026年8月19日新設）：完全一致・
+   フォールバックでも一致しなかった名前に、類似度判定で見つかった候補との
+   「同じ種目/食材ですか？」確認をプレビュー内にインライン表示する。 */
+.bulk-import-modal__suggestion {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-warning-text);
+}
+
+.bulk-import-modal__suggestion-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
 .bulk-import-modal__radio {
   display: flex;
   align-items: center;

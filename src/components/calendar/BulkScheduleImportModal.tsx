@@ -6,6 +6,7 @@ import { fetchFoodItems } from '../../api/foodItems'
 import { fetchMealLogs, upsertMealLog } from '../../api/mealLogs'
 import { fetchDailyConditions, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
+import { matchByNameWithFallback, findMostSimilarName } from '../../utils/nameMatching'
 import type {
   DailyCondition,
   DateString,
@@ -56,30 +57,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-// 種目名マッチング改善（2026年8月18日）：記録画面のドロップダウンは
-// 「ショルダープレス（バーベル）」のように末尾に装備種別・カロリー等の
-// 括弧書きを付けて表示するが、DB上のマスタ名（exercises.name / food_items.name）
-// にはこの括弧書きが含まれない。ユーザーがドロップダウン表示をそのままAIに
-// 伝えると完全一致せず未一致になってしまう問題への対策として、完全一致が
-// 失敗した場合に末尾の括弧書き（全角（）・半角()どちらも）を1つ除去して
-// 再マッチを試みるフォールバックを追加した。
-function stripTrailingParenthetical(name: string): string {
-  return name.replace(/\s*[（(][^（）()]*[）)]\s*$/, '').trim()
-}
-
-function matchByNameWithFallback<T extends { name: string }>(items: T[], rawName: string): T | undefined {
-  const trimmed = rawName.trim()
-  const exact = items.find((item) => item.name.trim() === trimmed)
-  if (exact) {
-    return exact
-  }
-  const stripped = stripTrailingParenthetical(trimmed)
-  if (!stripped || stripped === trimmed) {
-    return undefined
-  }
-  return items.find((item) => item.name.trim() === stripped)
-}
-
 function mealTypeFromLabel(label: string): MealType {
   switch (label) {
     case '朝食':
@@ -108,16 +85,24 @@ type ParsedSchedule = {
   notes?: string
 }
 
+// 類似名確認ダイアログ機能（実装指示書v2、2026年8月19日新設）：完全一致・
+// 末尾括弧書き除去のフォールバックでも一致しなかった名前について、レーベンシュタイン
+// 距離ベースの類似度判定（src/utils/nameMatching.ts）で候補が見つかった場合に
+// suggestedMatchへ格納する。ユーザーが「はい」を選ぶとexerciseId/foodItemIdへ
+// 昇格し、「いいえ」を選ぶとnullに戻して従来通りスキップ＋警告表示のままとする。
+type NameSuggestion = { id: string; name: string } | null
+
 type ParsedExercise = {
   name: string
   exerciseId: string | null
+  suggestedMatch: NameSuggestion
   sets: { weight?: number; reps?: number }[]
 }
 
 type ParsedMeal = {
   typeLabel: string
   mealType: MealType
-  items: { name: string; amount: number; foodItemId: string | null }[]
+  items: { name: string; amount: number; foodItemId: string | null; suggestedMatch: NameSuggestion }[]
 }
 
 type ParsedCondition = {
@@ -289,7 +274,16 @@ export function BulkScheduleImportModal({
           }))
           const exerciseName = rawExercise.name.trim()
           const matchedExercise = matchByNameWithFallback(exercisesMaster, exerciseName)
-          exercises.push({ name: exerciseName, exerciseId: matchedExercise?.id ?? null, sets })
+          const suggestedExercise = !matchedExercise ? findMostSimilarName(exercisesMaster, exerciseName) : null
+          exercises.push({
+            name: exerciseName,
+            exerciseId: matchedExercise?.id ?? null,
+            suggestedMatch:
+              suggestedExercise && suggestedExercise.item.id
+                ? { id: suggestedExercise.item.id, name: suggestedExercise.item.name }
+                : null,
+            sets,
+          })
         }
         item.training = { exercises }
       }
@@ -315,7 +309,16 @@ export function BulkScheduleImportModal({
             }
             const itemName = rawItem.name.trim()
             const matchedFoodItem = matchByNameWithFallback(foodItemsMaster, itemName)
-            mealItems.push({ name: itemName, amount: rawItem.amount, foodItemId: matchedFoodItem?.id ?? null })
+            const suggestedFoodItem = !matchedFoodItem ? findMostSimilarName(foodItemsMaster, itemName) : null
+            mealItems.push({
+              name: itemName,
+              amount: rawItem.amount,
+              foodItemId: matchedFoodItem?.id ?? null,
+              suggestedMatch:
+                suggestedFoodItem && suggestedFoodItem.item.id
+                  ? { id: suggestedFoodItem.item.id, name: suggestedFoodItem.item.name }
+                  : null,
+            })
           }
 
           meals.push({ typeLabel: rawMeal.type, mealType: mealTypeFromLabel(rawMeal.type), items: mealItems })
@@ -358,6 +361,92 @@ export function BulkScheduleImportModal({
     }
 
     setParsedItems(items)
+  }
+
+  // 類似名確認ダイアログ機能（実装指示書v2、2026年8月19日新設）：「はい（同じ種目/
+  // 食材として取り込む）」でsuggestedMatchのIDをexerciseId/foodItemIdへ昇格させる。
+  // 「いいえ（別として扱う）」はsuggestedMatchをnullに戻し、従来通りスキップ＋
+  // 警告表示のままにする。
+  const handleAcceptExerciseSuggestion = (dayIndex: number, exerciseIndex: number) => {
+    setParsedItems((current) =>
+      current
+        ? current.map((day, di) => {
+            if (di !== dayIndex || !day.training) return day
+            return {
+              ...day,
+              training: {
+                ...day.training,
+                exercises: day.training.exercises.map((exercise, ei) => {
+                  if (ei !== exerciseIndex || !exercise.suggestedMatch) return exercise
+                  return { ...exercise, exerciseId: exercise.suggestedMatch.id, suggestedMatch: null }
+                }),
+              },
+            }
+          })
+        : current,
+    )
+  }
+
+  const handleDeclineExerciseSuggestion = (dayIndex: number, exerciseIndex: number) => {
+    setParsedItems((current) =>
+      current
+        ? current.map((day, di) => {
+            if (di !== dayIndex || !day.training) return day
+            return {
+              ...day,
+              training: {
+                ...day.training,
+                exercises: day.training.exercises.map((exercise, ei) =>
+                  ei === exerciseIndex ? { ...exercise, suggestedMatch: null } : exercise,
+                ),
+              },
+            }
+          })
+        : current,
+    )
+  }
+
+  const handleAcceptFoodSuggestion = (dayIndex: number, mealIndex: number, itemIndex: number) => {
+    setParsedItems((current) =>
+      current
+        ? current.map((day, di) => {
+            if (di !== dayIndex || !day.meals) return day
+            return {
+              ...day,
+              meals: day.meals.map((meal, mi) => {
+                if (mi !== mealIndex) return meal
+                return {
+                  ...meal,
+                  items: meal.items.map((item, ii) => {
+                    if (ii !== itemIndex || !item.suggestedMatch) return item
+                    return { ...item, foodItemId: item.suggestedMatch.id, suggestedMatch: null }
+                  }),
+                }
+              }),
+            }
+          })
+        : current,
+    )
+  }
+
+  const handleDeclineFoodSuggestion = (dayIndex: number, mealIndex: number, itemIndex: number) => {
+    setParsedItems((current) =>
+      current
+        ? current.map((day, di) => {
+            if (di !== dayIndex || !day.meals) return day
+            return {
+              ...day,
+              meals: day.meals.map((meal, mi) => {
+                if (mi !== mealIndex) return meal
+                return {
+                  ...meal,
+                  items: meal.items.map((item, ii) => (ii === itemIndex ? { ...item, suggestedMatch: null } : item)),
+                }
+              }),
+            }
+          })
+        : current,
+    )
   }
 
   const scheduleItems = parsedItems?.filter((item): item is ParsedDayItem & { schedule: ParsedSchedule } => Boolean(item.schedule)) ?? []
@@ -539,7 +628,7 @@ export function BulkScheduleImportModal({
             <section className="bulk-import-modal__section">
               <h4>プレビュー（{parsedItems.length}日分）</h4>
               <div className="bulk-import-modal__days">
-                {parsedItems.map((item) => {
+                {parsedItems.map((item, dayIndex) => {
                   const hasExistingTrainingLog = trainingLogs.some((log) => log.date === item.date)
                   const hasExistingCondition = dailyConditions.some((condition) => condition.date === item.date)
 
@@ -571,6 +660,26 @@ export function BulkScheduleImportModal({
                               <li key={`${exercise.name}-${index}`}>
                                 {exercise.exerciseId ? (
                                   exercise.name
+                                ) : exercise.suggestedMatch ? (
+                                  <span className="bulk-import-modal__suggestion">
+                                    「{exercise.name}」は「{exercise.suggestedMatch.name}」と同じ種目ですか？
+                                    <span className="bulk-import-modal__suggestion-actions">
+                                      <button
+                                        type="button"
+                                        className="calendar-detail__secondary-button"
+                                        onClick={() => handleAcceptExerciseSuggestion(dayIndex, index)}
+                                      >
+                                        はい
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="calendar-detail__secondary-button"
+                                        onClick={() => handleDeclineExerciseSuggestion(dayIndex, index)}
+                                      >
+                                        いいえ
+                                      </button>
+                                    </span>
+                                  </span>
                                 ) : (
                                   <span className="bulk-import-modal__template-nomatch">{exercise.name}（未一致・スキップ）</span>
                                 )}
@@ -593,6 +702,26 @@ export function BulkScheduleImportModal({
                                     {foodIndex > 0 ? '・' : ''}
                                     {foodItem.foodItemId ? (
                                       foodItem.name
+                                    ) : foodItem.suggestedMatch ? (
+                                      <span className="bulk-import-modal__suggestion">
+                                        「{foodItem.name}」は「{foodItem.suggestedMatch.name}」と同じ食材ですか？
+                                        <span className="bulk-import-modal__suggestion-actions">
+                                          <button
+                                            type="button"
+                                            className="calendar-detail__secondary-button"
+                                            onClick={() => handleAcceptFoodSuggestion(dayIndex, mealIndex, foodIndex)}
+                                          >
+                                            はい
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="calendar-detail__secondary-button"
+                                            onClick={() => handleDeclineFoodSuggestion(dayIndex, mealIndex, foodIndex)}
+                                          >
+                                            いいえ
+                                          </button>
+                                        </span>
+                                      </span>
                                     ) : (
                                       <span className="bulk-import-modal__template-nomatch">{foodItem.name}（未一致）</span>
                                     )}
