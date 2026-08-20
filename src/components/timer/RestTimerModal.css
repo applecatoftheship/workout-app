@@ -1,0 +1,173 @@
+.rest-timer-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 24, 27, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 12px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.rest-timer-modal {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+}
+
+.rest-timer-modal__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rest-timer-modal__header h3 {
+  margin: 0;
+  font-family: var(--font-base);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.rest-timer-modal__close {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: 4px;
+  display: inline-flex;
+}
+
+.rest-timer-modal__close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.rest-timer-modal__body {
+  padding: 24px 20px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.rest-timer-modal__duration {
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.rest-timer-modal__quick-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.rest-timer-modal__quick-button {
+  border: 1.5px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-pill);
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: var(--font-size-body-sm);
+  font-family: var(--font-base);
+  cursor: pointer;
+}
+
+.rest-timer-modal__quick-button--active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.rest-timer-modal__stepper {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rest-timer-modal__stepper-label {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  min-width: 44px;
+  text-align: center;
+}
+
+.rest-timer-modal__start {
+  width: 100%;
+}
+
+.rest-timer-modal__countdown {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  transition: color 0.2s ease;
+}
+
+/* 時間になったときの視覚変化：カウントダウン表示を数回フラッシュさせる */
+.rest-timer-modal__countdown--finished {
+  color: var(--color-accent);
+  animation: rest-timer-flash 0.6s ease-in-out 3;
+}
+
+@keyframes rest-timer-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.rest-timer-modal__finished-label {
+  margin: -8px 0 0;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  color: var(--color-accent-text);
+}
+
+.rest-timer-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.rest-timer-modal__actions .btn-primary,
+.rest-timer-modal__actions .btn-secondary {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .rest-timer-modal__overlay {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .rest-timer-modal {
+    margin: auto 0.75rem;
+    width: calc(100% - 1.5rem);
+    max-width: 26rem;
+    max-height: 80dvh;
+    border-radius: 1rem;
+  }
+
+  .rest-timer-modal__header {
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  }
+}

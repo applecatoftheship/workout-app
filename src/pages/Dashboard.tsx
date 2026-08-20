@@ -4,7 +4,8 @@ import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
-import { ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, WeightIcon } from '../components/icons'
+import { ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, TimerIcon, WeightIcon } from '../components/icons'
+import { RestTimerModal } from '../components/timer/RestTimerModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, weekDays } from '../utils/calendarHelpers'
@@ -94,6 +95,10 @@ export function Dashboard({
   const navigate = useNavigate()
   const [isTodayDetailOpen, setIsTodayDetailOpen] = useState(false)
   const [isNutritionOpen, setIsNutritionOpen] = useState(false)
+  // 休憩タイマー（2026年8月21日新設）：DB保存なし、モーダルを開いている間のみ完結する
+  // 機能のため、マウント/アンマウントで状態管理する（isTimerOpen=falseの間は
+  // RestTimerModal自体を描画しない）。閉じたら内部状態もリセットされる。
+  const [isTimerOpen, setIsTimerOpen] = useState(false)
   const [weekSchedules, setWeekSchedules] = useState<TrainingSchedule[]>([])
   const [weekSoccerLogs, setWeekSoccerLogs] = useState<SoccerLog[]>([])
   const [acwrSoccerLogs, setAcwrSoccerLogs] = useState<SoccerLog[]>([])
@@ -490,8 +495,20 @@ export function Dashboard({
   return (
     <>
       <div className="dashboard-header">
-        <p className="eyebrow">Workout App</p>
-        <h1>{formattedDate}</h1>
+        <div className="dashboard-header__row">
+          <div>
+            <p className="eyebrow">Workout App</p>
+            <h1>{formattedDate}</h1>
+          </div>
+          <button
+            type="button"
+            className="btn-icon dashboard-header__timer-button"
+            onClick={() => setIsTimerOpen(true)}
+            aria-label="休憩タイマーを開く"
+          >
+            <TimerIcon strokeWidth={1.8} />
+          </button>
+        </div>
         {!isViewingToday ? (
           <div className="dashboard-date-context">
             <span className="dashboard-date-context__label">📅 {selectedDateLabel}を表示中</span>
@@ -850,6 +867,8 @@ export function Dashboard({
           </button>
         ))}
       </section>
+
+      {isTimerOpen ? <RestTimerModal onClose={() => setIsTimerOpen(false)} /> : null}
     </>
   )
 }

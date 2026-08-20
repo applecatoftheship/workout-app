@@ -163,6 +163,18 @@ export function EditIcon({ strokeWidth = 2, className }: IconProps) {
   )
 }
 
+export function TimerIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l2.5 1.5" />
+      <path d="M9 2h6" />
+      <path d="M12 2v2" />
+      <path d="M19 6l1.5-1.5" />
+    </svg>
+  )
+}
+
 export function CloseIcon({ strokeWidth = 2, className }: IconProps) {
   return (
     <svg {...base} strokeWidth={strokeWidth} className={className}>

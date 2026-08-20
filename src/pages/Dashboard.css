@@ -2,6 +2,18 @@
   padding: 4px 2px 2px;
 }
 
+.dashboard-header__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* 休憩タイマー（2026年8月21日新設）：ヘッダー右上の時計アイコンボタン */
+.dashboard-header__timer-button {
+  flex-shrink: 0;
+}
+
 .dashboard-header .eyebrow {
   margin: 0 0 2px;
   font-size: var(--font-size-caption);
