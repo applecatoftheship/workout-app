@@ -1,0 +1,198 @@
+.celebration-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background: rgba(0, 0, 0, 0.45);
+  animation: celebration-backdrop-in 0.2s ease-out;
+}
+
+@keyframes celebration-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.celebration-card {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-xl) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-sm);
+  overflow: hidden;
+  animation: celebration-card-in 0.3s ease-out;
+  cursor: pointer;
+}
+
+@keyframes celebration-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.celebration-card--pr {
+  background: linear-gradient(160deg, var(--color-accent-soft), var(--color-bg-elevated) 55%);
+  border-color: var(--color-accent);
+}
+
+.celebration-card--streak {
+  background: linear-gradient(160deg, var(--color-data-soft), var(--color-bg-elevated) 55%);
+  border-color: var(--color-data);
+}
+
+.celebration-card__label {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.celebration-card__exercise {
+  margin: 0;
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  color: var(--color-accent-text);
+}
+
+.celebration-card__compare {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.celebration-card__compare-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.celebration-card__compare-label {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
+.celebration-card__compare-value {
+  font-size: var(--font-size-metric);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.celebration-card__compare-item--after .celebration-card__compare-value {
+  color: var(--color-accent);
+  font-size: var(--font-size-metric-lg);
+}
+
+.celebration-card__arrow {
+  font-size: var(--font-size-title);
+  color: var(--color-text-muted);
+}
+
+.celebration-card__hint {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
+.celebration-card__medal {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.celebration-card__streak-days {
+  margin: 0;
+  font-size: var(--font-size-metric-lg);
+  font-weight: 700;
+  color: var(--color-data);
+}
+
+.celebration-card__streak-unit {
+  font-size: var(--font-size-title);
+  font-weight: 600;
+  margin-left: 2px;
+}
+
+/* 控えめな紙吹雪アニメーション（PRカードのみ） */
+.celebration-card__confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.celebration-card__confetti span {
+  position: absolute;
+  top: -10%;
+  width: 6px;
+  height: 10px;
+  border-radius: 2px;
+  opacity: 0.85;
+  animation: celebration-confetti-fall 1.6s ease-in forwards;
+}
+
+.celebration-card__confetti span:nth-child(1) {
+  left: 10%;
+  background: var(--color-accent);
+  animation-delay: 0s;
+}
+
+.celebration-card__confetti span:nth-child(2) {
+  left: 25%;
+  background: var(--color-data);
+  animation-delay: 0.1s;
+}
+
+.celebration-card__confetti span:nth-child(3) {
+  left: 45%;
+  background: var(--color-success);
+  animation-delay: 0.05s;
+}
+
+.celebration-card__confetti span:nth-child(4) {
+  left: 60%;
+  background: var(--color-warning);
+  animation-delay: 0.2s;
+}
+
+.celebration-card__confetti span:nth-child(5) {
+  left: 78%;
+  background: var(--color-accent);
+  animation-delay: 0.15s;
+}
+
+.celebration-card__confetti span:nth-child(6) {
+  left: 90%;
+  background: var(--color-data);
+  animation-delay: 0.25s;
+}
+
+@keyframes celebration-confetti-fall {
+  from {
+    transform: translateY(-10%) rotate(0deg);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateY(220%) rotate(220deg);
+    opacity: 0;
+  }
+}
