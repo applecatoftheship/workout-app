@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { HashRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { MonthlyCalendar } from './pages/MonthlyCalendar'
 import { ProgressGraph } from './pages/ProgressGraph'
@@ -237,11 +237,11 @@ function AppShell() {
 
 function App() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <ToastProvider>
         <AppShell />
       </ToastProvider>
-    </HashRouter>
+    </BrowserRouter>
   )
 }
 
