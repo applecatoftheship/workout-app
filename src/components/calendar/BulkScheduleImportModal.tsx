@@ -7,6 +7,7 @@ import { fetchMealLogs, upsertMealLog } from '../../api/mealLogs'
 import { fetchDailyConditions, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
 import { matchByNameWithFallback, findMostSimilarName } from '../../utils/nameMatching'
+import { combineDateAndTimeToISO } from '../../utils/calendarHelpers'
 import type {
   DailyCondition,
   DateString,
@@ -42,16 +43,20 @@ const PROMPT_TEXT = `以下の内容を JSON 配列形式のみで出力して�
     "training": {
       "exercises": [
         { "name": "種目名（例: ベンチプレス）", "sets": [{ "weight": 80, "reps": 8 }] }
-      ]
+      ],
+      "end_time": "トレーニング終了時刻 HH:MM (任意)"
     },
     "meals": [
-      { "type": "朝食 | 昼食 | 夕食 | 間食", "items": [{ "name": "食材名（例: 白米）", "amount": 150 }] }
+      { "type": "朝食 | 昼食 | 夕食 | 間食", "time": "食事をとった時刻 HH:MM (任意)", "items": [{ "name": "食材名（例: 白米）", "amount": 150 }] }
     ],
     "condition": { "weight": 74.5, "sleep_hours": 7, "fatigue_level": 3, "notes": "メモ (任意)" }
   }
 ]`
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+// リカバリー窓機能（スプリント4 Phase 1）：meal_time/training.end_timeの抽出用。
+// 取得できない/不正な場合は単にundefinedのまま許容する（既存の「未一致ならスキップ」方針を踏襲）。
+const TIME_PATTERN = /^\d{2}:\d{2}$/
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -102,6 +107,9 @@ type ParsedExercise = {
 type ParsedMeal = {
   typeLabel: string
   mealType: MealType
+  // リカバリー窓機能（スプリント4 Phase 1）：この食事をとった時刻（HH:MM）。
+  // AI出力に含まれない/不正な形式の場合はundefined。
+  time?: string
   items: { name: string; amount: number; foodItemId: string | null; suggestedMatch: NameSuggestion }[]
 }
 
@@ -115,7 +123,9 @@ type ParsedCondition = {
 type ParsedDayItem = {
   date: DateString
   schedule?: ParsedSchedule
-  training?: { exercises: ParsedExercise[] }
+  // endTime：リカバリー窓機能（スプリント4 Phase 1）。そのトレーニングセッションの
+  // 終了時刻（HH:MM）。AI出力に含まれない/不正な形式の場合はundefined。
+  training?: { exercises: ParsedExercise[]; endTime?: string }
   meals?: ParsedMeal[]
   condition?: ParsedCondition
 }
@@ -285,7 +295,9 @@ export function BulkScheduleImportModal({
             sets,
           })
         }
-        item.training = { exercises }
+        const endTime =
+          typeof raw.training.end_time === 'string' && TIME_PATTERN.test(raw.training.end_time) ? raw.training.end_time : undefined
+        item.training = { exercises, endTime }
       }
 
       if (raw.meals !== undefined) {
@@ -321,7 +333,8 @@ export function BulkScheduleImportModal({
             })
           }
 
-          meals.push({ typeLabel: rawMeal.type, mealType: mealTypeFromLabel(rawMeal.type), items: mealItems })
+          const mealTime = typeof rawMeal.time === 'string' && TIME_PATTERN.test(rawMeal.time) ? rawMeal.time : undefined
+          meals.push({ typeLabel: rawMeal.type, mealType: mealTypeFromLabel(rawMeal.type), time: mealTime, items: mealItems })
         }
         item.meals = meals
       }
@@ -502,9 +515,14 @@ export function BulkScheduleImportModal({
           })),
         }))
 
+        // リカバリー窓機能（スプリント4 Phase 1）：AI出力にend_timeが含まれていれば
+        // 上書きし、含まれていなければ（未指定/不正形式）既存の値をそのまま維持する
+        // （マージ時にNULLで上書きして既存の入力値を消してしまわないため）。
+        const importedEndTime = item.training.endTime ? combineDateAndTimeToISO(item.date, item.training.endTime) : undefined
+
         const mergedLog: TrainingLog = existingLog
-          ? { ...existingLog, exercises: [...baseExercises, ...newExercises], completed: true }
-          : { id: crypto.randomUUID(), date: item.date, exercises: newExercises, completed: true }
+          ? { ...existingLog, exercises: [...baseExercises, ...newExercises], completed: true, endTime: importedEndTime ?? existingLog.endTime }
+          : { id: crypto.randomUUID(), date: item.date, exercises: newExercises, completed: true, endTime: importedEndTime }
 
         await upsertTrainingLog(mergedLog)
       }
@@ -531,7 +549,13 @@ export function BulkScheduleImportModal({
             }
           })
 
-          await upsertMealLog({ id: crypto.randomUUID(), date: item.date, mealType: meal.mealType, items: inputItems })
+          await upsertMealLog({
+            id: crypto.randomUUID(),
+            date: item.date,
+            mealType: meal.mealType,
+            mealTime: meal.time ? combineDateAndTimeToISO(item.date, meal.time) : undefined,
+            items: inputItems,
+          })
         }
       }
 
