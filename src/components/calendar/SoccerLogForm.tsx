@@ -3,6 +3,7 @@ import type { DateString, SoccerLog } from '../../types'
 import { createOrUpdateSoccerLog, deleteSoccerLog } from '../../api/soccerLogs'
 import { fetchRecentWeight } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
+import { getCurrentTimeHHMM, combineDateAndTimeToISO, extractTimeHHMMFromISO } from '../../utils/calendarHelpers'
 import {
   ACTIVITY_TYPE_PRESETS,
   TRAINING_MENUS,
@@ -26,6 +27,9 @@ type SoccerLogFormState = {
   maxSpeedKmh: string
   caloriesBurned: string
   notes: string
+  // リカバリー窓機能（スプリント4 Phase 1）：input type="time"用のHH:MM文字列。
+  // 空文字の場合は「保存」ボタン押下時の時刻をデフォルトとして使う（TrainingLogForm.tsxと同じ扱い）。
+  endTime: string
 }
 
 type SoccerLogFormErrors = {
@@ -47,6 +51,7 @@ const createEmptyFormState = (): SoccerLogFormState => ({
   maxSpeedKmh: '',
   caloriesBurned: '',
   notes: '',
+  endTime: '',
 })
 
 function formStateFromLog(log: SoccerLog): SoccerLogFormState {
@@ -61,6 +66,7 @@ function formStateFromLog(log: SoccerLog): SoccerLogFormState {
     maxSpeedKmh: log.maxSpeedKmh !== undefined ? String(log.maxSpeedKmh) : '',
     caloriesBurned: log.caloriesBurned !== undefined ? String(log.caloriesBurned) : '',
     notes: log.notes ?? '',
+    endTime: log.endTime ? extractTimeHHMMFromISO(log.endTime) : '',
   }
 }
 
@@ -194,6 +200,10 @@ export function SoccerLogForm({
     setIsSaving(true)
     setFormSummaryError(null)
     try {
+      // リカバリー窓機能（スプリント4 Phase 1）：手動調整されていなければ「保存」ボタン
+      // 押下時（＝今この瞬間）の時刻をend_timeのデフォルトとする（TrainingLogForm.tsxと同じ扱い）。
+      const endTimeHHMM = formState.endTime || getCurrentTimeHHMM()
+
       const saved = await createOrUpdateSoccerLog({
         date: selectedDate,
         activityType,
@@ -204,6 +214,7 @@ export function SoccerLogForm({
         maxSpeedKmh: showSprintAndSpeedFields ? parseOptionalNumber(displayMaxSpeedKmh) : undefined,
         caloriesBurned: parseOptionalNumber(formState.caloriesBurned),
         notes: formState.notes.trim() || undefined,
+        endTime: combineDateAndTimeToISO(selectedDate, endTimeHHMM),
       })
 
       setSoccerLogs((current) => {
@@ -399,6 +410,12 @@ export function SoccerLogForm({
               <p className="calendar-detail__description">体重記録がないため推定値は計算されません。手入力してください</p>
             ) : null}
             {formErrors.caloriesBurned ? <p className="calendar-detail__error">{formErrors.caloriesBurned}</p> : null}
+          </label>
+
+          <label className="calendar-detail__field">
+            <span>終了時刻（任意）</span>
+            <input type="time" value={formState.endTime} onChange={(event) => handleFieldChange('endTime', event.target.value)} />
+            <p className="calendar-detail__description">未入力の場合は「保存」を押した時刻を使用します</p>
           </label>
 
           <label className="calendar-detail__field calendar-detail__field--full">

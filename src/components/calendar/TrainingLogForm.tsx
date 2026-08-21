@@ -8,7 +8,12 @@ import {
   upsertTrainingLog,
 } from '../../api/trainingLogs'
 import { completeScheduleForDate } from '../../api/trainingSchedules'
-import { formatTrainingLogItem } from '../../utils/calendarHelpers'
+import {
+  formatTrainingLogItem,
+  getCurrentTimeHHMM,
+  combineDateAndTimeToISO,
+  extractTimeHHMMFromISO,
+} from '../../utils/calendarHelpers'
 import { getMatchDayStatus } from '../../utils/periodizationHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
 import { ExercisePicker } from './ExercisePicker'
@@ -65,6 +70,9 @@ type TrainingLogFormExerciseErrors = {
 type TrainingLogFormState = {
   completed: boolean
   notes: string
+  // リカバリー窓機能（スプリント4 Phase 1）：input type="time"用のHH:MM文字列。
+  // 空文字の場合は「保存」ボタン押下時の時刻をデフォルトとして使う（未入力＝手動調整なし）。
+  endTime: string
   exercises: TrainingLogFormExercise[]
 }
 
@@ -96,6 +104,7 @@ const createEmptyExercise = (): TrainingLogFormExercise => ({
 const createEmptyFormState = (): TrainingLogFormState => ({
   completed: true,
   notes: '',
+  endTime: '',
   exercises: [createEmptyExercise()],
 })
 
@@ -213,6 +222,7 @@ export function TrainingLogForm({
     setFormState({
       completed: existingLog?.completed ?? true,
       notes: existingLog?.notes ?? '',
+      endTime: existingLog?.endTime ? extractTimeHHMMFromISO(existingLog.endTime) : '',
       exercises: nextExercises,
     })
     setFormErrors(createEmptyFormErrors(nextExercises.length))
@@ -548,12 +558,18 @@ export function TrainingLogForm({
 
     const existingLog = editingLogIndex !== null ? trainingLogs[editingLogIndex] : null
 
+    // リカバリー窓機能（スプリント4 Phase 1）：手動調整されていなければ「保存」ボタン
+    // 押下時（＝今この瞬間）の時刻をend_timeのデフォルトとする。日付部分は常に
+    // selectedDate（このフォームが対象としている記録日）を使う。
+    const endTimeHHMM = formState.endTime || getCurrentTimeHHMM()
+
     const nextLog: TrainingLog = {
       id: existingLog?.id,
       date: selectedDate,
       exercises: nextExercises,
       notes: formState.notes.trim() || undefined,
       completed: formState.completed,
+      endTime: combineDateAndTimeToISO(selectedDate, endTimeHHMM),
     }
 
     setIsSaving(true)
@@ -632,6 +648,16 @@ export function TrainingLogForm({
               <option value="completed">完了</option>
               <option value="pending">未完了</option>
             </select>
+          </label>
+
+          <label className="calendar-detail__field">
+            <span>終了時刻（任意）</span>
+            <input
+              type="time"
+              value={formState.endTime}
+              onChange={(event) => setFormState((current) => ({ ...current, endTime: event.target.value }))}
+            />
+            <p className="calendar-detail__description">未入力の場合は「保存」を押した時刻を使用します</p>
           </label>
 
           {formState.exercises.map((exercise, index) => (

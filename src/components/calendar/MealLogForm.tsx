@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DateString, DishWithDetails, FoodItem, MealLog, MealSize, MealType } from '../../types'
-import { getMealTypeLabel } from '../../utils/calendarHelpers'
+import { getMealTypeLabel, getCurrentTimeHHMM, combineDateAndTimeToISO, extractTimeHHMMFromISO } from '../../utils/calendarHelpers'
 import { fetchFoodItems, createFoodItem } from '../../api/foodItems'
 import { fetchMealLogItems, fetchMealLogs, upsertMealLog, deleteMealLogRemote } from '../../api/mealLogs'
 import type { MealLogInput } from '../../api/mealLogs'
@@ -19,6 +19,8 @@ type MealLogFoodSelectionForm = {
 type MealLogFormState = {
   mealType: MealType | ''
   notes: string
+  // リカバリー窓機能（スプリント4 Phase 1）：input type="time"用のHH:MM文字列。
+  mealTime: string
   selections: MealLogFoodSelectionForm[]
   newFoodName: string
   newFoodServingAmount: string
@@ -48,6 +50,7 @@ type MealLogFormErrors = {
 const createEmptyMealFormState = (): MealLogFormState => ({
   mealType: '',
   notes: '',
+  mealTime: getCurrentTimeHHMM(),
   selections: [],
   newFoodName: '',
   newFoodServingAmount: '100',
@@ -204,7 +207,12 @@ export function MealLogForm({
       return
     }
 
-    setMealFormState({ ...createEmptyMealFormState(), mealType: existingLog.mealType, notes: existingLog.notes ?? '' })
+    setMealFormState({
+      ...createEmptyMealFormState(),
+      mealType: existingLog.mealType,
+      notes: existingLog.notes ?? '',
+      mealTime: existingLog.mealTime ? extractTimeHHMMFromISO(existingLog.mealTime) : getCurrentTimeHHMM(),
+    })
 
     fetchMealLogItems(existingLog.id)
       .then((items) => {
@@ -222,7 +230,7 @@ export function MealLogForm({
       })
   }
 
-  const handleMealFieldChange = (field: 'mealType' | 'notes', value: string) => {
+  const handleMealFieldChange = (field: 'mealType' | 'notes' | 'mealTime', value: string) => {
     setMealFormState((current) => ({ ...current, [field]: value }))
   }
 
@@ -512,6 +520,7 @@ export function MealLogForm({
       date: selectedDate,
       mealType: mealFormState.mealType as MealType,
       notes: mealFormState.notes.trim() || undefined,
+      mealTime: mealFormState.mealTime ? combineDateAndTimeToISO(selectedDate, mealFormState.mealTime) : undefined,
       items,
     }
 
@@ -613,6 +622,15 @@ export function MealLogForm({
               <option value="other">その他</option>
             </select>
             {mealFormErrors.mealType ? <p className="calendar-detail__error">{mealFormErrors.mealType}</p> : null}
+          </label>
+
+          <label className="calendar-detail__field">
+            <span>食事時刻</span>
+            <input
+              type="time"
+              value={mealFormState.mealTime}
+              onChange={(event) => handleMealFieldChange('mealTime', event.target.value)}
+            />
           </label>
 
           <div className="calendar-detail__tabs calendar-detail__tabs--segment">
