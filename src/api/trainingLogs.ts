@@ -94,6 +94,7 @@ type TrainingLogRow = {
   user_id: string
   completed: boolean
   notes: string | null
+  end_time: string | null
   created_at: string
   updated_at: string
 }
@@ -149,6 +150,7 @@ function rowToTrainingLog(row: TrainingLogRow, exercises: TrainingLogExercise[])
     date: row.log_date as DateString,
     completed: row.completed,
     notes: row.notes ?? undefined,
+    endTime: row.end_time ?? undefined,
     exercises,
     createdAt: row.created_at as DateString,
     updatedAt: row.updated_at as DateString,
@@ -208,6 +210,7 @@ export async function upsertTrainingLog(log: TrainingLog): Promise<void> {
         log_date: log.date,
         completed: log.completed,
         notes: log.notes ?? null,
+        end_time: log.endTime ?? null,
       },
       { onConflict: 'user_id,log_date' },
     )

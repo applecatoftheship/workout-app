@@ -18,6 +18,9 @@ export type MealLogInput = {
   mealType: MealType
   notes?: string
   items: MealLogFoodItemInput[]
+  // リカバリー窓機能（スプリント4 Phase 1）：この食事をとった時刻（ISO 8601、timestamptz）。
+  // 未指定の場合はNULLのまま保存する。
+  mealTime?: string
 }
 
 type MealLogRow = {
@@ -25,6 +28,7 @@ type MealLogRow = {
   log_date: string
   meal_type: string
   notes: string | null
+  meal_time: string | null
   created_at: string
   updated_at: string
 }
@@ -83,6 +87,7 @@ export async function fetchMealLogs(): Promise<MealLog[]> {
       fat: Math.round(totals.fat),
       carbohydrates: Math.round(totals.carbohydrates),
       notes: row.notes ?? undefined,
+      mealTime: row.meal_time ?? undefined,
       createdAt: row.created_at as DateString,
       updatedAt: row.updated_at as DateString,
     }
@@ -96,6 +101,7 @@ export async function upsertMealLog(input: MealLogInput): Promise<void> {
     log_date: input.date,
     meal_type: input.mealType,
     notes: input.notes ?? null,
+    meal_time: input.mealTime ?? null,
   })
 
   if (logError) {

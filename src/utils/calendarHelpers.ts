@@ -15,6 +15,27 @@ export function formatMonthLabel(date: Date) {
   }).format(date)
 }
 
+// リカバリー窓機能（スプリント4 Phase 1、2026年8月21日）：meal_time/end_time
+// （input type="time"用のHH:MM文字列 ⇔ timestamptz用のISO文字列）の相互変換。
+// MealLogForm・TrainingLogForm・SoccerLogFormの3フォームで共通利用する。
+
+export function getCurrentTimeHHMM(): string {
+  const now = new Date()
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+}
+
+// dateはそのレコードが属する日付（log_date）、timeはinput type="time"の値（HH:MM）。
+// ブラウザのローカルタイムゾーンで解釈したうえでUTCのISO文字列に変換するため、
+// timestamptz列にサーバー側のタイムゾーン設定に依存せず一意に保存できる。
+export function combineDateAndTimeToISO(date: DateString, time: string): string {
+  return new Date(`${date}T${time}`).toISOString()
+}
+
+export function extractTimeHHMMFromISO(iso: string): string {
+  const parsed = new Date(iso)
+  return `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`
+}
+
 // カレンダー実績アイコン機能（日付ベース簡易マッチング方式、2026年8月20〜21日）：
 // その日の複数training_schedules行から表示する絵文字を1つ選ぶ部分のみを
 // 独立させたもの。cancelled行のみ除外し、scheduled/completedの中から

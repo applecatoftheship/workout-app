@@ -14,6 +14,7 @@ type SoccerLogRow = {
   max_speed_kmh: number | null
   calories_burned: number | null
   notes: string | null
+  end_time: string | null
   created_at: string
 }
 
@@ -30,6 +31,7 @@ function rowToSoccerLog(row: SoccerLogRow): SoccerLog {
     maxSpeedKmh: row.max_speed_kmh ?? undefined,
     caloriesBurned: row.calories_burned ?? undefined,
     notes: row.notes ?? undefined,
+    endTime: row.end_time ?? undefined,
     createdAt: row.created_at as DateString,
   }
 }
@@ -44,6 +46,9 @@ export type SoccerLogInput = {
   maxSpeedKmh?: number
   caloriesBurned?: number
   notes?: string
+  // リカバリー窓機能（スプリント4 Phase 1）：この活動の終了時刻（ISO 8601、timestamptz）。
+  // 未指定の場合はNULLのまま保存する。
+  endTime?: string
 }
 
 function inputToRow(input: SoccerLogInput) {
@@ -58,6 +63,7 @@ function inputToRow(input: SoccerLogInput) {
     max_speed_kmh: input.maxSpeedKmh ?? null,
     calories_burned: input.caloriesBurned ?? null,
     notes: input.notes ?? null,
+    end_time: input.endTime ?? null,
   }
 }
 
