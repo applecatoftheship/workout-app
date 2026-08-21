@@ -198,6 +198,8 @@ export function RecordFormModal({
               key={formKey}
               trainingLogs={trainingLogs}
               setTrainingLogs={setTrainingLogs}
+              mealLogs={mealLogs}
+              dailyConditions={dailyConditions}
               selectedDate={request.date}
               isFormOpen={isTrainingFormOpen}
               setIsFormOpen={setIsTrainingFormOpen}

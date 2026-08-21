@@ -8,6 +8,7 @@ import {
   upsertTrainingLog,
 } from '../../api/trainingLogs'
 import { completeScheduleForDate } from '../../api/trainingSchedules'
+import { fetchSoccerLogs } from '../../api/soccerLogs'
 import {
   formatTrainingLogItem,
   getCurrentTimeHHMM,
@@ -15,10 +16,23 @@ import {
   extractTimeHHMMFromISO,
 } from '../../utils/calendarHelpers'
 import { getMatchDayStatus } from '../../utils/periodizationHelpers'
+import { detectPersonalRecords } from '../../utils/prHelpers'
+import { calculateCurrentStreak, isStreakMilestone } from '../../utils/streakHelpers'
+import { toDateKey } from '../../utils/chartHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
 import { ExercisePicker } from './ExercisePicker'
 import { useToast } from '../../hooks/useToast'
-import type { DateString, ExerciseDefinition, TrainingLog, TrainingLogExercise, TrainingSchedule, TrainingSet } from '../../types'
+import { useCelebration } from '../celebration/CelebrationProvider'
+import type {
+  DailyCondition,
+  DateString,
+  ExerciseDefinition,
+  MealLog,
+  TrainingLog,
+  TrainingLogExercise,
+  TrainingSchedule,
+  TrainingSet,
+} from '../../types'
 
 // スプリント3（MD基準の栄養・トレーニング調整、2026年8月18日）：下半身（脚）の
 // 高負荷トレーニングを控えたい範囲。試合直後（MD+1）は対象外（指示書
@@ -113,6 +127,13 @@ const createEmptyFormErrors = (count = 1): TrainingLogFormExerciseErrors[] => Ar
 type TrainingLogFormProps = {
   trainingLogs: TrainingLog[]
   setTrainingLogs: React.Dispatch<React.SetStateAction<TrainingLog[]>>
+  /**
+   * 記録更新演出機能（PR・連続記録、2026年8月21日）：ストリーク判定
+   * （4テーブルのlog_date OR結合）に必要。App.tsxで既にフル履歴が
+   * 読み込み済みのstateをそのまま利用し、新規フェッチは行わない。
+   */
+  mealLogs: MealLog[]
+  dailyConditions: DailyCondition[]
   selectedDate: DateString
   isFormOpen: boolean
   setIsFormOpen: React.Dispatch<React.SetStateAction<boolean>>
@@ -136,6 +157,8 @@ type TrainingLogFormProps = {
 export function TrainingLogForm({
   trainingLogs,
   setTrainingLogs,
+  mealLogs,
+  dailyConditions,
   selectedDate,
   isFormOpen,
   setIsFormOpen,
@@ -145,6 +168,7 @@ export function TrainingLogForm({
   schedulesForMdCheck,
 }: TrainingLogFormProps) {
   const { showToast } = useToast()
+  const { showPRCelebration, showStreakCelebration } = useCelebration()
   const [editingLogIndex, setEditingLogIndex] = useState<number | null>(null)
   const [formState, setFormState] = useState<TrainingLogFormState>(createEmptyFormState())
   const [formErrors, setFormErrors] = useState<TrainingLogFormExerciseErrors[]>(createEmptyFormErrors())
@@ -577,6 +601,34 @@ export function TrainingLogForm({
       await upsertTrainingLog(nextLog)
       const refreshed = await fetchTrainingLogs()
       setTrainingLogs(refreshed)
+
+      // 記録更新演出機能（PR・連続記録、2026年8月21日）：PR判定は、この関数が
+      // 呼ばれた時点でクロージャに捕捉されている「保存前」のtrainingLogsを
+      // 最大推定1RMの比較対象とし、今回保存したnextExercisesのセットと比較する。
+      // 新規DBクエリ不要（既存stateを活用する）という指示書の方針を踏襲。
+      const personalRecords = detectPersonalRecords(trainingLogs, nextExercises)
+      personalRecords.forEach((record) => {
+        showPRCelebration(record.exerciseName, record.before, record.after)
+      })
+
+      // ストリーク判定：soccer_logsのみ、他3テーブルと違いApp単位のフル履歴state
+      // が存在しない（ページごとに必要な範囲だけ独立フェッチする既存方針、
+      // Dashboard/ProgressGraphと同様）。そのため保存の都度ここで取得する。
+      // 範囲は節目の最大値（365日以降100日ごと）を十分カバーする固定の過去日
+      // から本日までとする。PR演出のenqueueより後に呼ぶことで、両方該当した
+      // 場合にPR演出→（閉じた後）ストリーク演出の順で表示される。
+      try {
+        const today = new Date()
+        const streakWindowStart = new Date(today)
+        streakWindowStart.setDate(streakWindowStart.getDate() - 900)
+        const soccerLogsForStreak = await fetchSoccerLogs(toDateKey(streakWindowStart), toDateKey(today))
+        const streakDays = calculateCurrentStreak(refreshed, soccerLogsForStreak, mealLogs, dailyConditions, today)
+        if (isStreakMilestone(streakDays)) {
+          showStreakCelebration(streakDays)
+        }
+      } catch (error) {
+        console.error('Supabaseからストリーク判定用のサッカー記録の取得に失敗しました', error)
+      }
 
       if (nextLog.completed) {
         completeScheduleForDate(selectedDate)

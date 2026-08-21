@@ -15,6 +15,7 @@ import { fetchTrainingLogs } from './api/trainingLogs'
 import { fetchMealLogs } from './api/mealLogs'
 import { useTheme } from './hooks/useTheme'
 import { ToastProvider, useToast } from './hooks/useToast'
+import { CelebrationProvider } from './components/celebration/CelebrationProvider'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
 
@@ -240,7 +241,9 @@ function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
-        <AppShell />
+        <CelebrationProvider>
+          <AppShell />
+        </CelebrationProvider>
       </ToastProvider>
     </BrowserRouter>
   )
