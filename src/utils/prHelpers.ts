@@ -46,6 +46,8 @@ export type PersonalRecordResult = {
 // 保存対象の種目群（このセーブ操作でこれから保存するsets）ごとに、保存前の
 // 最大推定1RMを上回っていればPR達成として結果を返す。trainingLogsは保存前
 // （refetch前）のstateを渡すこと（呼び出し側のクロージャで捕捉した値でよい）。
+// beforeが0（＝その種目を初めて記録する＝比較対象の過去記録が存在しない）の
+// 場合はPR演出の対象外とする（2026年8月21日、初回記録時の誤爆を修正）。
 export function detectPersonalRecords(
   trainingLogs: TrainingLog[],
   savedExercises: TrainingLogExercise[],
@@ -54,6 +56,9 @@ export function detectPersonalRecords(
 
   savedExercises.forEach((exercise) => {
     const before = calculateMaxEstimated1RM(trainingLogs, exercise.exerciseId)
+    if (before <= 0) {
+      return
+    }
 
     let after = 0
     exercise.sets.forEach((set) => {
