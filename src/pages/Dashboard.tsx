@@ -4,6 +4,7 @@ import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
+import { RecoveryWindowCard } from '../components/RecoveryWindowCard'
 import { ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, TimerIcon, WeightIcon } from '../components/icons'
 import { RestTimerModal } from '../components/timer/RestTimerModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
@@ -11,6 +12,7 @@ import { fetchSoccerLogs } from '../api/soccerLogs'
 import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
 import { calculateACWR, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../utils/acwrHelpers'
+import { calculateDailyRecoveryResults, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../utils/recoveryHelpers'
 import { calculateAdjustedGoals, getMatchDayStatus } from '../utils/periodizationHelpers'
 import { calculateMovingAverage, getTrendTone, toDateKey as toChartDateKey } from '../utils/chartHelpers'
 import type { MAPoint } from '../utils/chartHelpers'
@@ -298,6 +300,33 @@ export function Dashboard({
     () => hasConsecutiveDangerDays(trainingLogs, acwrSoccerLogs, dailyConditions, todayString),
     [trainingLogs, acwrSoccerLogs, dailyConditions, todayString],
   )
+
+  // リカバリー窓機能（スプリント4 Phase 2、2026年8月21日）：ACWRGaugeCard同様、
+  // 日付選択（selectedDateKey）の対象外でtodayString基準のまま固定する
+  // （「当日のリカバリー状態カード」という実装指示書の定義に従う）。
+  // 残り時間表示はレストタイマーと同じくsetIntervalの単純デクリメントにせず、
+  // 「終了予定時刻 - 現在時刻」を都度再計算する方式にするため、現在時刻
+  // （recoveryNow）をstateとして持ち、それをcalculateDailyRecoveryResultsの
+  // 引数に渡すたびに再計算させる。
+  const [recoveryNow, setRecoveryNow] = useState(() => new Date())
+
+  const recoveryResults = useMemo(
+    () => calculateDailyRecoveryResults(trainingLogs, acwrSoccerLogs, mealLogs, todayString, recoveryNow, DEFAULT_RECOVERY_WINDOW_CONFIG),
+    [trainingLogs, acwrSoccerLogs, mealLogs, todayString, recoveryNow],
+  )
+
+  // activeなセッションが1つも無くなったら（missed/completedに確定した、または
+  // そもそも当日end_timeを持つセッションが無い）1秒ごとの再計算を止める
+  // （無駄な再レンダリングを防ぐ）。初回のrecoveryResultsは既にマウント時の
+  // recoveryNowで計算済みのため、このゲート判定に循環参照はない。
+  const hasActiveRecoverySession = recoveryResults.some((result) => result.status === 'active')
+  useEffect(() => {
+    if (!hasActiveRecoverySession) {
+      return
+    }
+    const intervalId = window.setInterval(() => setRecoveryNow(new Date()), 1000)
+    return () => window.clearInterval(intervalId)
+  }, [hasActiveRecoverySession])
 
   // ホーム日付選択（A-2）：カロリーリング・「選択日の運動」カード・統計カードは
   // 週間ストリップで選んだ日付（selectedDateKey）基準に切り替わる。閲覧専用で、
@@ -614,6 +643,15 @@ export function Dashboard({
           ) : null}
         </section>
       ) : null}
+
+      {recoveryResults.map((result) => (
+        <RecoveryWindowCard
+          key={`${result.sessionType}-${result.sessionEndTime}`}
+          result={result}
+          config={DEFAULT_RECOVERY_WINDOW_CONFIG}
+          now={recoveryNow}
+        />
+      ))}
 
       <ACWRGaugeCard
         result={acwrResult}
