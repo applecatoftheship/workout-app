@@ -618,3 +618,65 @@ service_role;`）・RLS（`for all using (true) with check (true)`）は2026-08-
 - MD判定に必要な予定データの取得範囲（週表示に紐づく`weekSchedules`とは別に、
   対象日の前後を含む窓で取得する必要がある点）の対応内容は、コミットメッセージ・
   最終レポート側に判断理由を記載。
+
+## 2026年8月21日: スプリント4 Phase 1（リカバリー窓機能の基盤）meal_logs/training_logs/soccer_logsへのend_time系列追加
+
+**未実行（Supabase SQL Editorでの実行待ち）**。運動後の栄養摂取タイミングを追跡する
+リカバリー窓機能の第1段階。今回はデータ入力部分のみで、判定ロジック・ダッシュボード
+表示は次フェーズ（Phase 2）で対応する。3列ともNOT NULL制約は付けない
+（既存行は意図的にNULLのまま。デフォルト値の補完は行わない）。
+
+```sql
+alter table meal_logs add column if not exists meal_time timestamptz;
+alter table training_logs add column if not exists end_time timestamptz;
+alter table soccer_logs add column if not exists end_time timestamptz;
+```
+
+grant/RLSは既存テーブルへの列追加のみのため不要（列単位のRLSではないため、
+既存のgrant/RLSポリシーがそのまま列にも適用される）。
+
+### 実装メモ
+
+- 型は既存の`created_at`/`updated_at`列（training_schedules・soccer_logs等）と
+  一貫性を取り`timestamptz`とした（日付をまたぐ処理でのタイムゾーン考慮が
+  将来的に発生しうるため、`TIME`型より扱いやすいと判断）。
+- `meal_time`は`meal_logs`（1食＝1行、1日複数件可）に追加。`dishes`/`meal_sizes`
+  はマスタ（料理の定義）であり実際に食べた日時の文脈を持たないため対象外とした
+  （判断理由。詳細は事前調査レポート参照）。
+- `end_time`は`training_logs`・`soccer_logs`とも1日1行（`unique(user_id, log_date)`）
+  のため、「その日のセッション全体の終了時刻」を意味する単一値として追加した。
+  同日に複数の独立したセッション（例：朝に有酸素・夜に筋トレ）を行った場合でも
+  1つの値に統合される点は、既存のテーブル設計（1日1行）に起因する制約として
+  引き継いでいる（新規に導入した制約ではない）。
+- `src/types.ts`：`MealLog.mealTime?: string`・`TrainingLog.endTime?: string`・
+  `SoccerLog.endTime?: string`を追加（ISO 8601文字列、DBの`timestamptz`列に対応）。
+- `src/api/mealLogs.ts`・`src/api/trainingLogs.ts`・`src/api/soccerLogs.ts`：
+  Row型・入力型・読み書き関数にそれぞれ`meal_time`/`end_time`↔`mealTime`/`endTime`
+  の対応を追加。
+- `src/utils/calendarHelpers.ts`：`getCurrentTimeHHMM`・`combineDateAndTimeToISO`・
+  `extractTimeHHMMFromISO`を新設（HH:MM文字列⇔timestamptz用ISO文字列の相互変換、
+  3フォーム共通で利用）。`combineDateAndTimeToISO`はブラウザのローカルタイムゾーンで
+  解釈したうえで`.toISOString()`によりUTCへ変換するため、サーバー側のタイムゾーン
+  設定に依存せず一意に保存できる。
+- フォーム側の初期値の与え方は`MealLogForm.tsx`と`TrainingLogForm.tsx`/
+  `SoccerLogForm.tsx`とで意図的に異なる（指示書の指定通り）：
+  - `MealLogForm.tsx`：フォームを開いた時点の現在時刻を`input type="time"`の
+    初期値としてセットし、いつでも手動調整可能（「食事をとった時刻」は
+    記録を始めた時刻に近いという想定）。
+  - `TrainingLogForm.tsx`・`SoccerLogForm.tsx`：`input type="time"`は空欄が初期値
+    （手動調整用のオプション欄）で、未入力のまま保存すると「保存」ボタン押下時点の
+    時刻が使われる（「セッション終了時刻」は記録を書き終えて保存する瞬間に近いという
+    想定。フォームを開いてから保存までに時間差があるケースを考慮）。
+- `BulkScheduleImportModal.tsx`：AI一括取り込みのプロンプトJSON例に
+  `training.end_time`（`training.exercises`と同階層）・`meals[].time`
+  （`meals[].type`と同階層）を追加。`TIME_PATTERN = /^\d{2}:\d{2}$/`で
+  バリデーションし、取得できない/不正な場合は`undefined`のまま許容する
+  （既存の「未一致ならスキップ」方針を踏襲）。
+  - **判断理由**：実装指示書の文言は「meals[].itemsに"time"を追加」だったが、
+    `meal_time`は`meal_logs`（1食単位）に追加した列であり、1食内の食材ごとに
+    別々の時刻を持つ意味がないため、`meals[]`配列の各要素（`type`と同階層）に
+    `time`を追加する形で実装した（スキーマ設計と矛盾しないための解釈）。
+  - トレーニング実績の取り込みは、対象日に既存の実績があれば種目を追加する
+    マージ方式のため、`end_time`は「AI出力に含まれていれば上書き、含まれて
+    いなければ既存値を維持」という扱いにした（未指定時にNULLで上書きして
+    既存の入力値を消してしまわないため）。
