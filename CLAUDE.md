@@ -1003,6 +1003,41 @@ AI一括取り込みで一部のトレーニング記録が登録されない事
 （クランチ・ベンチプレス）・食事記録（ほうれん草・卵）は最終確認時点で
 テスト実施前の状態のまま変化していないことをリロード後に確認した。
 
+## 2026年8月21日：BrowserRouterへの移行
+
+技術的負債として残っていたHashRouter→BrowserRouterへの移行を実施した。
+
+**移行前の調査結果**：当時HashRouterを選んだ理由は「Vercelにrewrites設定を
+追加せずに済む」ためだったが、Service Worker側の設定（`vite-plugin-pwa`）を
+確認したところ、本番ビルドの`dist/sw.js`は`navigateFallback`が既定値
+（`'index.html'`、denylist未指定＝全パス対象）のままで、**Service Worker
+有効時（オフライン含む）は`/calendar`等への直接アクセスも既に`index.html`へ
+正しくフォールバックする設定になっていた**ことが判明した。一方、
+`vercel.json`が存在しないため、**Service Worker未介在時**（初回訪問・
+キャッシュクリア後等）に`/calendar`等へ直接アクセス・リロードすると、
+Vercelの静的ホスティングが該当パスのファイルを持たずオンラインでも
+404になるリスクが残っていた（これが実質的な移行のブロッカーだった）。
+
+**対応**：
+- プロジェクトルートに`vercel.json`を新設し、SPAフォールバックの
+  `rewrites`（`{"source": "/(.*)", "destination": "/index.html"}`）を追加した。
+- `src/App.tsx`の`HashRouter`を`BrowserRouter`に変更（`react-router-dom`からの
+  import変更のみ、Route構成・`APP_VIEW_PATHS`等の経路定義は無変更）。
+- `useNavigate`/`navigate()`呼び出し（`BottomNav.tsx`・`Dashboard.tsx`）・
+  `useLocation().pathname`比較はいずれも`APP_VIEW_PATHS`（`/`・`/calendar`等の
+  素のパス文字列）を経由しており、`#`を前提とした処理は元々存在しなかった
+  ため、追加の修正は不要だった。
+- `vite-plugin-pwa`（`vite.config.ts`）の設定は無変更。`navigateFallback`は
+  調査の結果デフォルトのままで問題ないと判断したため変更していない。
+- `npm run build`後、`dist/sw.js`の`NavigationRoute`登録内容が移行前後で
+  一致すること（`registerRoute(new e.NavigationRoute(e.createHandlerBoundToURL("index.html")))`、
+  allowlist/denylistなし）を確認し、Service Worker側の挙動に変化がないことを
+  確認した。`vercel.json`は`dist/`には含まれずプロジェクトルートに配置される
+  （Vercelのデプロイ設定ファイルであり、ビルド成果物ではないため）ことも確認済み。
+
+ブラウザでの実機動作確認（オンライン/オフライン双方での`/calendar`直接
+アクセス・リロード）は別セッションで実施する。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
@@ -1039,12 +1074,7 @@ AI一括取り込みで一部のトレーニング記録が登録されない事
    設計判断。技術的負債6番のcompleteScheduleForDate逆方向処理見送りと同種の
    「変更履歴を追跡する手段がない」という構造的理由）。
 
-2. BrowserRouterへの未移行（HashRouterを使用中）
-   （2026年8月16日、ルーティング導入時の判断）。VercelにSPA用のrewrites設定を
-   追加せずに済む`HashRouter`を採用したため、URLに常に`#`が入る。rewrites設定を
-   追加すれば`BrowserRouter`への移行は可能だが、現状は未着手。
-
-3. 子テーブルの一覧取得クエリはuser_idでフィルタしていない（案A・見送り）
+2. 子テーブルの一覧取得クエリはuser_idでフィルタしていない（案A・見送り）
    （2026年8月18日、技術的負債棚卸しに伴う調査・対応。旧記載を調査結果に基づき
    書き換え）。`training_log_exercises`・`training_sets`・`training_template_exercises`・
    `meal_log_food_items`・`dish_food_items`にはuser_id列があるが、一覧取得系の
@@ -1068,7 +1098,7 @@ AI一括取り込みで一部のトレーニング記録が登録されない事
    Supabase Auth導入により`auth.uid()`ベースのRLSポリシーへ切り替えない限り
    実現できない（認証実装自体が別の未着手の大きな課題）。
 
-4. （監視事項）ACWR・移動平均とも「DBキャッシュせず呼び出しのたびに全件から
+3. （監視事項）ACWR・移動平均とも「DBキャッシュせず呼び出しのたびに全件から
    動的計算する」方針を採用している（`acwrHelpers.ts`の`calculateACWR`、
    `chartHelpers.ts`の`calculateMovingAverage`、いずれも2026年8月16〜17日）。
    現在のデータ量では実害はないが、`calculateMovingAverage`は日ごとに直近7日分を
@@ -1077,7 +1107,7 @@ AI一括取り込みで一部のトレーニング記録が登録されない事
    現時点では対応不要だが、体感速度が悪化した場合は集計期間の絞り込みや
    メモ化を検討すること。
 
-5. AI一括取り込みのマスタ名一覧未同梱
+4. AI一括取り込みのマスタ名一覧未同梱
    （2026年8月17〜18日、AI一括取り込み拡張・名称マッチング改善時の判断）。
    種目名・食材名のマッチングは、完全一致→末尾括弧書き除去の再マッチという
    フォールバックのみで対応しており、プロンプトに`exercises`/`food_items`の
@@ -1105,7 +1135,7 @@ AI一括取り込みで一部のトレーニング記録が登録されない事
    この項目本来の論点（フォールバックが拾えない候補は依然スキップ＋警告のまま）
    自体は変わっていないため、項目としては残す。
 
-6. カレンダーの✅アイコンが、種目全削除後も自動的に「未完了」へ戻らない
+5. カレンダーの✅アイコンが、種目全削除後も自動的に「未完了」へ戻らない
    （2026年8月18日、種目単位削除UI実装時の動作確認で判明。同日、技術的負債#7・#8
    まとめ実装指示書に基づき調査を実施し、実装を見送ることを判断済み）。
    カレンダーセルの完了アイコンは`training_schedules.status`（`getScheduleDayIcon`,
