@@ -486,6 +486,7 @@ export function Dashboard({
       description: 'セット数と負荷を振り返る',
       badge: 'Log',
       targetView: 'calendar' as const,
+      query: `?date=${todayString}&tab=training`,
     },
     {
       title: '食事・PFC記録',
@@ -839,7 +840,7 @@ export function Dashboard({
             type="button"
             className="link-card"
             onClick={() => {
-              navigate(APP_VIEW_PATHS[link.targetView])
+              navigate(APP_VIEW_PATHS[link.targetView] + (link.query ?? ''))
             }}
           >
             <span className="link-card__badge">{link.badge}</span>
