@@ -5,6 +5,7 @@ import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
 import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, SoccerSummary } from '../components/calendar/CalendarDaySummaries'
 import { BulkScheduleImportModal } from '../components/calendar/BulkScheduleImportModal'
+import { DailyReportModal } from '../components/calendar/DailyReportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { weekDays, toDateKey, formatMonthLabel, getScheduleIcon, buildActivityByDate, getCalendarCellState } from '../utils/calendarHelpers'
@@ -58,6 +59,7 @@ export function MonthlyCalendar({
   const [selectedDate, setSelectedDate] = useState<DateString>(initialSelectedDate)
   const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>(initialDetailTab)
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
+  const [isDailyReportOpen, setIsDailyReportOpen] = useState(false)
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
   const [soccerLogs, setSoccerLogs] = useState<SoccerLog[]>([])
 
@@ -318,7 +320,13 @@ export function MonthlyCalendar({
       <div className="calendar-detail">
         <div className="calendar-detail__header">
           <h3>{selectedDate}</h3>
-          <span className="btn-secondary btn-secondary--sm calendar-detail__badge">詳細</span>
+          <button
+            type="button"
+            className="btn-secondary btn-secondary--sm calendar-detail__badge"
+            onClick={() => setIsDailyReportOpen(true)}
+          >
+            詳細
+          </button>
         </div>
 
         <div className="calendar-detail__group">
@@ -417,6 +425,18 @@ export function MonthlyCalendar({
         dailyConditions={dailyConditions}
         setDailyConditions={setDailyConditions}
       />
+
+      {isDailyReportOpen ? (
+        <DailyReportModal
+          selectedDate={selectedDate}
+          trainingLogs={trainingLogs}
+          schedules={schedules}
+          dailyConditions={dailyConditions}
+          mealLogs={mealLogs}
+          soccerLogs={soccerLogs}
+          onClose={() => setIsDailyReportOpen(false)}
+        />
+      ) : null}
     </section>
   )
 }
