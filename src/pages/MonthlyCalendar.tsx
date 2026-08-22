@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../types'
 import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
@@ -9,6 +10,10 @@ import { fetchSoccerLogs } from '../api/soccerLogs'
 import { weekDays, toDateKey, formatMonthLabel, getScheduleIcon, buildActivityByDate, getCalendarCellState } from '../utils/calendarHelpers'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import type { RecordModalRequest } from '../components/RecordFormModal'
+
+type DetailTab = 'training' | 'schedule' | 'condition' | 'meal' | 'soccer'
+const DETAIL_TABS: DetailTab[] = ['training', 'schedule', 'condition', 'meal', 'soccer']
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 type MonthlyCalendarProps = {
   trainingLogs: TrainingLog[]
@@ -33,9 +38,25 @@ export function MonthlyCalendar({
 }: MonthlyCalendarProps) {
   const today = new Date()
   const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate())
-  const [displayDate, setDisplayDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
-  const [selectedDate, setSelectedDate] = useState<DateString>(todayKey)
-  const [activeDetailTab, setActiveDetailTab] = useState<'training' | 'schedule' | 'condition' | 'meal' | 'soccer'>('training')
+
+  // カレンダーの日付ディープリンク対応（2026年8月22日）：?date=YYYY-MM-DD&tab=training
+  // 形式のURLクエリパラメータを読み取り、存在すればselectedDate・activeDetailTab・
+  // displayDate（表示月）の初期値として使う。パラメータが無い/不正な場合は
+  // 従来通り「今日」で初期化する。
+  const [searchParams] = useSearchParams()
+  const dateParam = searchParams.get('date')
+  const tabParam = searchParams.get('tab')
+  const initialSelectedDate: DateString = dateParam && DATE_KEY_PATTERN.test(dateParam) ? (dateParam as DateString) : todayKey
+  const initialDetailTab: DetailTab =
+    tabParam && (DETAIL_TABS as string[]).includes(tabParam) ? (tabParam as DetailTab) : 'training'
+  const initialDisplayDate = (() => {
+    const [year, month] = initialSelectedDate.split('-').map(Number)
+    return new Date(year, month - 1, 1)
+  })()
+
+  const [displayDate, setDisplayDate] = useState(initialDisplayDate)
+  const [selectedDate, setSelectedDate] = useState<DateString>(initialSelectedDate)
+  const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>(initialDetailTab)
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
   const [soccerLogs, setSoccerLogs] = useState<SoccerLog[]>([])
@@ -195,7 +216,15 @@ export function MonthlyCalendar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRecordModalOpen])
 
+  // 日付が変わるたびにトレーニングタブへ戻す（既存の挙動）。ただし初回マウント時は
+  // URLパラメータで指定されたタブ（initialDetailTab）を尊重するため、
+  // 初回のこの副作用発火だけはリセットをスキップする。
+  const isInitialSelectedDateEffect = useRef(true)
   useEffect(() => {
+    if (isInitialSelectedDateEffect.current) {
+      isInitialSelectedDateEffect.current = false
+      return
+    }
     setActiveDetailTab('training')
   }, [selectedDate])
 
