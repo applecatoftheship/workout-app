@@ -328,12 +328,9 @@ export function Dashboard({
     return () => window.clearInterval(intervalId)
   }, [hasActiveRecoverySession])
 
-  // ホーム日付選択（A-2）：カロリーリング・「選択日の運動」カード・統計カードは
-  // 週間ストリップで選んだ日付（selectedDateKey）基準に切り替わる。閲覧専用で、
-  // 記録の追加・編集は既存の「＋」ボタン（常に今日固定）経由でのみ行う。
-  const todaySchedules = weekSchedulesByDate.get(selectedDateKey) ?? []
-  const todaySoccerLog = weekSoccerLogsByDate.get(selectedDateKey)?.[0] ?? null
-
+  // ホーム日付選択（A-2）：カロリーリング・統計カードは週間ストリップで
+  // 選んだ日付（selectedDateKey）基準に切り替わる。閲覧専用で、記録の追加・
+  // 編集は既存の「＋」ボタン（常に今日固定）経由でのみ行う。
   const todayTrainingLogs = useMemo(
     () => trainingLogs.filter((log) => log.date === selectedDateKey),
     [trainingLogs, selectedDateKey],
@@ -344,17 +341,6 @@ export function Dashboard({
   )
 
   const todayLoggedExercises = todayTrainingLogs.flatMap((log) => log.exercises)
-
-  const todayBodyPartsLabel = useMemo(() => {
-    const parts = Array.from(
-      new Set(
-        todayLoggedExercises
-          .map((exercise) => exercise.exercise?.bodyPart)
-          .filter((part): part is NonNullable<typeof part> => Boolean(part)),
-      ),
-    )
-    return parts.length > 0 ? parts.join('・') : 'トレーニング'
-  }, [todayLoggedExercises])
 
   const todayMealTotals = useMemo(() => {
     return todayMealLogs.reduce(
@@ -469,14 +455,6 @@ export function Dashboard({
     ? Math.min(100, Math.round((currentMonthTrainingCount / goals.monthlyTrainingGoal) * 100))
     : 0
 
-  // 技術的負債#7対応（2026年8月18日）：種目単位削除により全種目が削除された
-  // training_logsレコードは「実施した実績」として扱わない。todayTrainingLogs.length
-  // ではなくtodayLoggedExercises.length（実際の種目数）で判定し、記録があっても
-  // 種目0件なら「予定」表示（予定があれば）または非表示にフォールバックする。
-  const hasTrainingBlock = todayLoggedExercises.length > 0 || todaySchedules.length > 0
-  const hasSoccerBlock = todaySoccerLog !== null
-  const hasExerciseCard = hasTrainingBlock || hasSoccerBlock
-
   // ホーム画面「今日の内容」再構成（2026年8月22日）：旧・今日の運動カード
   // （exercise-card、削除済み）が使っていたtodayLoggedExercises・
   // formatExerciseCompactをそのまま流用し、アコーディオン内の要約テキストとする。
@@ -492,7 +470,6 @@ export function Dashboard({
 
   const selectedDateLabel = useMemo(() => formatSelectedDateLabel(selectedDateKey), [selectedDateKey])
   const selectedDateShortLabel = useMemo(() => formatSelectedDateShort(selectedDateKey), [selectedDateKey])
-  const exerciseCardTitle = isViewingToday ? '今日の運動' : `${selectedDateShortLabel}の運動`
   const calorieCardTitle = isViewingToday ? '今日のカロリー' : `${selectedDateShortLabel}のカロリー`
   const todayDetailTitle = isViewingToday ? '今日の内容' : `${selectedDateShortLabel}の内容`
   const nutritionDetailTitle = isViewingToday ? '今日の食事・PFC' : `${selectedDateShortLabel}の食事・PFC`
@@ -602,50 +579,6 @@ export function Dashboard({
           </span>
         </div>
       </section>
-
-      {hasExerciseCard ? (
-        <section className="panel-card exercise-card">
-          <h2 className="panel-card__title">{exerciseCardTitle}</h2>
-
-          {hasTrainingBlock ? (
-            <div className="exercise-block">
-              <div className="exercise-block__header">
-                <span className="exercise-block__title">{todayBodyPartsLabel}</span>
-                <span className={`status-chip status-chip--${todayLoggedExercises.length > 0 ? 'good' : 'warning'}`}>
-                  {todayLoggedExercises.length > 0 ? '完了' : '予定'}
-                </span>
-              </div>
-              <ul className="exercise-block__list">
-                {todayLoggedExercises.length > 0
-                  ? todayLoggedExercises.map((exercise, index) => (
-                      <li key={exercise.id ?? `${exercise.exerciseId}-${index}`}>{formatExerciseCompact(exercise)}</li>
-                    ))
-                  : todaySchedules.map((schedule, index) => (
-                      <li key={schedule.id ?? `${schedule.title}-${index}`}>
-                        {schedule.emoji} {schedule.title}
-                      </li>
-                    ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {hasTrainingBlock && hasSoccerBlock ? <div className="exercise-block__divider" /> : null}
-
-          {todaySoccerLog ? (
-            <div className="exercise-block exercise-block--soccer">
-              <div className="exercise-block__header">
-                <span className="exercise-block__title">⚽ {todaySoccerLog.activityType}</span>
-                <span className="status-chip status-chip--good">完了</span>
-              </div>
-              <div className="exercise-block__soccer-stats">
-                {todaySoccerLog.durationMinutes != null ? <span>⏱ {todaySoccerLog.durationMinutes}分</span> : null}
-                {todaySoccerLog.distanceKm != null ? <span>📍 {todaySoccerLog.distanceKm}km</span> : null}
-                {todaySoccerLog.caloriesBurned != null ? <span>🔥 {todaySoccerLog.caloriesBurned}kcal</span> : null}
-              </div>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
 
       {recoveryResults.map((result) => (
         <RecoveryWindowCard
