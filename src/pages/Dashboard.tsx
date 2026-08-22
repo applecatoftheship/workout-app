@@ -477,8 +477,11 @@ export function Dashboard({
   const hasSoccerBlock = todaySoccerLog !== null
   const hasExerciseCard = hasTrainingBlock || hasSoccerBlock
 
-  const todayMealSummary = todayMealLogs.length > 0
-    ? todayMealLogs.map((log) => `${log.mealType}(${log.foods.join('・')})`).join(' / ')
+  // ホーム画面「今日の内容」再構成（2026年8月22日）：旧・今日の運動カード
+  // （exercise-card、削除済み）が使っていたtodayLoggedExercises・
+  // formatExerciseCompactをそのまま流用し、アコーディオン内の要約テキストとする。
+  const todayTrainingSummary = todayLoggedExercises.length > 0
+    ? todayLoggedExercises.map((exercise) => formatExerciseCompact(exercise)).join(' / ')
     : '記録なし'
 
   // 統計カードの「実測」注記（本日実測 / 実測）は、選択日にちょうど記録があるときだけ表示する。
@@ -813,17 +816,24 @@ export function Dashboard({
         </button>
         {isTodayDetailOpen ? (
           <div className="accordion-body">
-            <p className="panel-card__description">筋トレ・食事・体調を一目で確認できます。</p>
+            <p className="panel-card__description">筋トレ・体調を一目で確認できます。</p>
             <div className="detail-list">
               <div className="detail-item">
-                <span className="detail-label">食事情報</span>
-                <p>{todayMealSummary}</p>
+                <span className="detail-label">トレーニング</span>
+                <p>{todayTrainingSummary}</p>
               </div>
               <div className="detail-item">
                 <span className="detail-label">体調メモ</span>
                 <p>{selectedCondition ? selectedCondition.notes ?? 'メモなし' : '記録なし'}</p>
               </div>
             </div>
+            <button
+              type="button"
+              className="detail-link"
+              onClick={() => navigate(`/calendar?date=${selectedDateKey}&tab=training`)}
+            >
+              詳細を見る →
+            </button>
           </div>
         ) : null}
       </section>
