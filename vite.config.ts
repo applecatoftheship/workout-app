@@ -8,10 +8,17 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // プッシュ通知実装 Phase 1a（2026年8月23日）：pushイベントハンドラを
+      // 追加できるようgenerateSWからinjectManifestへ切り替えた。
+      // src/sw.tsが実際のService Workerソース（precacheAndRoute等は手書き）。
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       manifestFilename: 'manifest.webmanifest',
       includeAssets: ['favicon.svg', 'icons/*.svg'],
       devOptions: {
         enabled: true,
+        type: 'module',
       },
       manifest: {
         name: 'Workout App',
