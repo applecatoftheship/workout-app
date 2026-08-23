@@ -4,6 +4,7 @@ import { formatConditionSummary } from '../../utils/calendarHelpers'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../../utils/acwrHelpers'
 import { deleteDailyConditionRemote, fetchDailyConditions, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
+import { useConfirm } from '../../hooks/useConfirm'
 
 const MUSCLE_LOCATIONS: MuscleLocation[] = ['none', 'calf_l', 'calf_r', 'hamstring', 'quad', 'groin', 'other']
 const SORENESS_LEVELS: SorenessLevel[] = ['none', 'mild', 'severe']
@@ -58,6 +59,7 @@ export function ConditionForm({
   autoOpenToken,
 }: ConditionFormProps) {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [editingConditionIndex, setEditingConditionIndex] = useState<number | null>(null)
   const [conditionFormState, setConditionFormState] = useState<ConditionFormState>(createEmptyConditionFormState())
   const [conditionFormErrors, setConditionFormErrors] = useState<ConditionFormErrors>(createEmptyConditionFormErrors())
@@ -179,7 +181,7 @@ export function ConditionForm({
       return
     }
 
-    const confirmed = window.confirm(`${selectedCondition.date}の体調記録を削除しますか？`)
+    const confirmed = await confirm(`${selectedCondition.date}の体調記録を削除しますか？`)
     if (!confirmed) {
       return
     }

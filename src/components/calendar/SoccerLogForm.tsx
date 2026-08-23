@@ -3,6 +3,7 @@ import type { DateString, SoccerLog } from '../../types'
 import { createOrUpdateSoccerLog, deleteSoccerLog } from '../../api/soccerLogs'
 import { fetchRecentWeight } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
+import { useConfirm } from '../../hooks/useConfirm'
 import { getCurrentTimeHHMM, combineDateAndTimeToISO, extractTimeHHMMFromISO } from '../../utils/calendarHelpers'
 import {
   ACTIVITY_TYPE_PRESETS,
@@ -97,6 +98,7 @@ export function SoccerLogForm({
   autoOpenToken,
 }: SoccerLogFormProps) {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [formState, setFormState] = useState<SoccerLogFormState>(createEmptyFormState())
   const [formErrors, setFormErrors] = useState<SoccerLogFormErrors>({})
   const [formSummaryError, setFormSummaryError] = useState<string | null>(null)
@@ -237,7 +239,7 @@ export function SoccerLogForm({
       return
     }
 
-    const confirmed = window.confirm(`${selectedLog.date}のサッカー記録（${selectedLog.activityType}）を削除しますか？`)
+    const confirmed = await confirm(`${selectedLog.date}のサッカー記録（${selectedLog.activityType}）を削除しますか？`)
     if (!confirmed) {
       return
     }

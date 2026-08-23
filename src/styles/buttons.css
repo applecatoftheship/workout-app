@@ -34,6 +34,20 @@
   border-radius: var(--radius-sm);
 }
 
+/* ConfirmDialog（2026年8月23日新設）の削除実行ボタン用。破壊的操作であることが
+   視覚的にわかるよう--color-dangerを使う（.btn-primaryのアクセント色とは区別する）。 */
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+  border: 1.5px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  padding: 10px 18px;
+  font-weight: 600;
+  font-size: var(--font-size-body-sm);
+  cursor: pointer;
+  font-family: var(--font-base);
+}
+
 .btn-icon {
   width: 36px;
   height: 36px;

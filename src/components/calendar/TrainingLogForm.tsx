@@ -22,6 +22,7 @@ import { toDateKey } from '../../utils/chartHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
 import { ExercisePicker } from './ExercisePicker'
 import { useToast } from '../../hooks/useToast'
+import { useConfirm } from '../../hooks/useConfirm'
 import { useCelebration } from '../celebration/CelebrationProvider'
 import type {
   DailyCondition,
@@ -168,6 +169,7 @@ export function TrainingLogForm({
   schedulesForMdCheck,
 }: TrainingLogFormProps) {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const { showPRCelebration, showStreakCelebration } = useCelebration()
   const [editingLogIndex, setEditingLogIndex] = useState<number | null>(null)
   const [formState, setFormState] = useState<TrainingLogFormState>(createEmptyFormState())
@@ -404,7 +406,7 @@ export function TrainingLogForm({
 
     // 未入力の空行を消す場合は確認不要（保存済みデータを失うリスクがないため）
     if (trimmedName) {
-      const confirmed = window.confirm(`『${trimmedName}』（${setCount}セット）を削除しますか？`)
+      const confirmed = await confirm(`『${trimmedName}』（${setCount}セット）を削除しますか？`)
       if (!confirmed) {
         return
       }
@@ -524,7 +526,7 @@ export function TrainingLogForm({
         : exerciseNames.length === 1
           ? `（${exerciseNames[0]}）`
           : `（${exerciseNames[0]}他${exerciseNames.length - 1}種目）`
-    const confirmed = window.confirm(`${target.date}のトレーニング実績${exerciseSummary}を削除しますか？`)
+    const confirmed = await confirm(`${target.date}のトレーニング実績${exerciseSummary}を削除しますか？`)
     if (!confirmed) {
       return
     }

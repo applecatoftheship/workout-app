@@ -8,6 +8,7 @@ import { fetchDishesWithDetails, fetchMealSizes, deleteDish } from '../../api/di
 import { GenreFoodPicker } from './GenreFoodPicker'
 import { DishFormModal } from './DishFormModal'
 import { useToast } from '../../hooks/useToast'
+import { useConfirm } from '../../hooks/useConfirm'
 import { findMostSimilarName } from '../../utils/nameMatching'
 
 type MealLogFoodSelectionForm = {
@@ -101,6 +102,7 @@ export function MealLogForm({
   autoOpenIndex,
 }: MealLogFormProps) {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null)
   const [mealFormState, setMealFormState] = useState<MealLogFormState>(createEmptyMealFormState())
   const [mealFormErrors, setMealFormErrors] = useState<MealLogFormErrors>(createEmptyMealFormErrors())
@@ -305,7 +307,7 @@ export function MealLogForm({
     if (!selectedDish?.id) {
       return
     }
-    const confirmed = window.confirm(`「${selectedDish.name}」を削除しますか？この操作は取り消せません`)
+    const confirmed = await confirm(`「${selectedDish.name}」を削除しますか？この操作は取り消せません`)
     if (!confirmed) {
       return
     }
@@ -547,7 +549,7 @@ export function MealLogForm({
       return
     }
 
-    const confirmed = window.confirm(`${target.date}の${getMealTypeLabel(target.mealType)}記録を削除しますか？`)
+    const confirmed = await confirm(`${target.date}の${getMealTypeLabel(target.mealType)}記録を削除しますか？`)
     if (!confirmed) {
       return
     }

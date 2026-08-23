@@ -3,6 +3,7 @@ import './calendar/CalendarForms.css'
 import { createTrainingTemplate, deleteTrainingTemplate, fetchTrainingTemplates, updateTrainingTemplate } from '../api/trainingTemplates'
 import { fetchExercises } from '../api/trainingLogs'
 import { useToast } from '../hooks/useToast'
+import { useConfirm } from '../hooks/useConfirm'
 import { ExercisePicker } from './calendar/ExercisePicker'
 import type { RecordModalRequest } from './RecordFormModal'
 import type { DateString, ExerciseDefinition, TrainingTemplate } from '../types'
@@ -31,6 +32,7 @@ type TrainingTemplateManagerProps = {
 // テンプレート自体の作成・一覧・削除を行う本UIは別機能として新設する。
 export function TrainingTemplateManager({ todayString, openRecordModal }: TrainingTemplateManagerProps) {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [templates, setTemplates] = useState<TrainingTemplate[]>([])
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true)
   const [exercises, setExercises] = useState<ExerciseDefinition[]>([])
@@ -136,7 +138,7 @@ export function TrainingTemplateManager({ todayString, openRecordModal }: Traini
   }
 
   const handleDeleteTemplate = async (template: TrainingTemplate) => {
-    const confirmed = window.confirm(`『${template.name}』を削除しますか？この操作は取り消せません`)
+    const confirmed = await confirm(`『${template.name}』を削除しますか？この操作は取り消せません`)
     if (!confirmed) {
       return
     }

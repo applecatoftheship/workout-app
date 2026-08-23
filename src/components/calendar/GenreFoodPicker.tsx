@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { FoodItem } from '../../types'
 import { deleteFoodItem } from '../../api/foodItems'
 import { useToast } from '../../hooks/useToast'
+import { useConfirm } from '../../hooks/useConfirm'
 
 const UNCATEGORIZED = 'uncategorized'
 const DEFAULT_FOOD_EMOJI = '🍽️'
@@ -14,6 +15,7 @@ type GenreFoodPickerProps = {
 
 export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: GenreFoodPickerProps) {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedDeleteId, setSelectedDeleteId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
@@ -47,7 +49,7 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
       return
     }
 
-    const confirmed = window.confirm(`「${target.name}」を削除しますか？この操作は取り消せません`)
+    const confirmed = await confirm(`「${target.name}」を削除しますか？この操作は取り消せません`)
     if (!confirmed) {
       return
     }

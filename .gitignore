@@ -13,6 +13,9 @@ dist-ssr
 dev-dist
 *.local
 
+# Vercel CLI（vercel linkで生成される、プロジェクト/組織IDを含むローカル設定）
+.vercel
+
 .continue/
 
 # Editor directories and files

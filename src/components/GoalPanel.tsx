@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './GoalPanel.css'
 import { useToast } from '../hooks/useToast'
+import { useConfirm } from '../hooks/useConfirm'
 import { deleteGoalByMonth, fetchGoalYearMonths, fetchGoalsByMonthReadOnly, upsertGoals } from '../api/goals'
 import type { Goals } from '../api/goals'
 import type { DailyCondition, TrainingLog } from '../types'
@@ -42,6 +43,7 @@ type GoalPanelProps = {
 
 export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, today }: GoalPanelProps) {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false)
   const [isEditingGoals, setIsEditingGoals] = useState(false)
   const [goalFormState, setGoalFormState] = useState<GoalFormState>({
@@ -261,7 +263,7 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
   // （呼び出し元のボタン表示自体を!isCurrentMonthでガードしているため、
   // ここに到達する時点で過去月であることが前提）。
   const handleDeleteGoalMonth = async () => {
-    const confirmed = window.confirm(`${formatYearMonthLabel(selectedYearMonth)}の目標を削除しますか？この操作は取り消せません`)
+    const confirmed = await confirm(`${formatYearMonthLabel(selectedYearMonth)}の目標を削除しますか？この操作は取り消せません`)
     if (!confirmed) {
       return
     }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createSchedule, deleteSchedule, updateSchedule } from '../../api/trainingSchedules'
 import { fetchTrainingTemplates } from '../../api/trainingTemplates'
 import { useToast } from '../../hooks/useToast'
+import { useConfirm } from '../../hooks/useConfirm'
 import type { BodyPart, DateString, ScheduleType, TrainingSchedule, TrainingScheduleStatus, TrainingTemplate } from '../../types'
 
 const QUICK_EMOJIS = ['🏋️', '🏃', '🧘', '💪', '🚴', '😴']
@@ -84,6 +85,7 @@ export function ScheduleForm({
   autoSelectTemplateId,
 }: ScheduleFormProps) {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
   const [formState, setFormState] = useState<ScheduleFormState>(createEmptyScheduleFormState())
   const [formError, setFormError] = useState<string | null>(null)
@@ -224,7 +226,7 @@ export function ScheduleForm({
   }
 
   const removeSchedule = async (schedule: TrainingSchedule) => {
-    const confirmed = window.confirm(`${schedule.scheduledDate}の予定「${schedule.title}」を削除しますか？`)
+    const confirmed = await confirm(`${schedule.scheduledDate}の予定「${schedule.title}」を削除しますか？`)
     if (!confirmed) {
       return
     }

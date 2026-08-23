@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { BodyPart, ExerciseDefinition } from '../../types'
 import { deleteExercise } from '../../api/trainingLogs'
 import { useToast } from '../../hooks/useToast'
+import { useConfirm } from '../../hooks/useConfirm'
 
 /**
  * カレンダー構造変更・記録モーダル・トレーニング刷新 実装指示書 Phase E（2026年8月16日）
@@ -24,6 +25,7 @@ type ExercisePickerProps = {
 
 export function ExercisePicker({ exercises, onSelect, onExerciseDeleted }: ExercisePickerProps) {
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const [selectedBodyPart, setSelectedBodyPart] = useState<BodyPart | ''>('')
   const [selectedDeleteId, setSelectedDeleteId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
@@ -44,7 +46,7 @@ export function ExercisePicker({ exercises, onSelect, onExerciseDeleted }: Exerc
       return
     }
 
-    const confirmed = window.confirm(`『${target.name}』を削除しますか？この操作は取り消せません`)
+    const confirmed = await confirm(`『${target.name}』を削除しますか？この操作は取り消せません`)
     if (!confirmed) {
       return
     }
