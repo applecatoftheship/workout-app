@@ -61,6 +61,18 @@ describe('getScheduleIcon', () => {
     ]
     expect(getScheduleIcon(schedules)).toBe('🏋️')
   })
+
+  // 回帰テスト（2026年8月21日修正）：completeScheduleForDateによりトレーニング実績
+  // 保存時にstatusがscheduled→completedへ自動変更されるため、対象をscheduled限定に
+  // していた旧実装ではcompleted行が見つからずデフォルト🏋️に常時フォールバックする
+  // バグがあった。cancelled以外を対象にする現行実装でcompletedのカスタム絵文字が
+  // 維持されることを確認する。
+  it('completedの予定でもカスタム絵文字を維持する（2026年8月21日修正の回帰テスト）', () => {
+    const schedules = [
+      { id: '1', userId: 'u', scheduledDate: '2026-08-23', title: 'A', emoji: '⚽', status: 'completed', templateId: null } as TrainingSchedule,
+    ]
+    expect(getScheduleIcon(schedules)).toBe('⚽')
+  })
 })
 
 describe('buildActivityByDate', () => {

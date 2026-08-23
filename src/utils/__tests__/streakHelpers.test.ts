@@ -22,6 +22,29 @@ describe('isStreakMilestone', () => {
     expect(isStreakMilestone(466)).toBe(false)
     expect(isStreakMilestone(0)).toBe(false)
   })
+
+  it('各節目の前後1日を確認する（境界値）', () => {
+    // 7日
+    expect(isStreakMilestone(6)).toBe(false)
+    expect(isStreakMilestone(7)).toBe(true)
+    expect(isStreakMilestone(8)).toBe(false)
+    // 30日
+    expect(isStreakMilestone(29)).toBe(false)
+    expect(isStreakMilestone(30)).toBe(true)
+    expect(isStreakMilestone(31)).toBe(false)
+    // 100日
+    expect(isStreakMilestone(99)).toBe(false)
+    expect(isStreakMilestone(100)).toBe(true)
+    expect(isStreakMilestone(101)).toBe(false)
+    // 365日
+    expect(isStreakMilestone(364)).toBe(false)
+    expect(isStreakMilestone(365)).toBe(true)
+    expect(isStreakMilestone(366)).toBe(false)
+    // 365日超の100日刻み最初の節目（465日）
+    expect(isStreakMilestone(464)).toBe(false)
+    expect(isStreakMilestone(465)).toBe(true)
+    expect(isStreakMilestone(466)).toBe(false)
+  })
 })
 
 describe('calculateCurrentStreak', () => {
