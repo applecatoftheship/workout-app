@@ -184,6 +184,28 @@ describe('calculateMovingAverage', () => {
     expect(result.map((r) => r.date)).toEqual(['2026-08-20', '2026-08-22'])
   })
 
+  it('除外条件は「0より大きい」ため、0や負の値は除外し僅かな正の値は含める（境界値）', () => {
+    const records = [
+      { date: '2026-08-20', value: -0.001 },
+      { date: '2026-08-21', value: 0 },
+      { date: '2026-08-22', value: 0.001 },
+    ]
+    const result = calculateMovingAverage(records, 'date', 'value')
+    expect(result.map((r) => r.date)).toEqual(['2026-08-22'])
+  })
+
+  it('除外されたレコードは自分の日だけでなく後続レコードの窓平均からも消える', () => {
+    // 08-21(0、除外対象)を挟んでも、08-22の7日窓平均は08-20と08-22の2件のみで計算される
+    const records = [
+      { date: '2026-08-20', value: 10 },
+      { date: '2026-08-21', value: 0 },
+      { date: '2026-08-22', value: 20 },
+    ]
+    const result = calculateMovingAverage(records, 'date', 'value', 7)
+    const aug22 = result.find((r) => r.date === '2026-08-22')!
+    expect(aug22.movingAvg).toBe(15) // (10+20)/2、08-21は分母にも含まれない
+  })
+
   it('直近7日以内の記録のみで平均する', () => {
     const records = [
       { date: '2026-08-01', value: 100 }, // window外

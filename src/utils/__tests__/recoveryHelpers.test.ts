@@ -73,6 +73,90 @@ describe('calculateDailyRecoveryResults', () => {
     expect(results).toHaveLength(2)
     expect(results.map((r) => r.sessionType).sort()).toEqual(['soccer', 'workout'])
   })
+
+  it('同日複数セッションはそれぞれの窓に対応する食事のみで独立判定される', () => {
+    // workout: 18:00終了(窓18:00-18:45) / soccer: 09:00終了(窓09:00-09:45)
+    const workoutMeal = meal('2026-08-23T18:20:00.000Z', 25, 35) // workoutの窓内のみ
+    const soccerMeal = meal('2026-08-23T09:10:00.000Z', 25, 35) // soccerの窓内のみ
+
+    const results = calculateDailyRecoveryResults(
+      [workoutLog(END_TIME)],
+      [soccerLog('2026-08-23T09:00:00.000Z')],
+      [workoutMeal, soccerMeal],
+      DATE,
+      new Date('2026-08-23T18:30:00.000Z'),
+    )
+
+    const workoutResult = results.find((r) => r.sessionType === 'workout')!
+    const soccerResult = results.find((r) => r.sessionType === 'soccer')!
+
+    // それぞれ自分の窓の食事のみ計上し、相手の食事は計上しない
+    expect(workoutResult.status).toBe('completed_full')
+    expect(workoutResult.consumedProtein).toBe(25)
+    expect(soccerResult.status).toBe('completed_full')
+    expect(soccerResult.consumedProtein).toBe(25)
+    // 相手の窓の食事を二重計上していないこと（両方合算されると50になってしまう）
+    expect(workoutResult.consumedCarbs).toBe(35)
+    expect(soccerResult.consumedCarbs).toBe(35)
+  })
+
+  it('windowMinutesの境界：食事は窓の終了ちょうどまでを含む（44分/45分/46分）', () => {
+    // sessionEndTime=18:00、食事は45分後の18:45ちょうど
+    const mealAt45Min = meal('2026-08-23T18:45:00.000Z', 25, 35)
+    const now = new Date('2026-08-23T19:00:00.000Z') // 全窓終了後
+
+    const at44 = calculateDailyRecoveryResults([workoutLog(END_TIME)], [], [mealAt45Min], DATE, now, {
+      ...DEFAULT_RECOVERY_WINDOW_CONFIG,
+      windowMinutes: 44,
+    })
+    const at45 = calculateDailyRecoveryResults([workoutLog(END_TIME)], [], [mealAt45Min], DATE, now, {
+      ...DEFAULT_RECOVERY_WINDOW_CONFIG,
+      windowMinutes: 45,
+    })
+    const at46 = calculateDailyRecoveryResults([workoutLog(END_TIME)], [], [mealAt45Min], DATE, now, {
+      ...DEFAULT_RECOVERY_WINDOW_CONFIG,
+      windowMinutes: 46,
+    })
+
+    expect(at44[0].consumedProtein).toBe(0) // 窓(44分)を過ぎているため対象外
+    expect(at44[0].status).toBe('missed')
+    expect(at45[0].consumedProtein).toBe(25) // 窓終了ちょうど(45分)は含む
+    expect(at45[0].status).toBe('completed_full')
+    expect(at46[0].consumedProtein).toBe(25) // 窓内(46分)で余裕を持って含む
+    expect(at46[0].status).toBe('completed_full')
+  })
+
+  it('タンパク質しきい値の境界（19.9g/20g/20.1g）', () => {
+    const now = new Date('2026-08-23T18:30:00.000Z') // 窓終了前(activeとの区別のため)
+    const build = (protein: number) =>
+      calculateDailyRecoveryResults(
+        [workoutLog(END_TIME)],
+        [],
+        [meal('2026-08-23T18:20:00.000Z', protein, 30)], // 炭水化物は常に達成させ、タンパク質のみ変化させる
+        DATE,
+        now,
+      )[0]
+
+    expect(build(19.9).status).toBe('active') // P未達・C達成でもcompleted系にはならない
+    expect(build(20).status).toBe('completed_full') // ちょうど閾値は達成扱い（>=）
+    expect(build(20.1).status).toBe('completed_full')
+  })
+
+  it('炭水化物しきい値の境界（29.9g/30g/30.1g）', () => {
+    const now = new Date('2026-08-23T18:30:00.000Z')
+    const build = (carbohydrates: number) =>
+      calculateDailyRecoveryResults(
+        [workoutLog(END_TIME)],
+        [],
+        [meal('2026-08-23T18:20:00.000Z', 20, carbohydrates)], // タンパク質は常に達成させる
+        DATE,
+        now,
+      )[0]
+
+    expect(build(29.9).status).toBe('completed_protein_only') // C未達だがP達成
+    expect(build(30).status).toBe('completed_full') // ちょうど閾値は達成扱い（>=）
+    expect(build(30.1).status).toBe('completed_full')
+  })
 })
 
 describe('calculateWeeklyRecoverySummary', () => {

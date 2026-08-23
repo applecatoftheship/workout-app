@@ -102,6 +102,48 @@ describe('calculateACWR', () => {
     expect(withSoreness!.status).toBe('danger')
     expect(withSoreness!.hasSorenessWarning).toBe(true)
   })
+
+  // 4段階判定は「境界値そのもの」でどちらの分岐に入るかが変わる（コード上は
+  // `acwr > 1.5` / `acwr < 0.8` / `acwr >= 1.3` という厳密な不等号のため）。
+  // 以下は直近7日=X・それ以前21日=Yの28日分固定データで、acwrがちょうど
+  // 1.5 / 1.3 / 0.8になるようX・Yを算出し、境界そのものの分岐を確認する。
+  describe('4段階判定の閾値境界（境界値そのもの）', () => {
+    function buildLogsForRatio(recentScore: number, olderScore: number): TrainingLog[] {
+      const recent = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, recentScore * 100))
+      const older = Array.from({ length: 21 }, (_, i) => trainingLogWithVolume(7 + i, olderScore * 100))
+      return [...recent, ...older]
+    }
+
+    it('acwr=1.5ちょうどは「>1.5」に該当しないためdangerではなくwarning', () => {
+      const logs = buildLogsForRatio(90, 50) // acwr = 4*90/(90+150) = 1.5
+      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      expect(result!.acwr).toBeCloseTo(1.5)
+      expect(result!.status).toBe('warning')
+
+      const withSoreness = calculateACWR(logs, [], TODAY_KEY, 'mild', 'hamstring')
+      expect(withSoreness!.status).toBe('danger')
+    })
+
+    it('acwr=1.3ちょうどは「>=1.3」に該当しwarning（張り無し）/danger（張り有り）', () => {
+      const logs = buildLogsForRatio(91, 63) // acwr = 4*91/(91+189) = 1.3
+      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      expect(result!.acwr).toBeCloseTo(1.3)
+      expect(result!.status).toBe('warning')
+
+      const withSoreness = calculateACWR(logs, [], TODAY_KEY, 'severe', 'quad')
+      expect(withSoreness!.status).toBe('danger')
+    })
+
+    it('acwr=0.8ちょうどは「<0.8」に該当しないためunloadではなくsweet_spot/warning', () => {
+      const logs = buildLogsForRatio(75, 100) // acwr = 4*75/(75+300) = 0.8
+      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      expect(result!.acwr).toBeCloseTo(0.8)
+      expect(result!.status).toBe('sweet_spot')
+
+      const withSoreness = calculateACWR(logs, [], TODAY_KEY, 'severe', 'quad')
+      expect(withSoreness!.status).toBe('warning')
+    })
+  })
 })
 
 describe('hasConsecutiveDangerDays', () => {
@@ -124,6 +166,10 @@ describe('hasConsecutiveDangerDays', () => {
   it('判定できない日（データ不足）が含まれる場合は安全側でfalse', () => {
     const shortLogs = [trainingLogWithVolume(0, 10000)]
     expect(hasConsecutiveDangerDays(shortLogs, [], [], TODAY_KEY, 3)).toBe(false)
+  })
+
+  it('consecutiveDays省略時は既定値3で判定する', () => {
+    expect(hasConsecutiveDangerDays(dangerLogs, [], [], TODAY_KEY)).toBe(true)
   })
 })
 

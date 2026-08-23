@@ -73,6 +73,15 @@ describe('getScheduleIcon', () => {
     ]
     expect(getScheduleIcon(schedules)).toBe('⚽')
   })
+
+  it('scheduled/completed混在時もcancelledのみ除外し最初の非cancelledを使う', () => {
+    const schedules = [
+      { id: '1', userId: 'u', scheduledDate: '2026-08-23', title: 'A', emoji: '🚫', status: 'cancelled', templateId: null } as TrainingSchedule,
+      { id: '2', userId: 'u', scheduledDate: '2026-08-23', title: 'B', emoji: '✅', status: 'completed', templateId: null } as TrainingSchedule,
+      { id: '3', userId: 'u', scheduledDate: '2026-08-23', title: 'C', emoji: '🏋️', status: 'scheduled', templateId: null } as TrainingSchedule,
+    ]
+    expect(getScheduleIcon(schedules)).toBe('✅')
+  })
 })
 
 describe('buildActivityByDate', () => {
@@ -96,6 +105,26 @@ describe('buildActivityByDate', () => {
     const soccerLogsByDate = new Map([['2026-08-23', [{ date: '2026-08-23', activityType: '練習' } as SoccerLog]]])
     const result = buildActivityByDate(new Map(), soccerLogsByDate)
     expect(result.get('2026-08-23')?.has('soccer')).toBe(true)
+  })
+
+  it('cancelledと非cancelledが混在する日は非cancelledの存在だけでworkoutを含む', () => {
+    const schedulesByDate = new Map([
+      [
+        '2026-08-23',
+        [
+          { id: '1', userId: 'u', scheduledDate: '2026-08-23', title: 'A', emoji: '🚫', status: 'cancelled', templateId: null } as TrainingSchedule,
+          { id: '2', userId: 'u', scheduledDate: '2026-08-23', title: 'B', emoji: '🏋️', status: 'scheduled', templateId: null } as TrainingSchedule,
+        ],
+      ],
+    ])
+    const result = buildActivityByDate(schedulesByDate, new Map())
+    expect(result.get('2026-08-23')?.has('workout')).toBe(true)
+  })
+
+  it('サッカーログが空配列の日はsoccerを含まない', () => {
+    const soccerLogsByDate = new Map([['2026-08-23', [] as SoccerLog[]]])
+    const result = buildActivityByDate(new Map(), soccerLogsByDate)
+    expect(result.has('2026-08-23')).toBe(false)
   })
 })
 
