@@ -1184,6 +1184,13 @@ Vercelの静的ホスティングが該当パスのファイルを持たずオ�
    `completeScheduleForDate`自体の設計見直し）が必要であり、これは1〜2関数の
    追加では収まらない規模の変更と判断し、今回は実装を見送った。
 
+6. vercel CLI導入時のnpm audit脆弱性を据え置いた（2026年8月23日）。
+   vercel CLI導入時、npm auditで28件の脆弱性（`@vercel/node`・`@vercel/python`等、
+   ビルド実行系のtransitive依存）を検出。本プロジェクトではvercelをデプロイ状態確認
+   のみに使用し、`vercel dev`/`vercel build`等のビルド実行コマンドは使わない前提の
+   ため、`npm audit fix --force`（vercel 54.17.3への破壊的ダウングレード）は実施せず
+   据え置いた。ビルド実行系コマンドを将来使う場合は再検討が必要。
+
 ## 進行中の計画（現在地）
 
 作業順序：土台整備 → トレーニング → 食事 → 予定
