@@ -415,7 +415,7 @@
 
 .detail-label {
   display: block;
-  font-size: 0.68rem;
+  font-size: var(--font-size-caption);
   font-weight: 500;
   color: var(--color-accent-text);
   margin-bottom: 2px;
@@ -424,7 +424,7 @@
 .detail-item p {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: 0.82rem;
+  font-size: var(--font-size-body);
   line-height: 1.4;
 }
 
@@ -459,13 +459,13 @@
 }
 
 .nutrition-card__label {
-  font-size: 0.68rem;
+  font-size: var(--font-size-caption);
   font-weight: 500;
   color: var(--color-text-secondary);
 }
 
 .nutrition-card__value {
-  font-size: 0.82rem;
+  font-size: var(--font-size-body);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
@@ -494,7 +494,7 @@
 .no-record {
   color: var(--color-text-muted);
   padding: 8px 0;
-  font-size: 0.85rem;
+  font-size: var(--font-size-body);
 }
 
 /* クイックリンク */
@@ -525,7 +525,7 @@
 
 .link-card strong {
   color: var(--color-text-primary);
-  font-size: 0.7rem;
+  font-size: var(--font-size-caption);
   font-weight: 500;
 }
 

@@ -80,14 +80,14 @@
 
 .bulk-import-modal__section h4 {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--font-size-body);
   font-weight: 500;
   color: var(--color-text-secondary);
 }
 
 .bulk-import-modal__description {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--font-size-body-sm);
   color: var(--color-text-secondary);
 }
 
@@ -98,7 +98,7 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   font-family: var(--font-base);
-  font-size: 0.72rem;
+  font-size: var(--font-size-caption);
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--color-text-primary);
@@ -113,7 +113,7 @@
 .bulk-import-modal__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.76rem;
+  font-size: var(--font-size-body-sm);
 }
 
 .bulk-import-modal__table th,
@@ -162,7 +162,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
+  font-size: var(--font-size-body-sm);
   color: var(--color-text-primary);
   font-weight: 400;
 }
@@ -187,14 +187,14 @@
 
 .bulk-import-modal__day-date {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--font-size-body-sm);
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
 .bulk-import-modal__day-row {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: var(--font-size-body-sm);
   color: var(--color-text-secondary);
 }
 

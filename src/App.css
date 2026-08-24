@@ -25,13 +25,13 @@
 .panel-card__header p {
   margin: 2px 0 0;
   color: var(--color-text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--font-size-body-sm);
 }
 
 .panel-card__description {
   margin: 0 0 10px;
   color: var(--color-text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--font-size-body-sm);
 }
 
 .progress-meter {
@@ -76,7 +76,7 @@
 }
 
 .accordion-chevron {
-  font-size: 0.7rem;
+  font-size: var(--font-size-caption);
   color: var(--color-text-muted);
 }
 
