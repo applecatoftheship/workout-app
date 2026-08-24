@@ -1,5 +1,5 @@
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog } from '../types'
-import { toDateKey } from './chartHelpers'
+import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog } from '../types.js'
+import { toDateKey } from './chartHelpers.js'
 
 // 記録更新演出機能（PR・連続記録、2026年8月21日）：ストリーク（連続記録日数）の節目。
 // 7/30/100/365日、365日以降は100日ごと（465, 565, ...）。

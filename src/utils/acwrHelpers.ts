@@ -1,4 +1,4 @@
-import type { ACWRResult, DailyCondition, DateString, MuscleLocation, SoccerLog, SorenessLevel, TrainingLog } from '../types'
+import type { ACWRResult, DailyCondition, DateString, MuscleLocation, SoccerLog, SorenessLevel, TrainingLog } from '../types.js'
 
 // 運動負荷の正規化定数（将来的なチューニングに対応できるよう分離）
 export const GYM_VOLUME_DIVISOR = 100 // 筋トレ総挙上量(kg) → 負荷スコア換算

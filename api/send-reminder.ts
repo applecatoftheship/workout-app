@@ -19,8 +19,8 @@
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
-import { detectAcwrDangerNotification, detectStreakBrokenNotification, shouldCreateNotification } from '../src/utils/notificationHelpers'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog } from '../src/types'
+import { detectAcwrDangerNotification, detectStreakBrokenNotification, shouldCreateNotification } from '../src/utils/notificationHelpers.js'
+import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog } from '../src/types.js'
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002'
 

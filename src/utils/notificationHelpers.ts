@@ -2,9 +2,9 @@
 // 純粋関数群。api/send-reminder.ts（Vercel Cron、1日1回）から呼び出される想定。
 // DBアクセス・push送信自体はここでは行わない（既存のacwrHelpers.ts・
 // streakHelpers.tsと同じく、判定ロジックのみを担当する層として分離）。
-import { calculateACWR } from './acwrHelpers'
-import { calculateCurrentStreak } from './streakHelpers'
-import type { DailyCondition, DateString, MealLog, NotificationType, SoccerLog, TrainingLog } from '../types'
+import { calculateACWR } from './acwrHelpers.js'
+import { calculateCurrentStreak } from './streakHelpers.js'
+import type { DailyCondition, DateString, MealLog, NotificationType, SoccerLog, TrainingLog } from '../types.js'
 
 export type NotificationCandidate = {
   type: NotificationType
