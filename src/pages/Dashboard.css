@@ -9,9 +9,38 @@
   gap: 8px;
 }
 
-/* 休憩タイマー（2026年8月21日新設）：ヘッダー右上の時計アイコンボタン */
+/* 休憩タイマー（2026年8月21日新設）・通知（2026年8月24日新設）：
+   ヘッダー右上のアイコンボタン群 */
+.dashboard-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .dashboard-header__timer-button {
   flex-shrink: 0;
+}
+
+.dashboard-header__bell-button {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dashboard-header__bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: var(--radius-pill);
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
 }
 
 .dashboard-header .eyebrow {

@@ -188,3 +188,15 @@ export interface SoccerLog extends BaseRecord {
   // timestamptz文字列（ISO 8601）。既存行はNULL。
   endTime?: string;
 }
+
+// プッシュ通知機能（2026年8月24日）。ブラウザ標準のNotification型と衝突しない
+// よう、アプリ側のドメイン型はAppNotificationという名前にしている。
+export type NotificationType = 'acwr_danger' | 'streak_broken';
+
+export interface AppNotification extends BaseRecord {
+  deviceId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  isRead: boolean;
+}

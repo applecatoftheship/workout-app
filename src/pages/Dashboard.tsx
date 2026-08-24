@@ -5,10 +5,12 @@ import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
 import { RecoveryWindowCard } from '../components/RecoveryWindowCard'
-import { ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, TimerIcon, WeightIcon } from '../components/icons'
+import { BellIcon, ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, TimerIcon, WeightIcon } from '../components/icons'
 import { RestTimerModal } from '../components/timer/RestTimerModal'
+import { NotificationModal } from '../components/NotificationModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
+import { fetchNotifications, markNotificationRead } from '../api/notifications'
 import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
 import { calculateACWR, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../utils/acwrHelpers'
@@ -18,6 +20,7 @@ import { calculateMovingAverage, getTrendTone, toDateKey as toChartDateKey } fro
 import type { MAPoint } from '../utils/chartHelpers'
 import type { Goals } from '../api/goals'
 import type {
+  AppNotification,
   DailyCondition,
   DateString,
   MealLog,
@@ -101,6 +104,39 @@ export function Dashboard({
   // 機能のため、マウント/アンマウントで状態管理する（isTimerOpen=falseの間は
   // RestTimerModal自体を描画しない）。閉じたら内部状態もリセットされる。
   const [isTimerOpen, setIsTimerOpen] = useState(false)
+  // プッシュ通知機能 Phase 1b（2026年8月24日）：通知一覧はDB保存された
+  // notificationsテーブルの表示・既読化のみを行う（生成自体は/api/send-reminder.ts
+  // が担う）。休憩タイマーと同じくDashboard.tsxローカルで完結させ、App.tsx側の
+  // グローバルstateには含めない（他画面から参照されないため）。
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false)
+  const unreadNotificationCount = notifications.filter((notification) => !notification.isRead).length
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchNotifications()
+      .then((data) => {
+        if (isMounted) {
+          setNotifications(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから通知の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const handleMarkNotificationRead = (id: string) => {
+    setNotifications((current) => current.map((notification) => (notification.id === id ? { ...notification, isRead: true } : notification)))
+    markNotificationRead(id).catch((error) => {
+      console.error('通知の既読化に失敗しました', error)
+    })
+  }
+
   const [weekSchedules, setWeekSchedules] = useState<TrainingSchedule[]>([])
   const [weekSoccerLogs, setWeekSoccerLogs] = useState<SoccerLog[]>([])
   const [acwrSoccerLogs, setAcwrSoccerLogs] = useState<SoccerLog[]>([])
@@ -510,14 +546,27 @@ export function Dashboard({
             <p className="eyebrow">Workout App</p>
             <h1>{formattedDate}</h1>
           </div>
-          <button
-            type="button"
-            className="btn-icon dashboard-header__timer-button"
-            onClick={() => setIsTimerOpen(true)}
-            aria-label="休憩タイマーを開く"
-          >
-            <TimerIcon strokeWidth={1.8} />
-          </button>
+          <div className="dashboard-header__actions">
+            <button
+              type="button"
+              className="btn-icon dashboard-header__bell-button"
+              onClick={() => setIsNotificationModalOpen(true)}
+              aria-label={unreadNotificationCount > 0 ? `通知を開く（未読${unreadNotificationCount}件）` : '通知を開く'}
+            >
+              <BellIcon strokeWidth={1.8} />
+              {unreadNotificationCount > 0 ? (
+                <span className="dashboard-header__bell-badge">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              className="btn-icon dashboard-header__timer-button"
+              onClick={() => setIsTimerOpen(true)}
+              aria-label="休憩タイマーを開く"
+            >
+              <TimerIcon strokeWidth={1.8} />
+            </button>
+          </div>
         </div>
         {!isViewingToday ? (
           <div className="dashboard-date-context">
@@ -851,6 +900,13 @@ export function Dashboard({
       </section>
 
       {isTimerOpen ? <RestTimerModal onClose={() => setIsTimerOpen(false)} /> : null}
+      {isNotificationModalOpen ? (
+        <NotificationModal
+          notifications={notifications}
+          onMarkRead={handleMarkNotificationRead}
+          onClose={() => setIsNotificationModalOpen(false)}
+        />
+      ) : null}
     </>
   )
 }

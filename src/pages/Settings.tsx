@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './Settings.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { TrainingTemplateManager } from '../components/TrainingTemplateManager'
@@ -6,6 +6,8 @@ import type { RecordModalRequest } from '../components/RecordFormModal'
 import type { Goals } from '../api/goals'
 import type { DailyCondition, DateString, TrainingLog } from '../types'
 import type { Theme } from '../hooks/useTheme'
+import { usePushSubscription } from '../hooks/usePushSubscription'
+import { useToast } from '../hooks/useToast'
 
 const ACCENT_PRESETS = [
   { name: 'オレンジ（現在）', color: '#E85D2C' },
@@ -57,8 +59,43 @@ export function Settings({
   setTheme,
   openRecordModal,
 }: SettingsProps) {
-  // 記録リマインダーは見た目のみ（実装指示書4節：通知機能は今回スコープ外）
+  // 記録リマインダー（プッシュ通知機能 Phase 1b、2026年8月24日）：ONにした瞬間に
+  // ブラウザの通知許可リクエストを呼び出す。拒否・購読失敗時はトグルをOFFに戻す。
   const [isReminderEnabled, setIsReminderEnabled] = useState(false)
+  const { subscribe, unsubscribe, checkIsSubscribed } = usePushSubscription()
+  const { showToast } = useToast()
+
+  useEffect(() => {
+    let isMounted = true
+    checkIsSubscribed()
+      .then((subscribed) => {
+        if (isMounted) {
+          setIsReminderEnabled(subscribed)
+        }
+      })
+      .catch((error) => {
+        console.error('プッシュ通知の購読状態確認に失敗しました', error)
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [checkIsSubscribed])
+
+  const handleReminderToggle = async (checked: boolean) => {
+    if (!checked) {
+      setIsReminderEnabled(false)
+      await unsubscribe()
+      return
+    }
+
+    const success = await subscribe()
+    if (success) {
+      setIsReminderEnabled(true)
+    } else {
+      setIsReminderEnabled(false)
+      showToast('通知が許可されませんでした。ブラウザの通知設定を確認してください', 'error')
+    }
+  }
 
   return (
     <div className="settings-page">
@@ -108,9 +145,17 @@ export function Settings({
         <div className="settings-row">
           <div>
             <p className="settings-row__label">記録リマインダー</p>
-            <p className="settings-row__description">通知機能は準備中です</p>
+            <p className="settings-row__description">
+              {isReminderEnabled ? '通知が有効です' : 'ONにすると、負荷や記録に関する通知が届きます'}
+            </p>
           </div>
-          <ToggleSwitch checked={isReminderEnabled} onChange={setIsReminderEnabled} label="記録リマインダー" />
+          <ToggleSwitch
+            checked={isReminderEnabled}
+            onChange={(checked) => {
+              void handleReminderToggle(checked)
+            }}
+            label="記録リマインダー"
+          />
         </div>
       </section>
 
