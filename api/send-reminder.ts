@@ -162,19 +162,36 @@ export default async function handler(req: { headers: Record<string, string | st
 
   const targetDate = todayInJst()
 
-  const [trainingLogs, soccerLogs, mealLogs, dailyConditions] = await Promise.all([
-    fetchTrainingLogsForAcwr(supabase),
-    fetchSoccerLogsForAcwr(supabase),
-    fetchMealLogsForStreak(supabase),
-    fetchDailyConditions(supabase),
-  ])
+  // 【一時的な実配信テスト用コード、2026年8月25日】実際に届くかの確認のためだけの
+  // 迂回。本番のACWR/ストリーク判定ロジック自体（detectAcwrDangerNotification等）は
+  // 一切変更していない。確認後は削除する。
+  const isTestTrigger = req.headers['x-test-notification'] === 'a7f3c9e1-verify-2026-08-25'
 
-  const todayCondition = dailyConditions.find((condition) => condition.date === targetDate)
+  let candidates: { type: 'acwr_danger' | 'streak_broken'; title: string; message: string }[]
 
-  const candidates = [
-    detectAcwrDangerNotification(trainingLogs, soccerLogs, targetDate, todayCondition?.muscleSorenessLevel, todayCondition?.muscleSorenessLocation),
-    detectStreakBrokenNotification(trainingLogs, soccerLogs, mealLogs, dailyConditions, targetDate),
-  ].filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+  if (isTestTrigger) {
+    candidates = [
+      {
+        type: 'acwr_danger',
+        title: 'テスト通知',
+        message: 'これは/api/send-reminderの実配信確認用テスト通知です。実際のACWR・ストリーク判定結果ではありません。',
+      },
+    ]
+  } else {
+    const [trainingLogs, soccerLogs, mealLogs, dailyConditions] = await Promise.all([
+      fetchTrainingLogsForAcwr(supabase),
+      fetchSoccerLogsForAcwr(supabase),
+      fetchMealLogsForStreak(supabase),
+      fetchDailyConditions(supabase),
+    ])
+
+    const todayCondition = dailyConditions.find((condition) => condition.date === targetDate)
+
+    candidates = [
+      detectAcwrDangerNotification(trainingLogs, soccerLogs, targetDate, todayCondition?.muscleSorenessLevel, todayCondition?.muscleSorenessLocation),
+      detectStreakBrokenNotification(trainingLogs, soccerLogs, mealLogs, dailyConditions, targetDate),
+    ].filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+  }
 
   if (candidates.length === 0) {
     res.status(200).json({ sent: 0, reason: 'no candidates' })
@@ -214,7 +231,7 @@ export default async function handler(req: { headers: Record<string, string | st
     }))
 
     for (const candidate of candidates) {
-      if (!shouldCreateNotification(existingNotifications, candidate.type, targetDate)) {
+      if (!isTestTrigger && !shouldCreateNotification(existingNotifications, candidate.type, targetDate)) {
         continue
       }
 
