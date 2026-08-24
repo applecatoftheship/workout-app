@@ -218,17 +218,22 @@ export default async function handler(req: { headers: Record<string, string | st
         continue
       }
 
-      const { error: insertError } = await supabase.from('notifications').insert({
-        device_id: subscription.device_id,
-        type: candidate.type,
-        title: candidate.title,
-        message: candidate.message,
-        is_read: false,
-      })
+      const { data: insertedRow, error: insertError } = await supabase
+        .from('notifications')
+        .insert({
+          device_id: subscription.device_id,
+          type: candidate.type,
+          title: candidate.title,
+          message: candidate.message,
+          is_read: false,
+        })
+        .select('id')
+        .single()
       if (insertError) {
         console.error('notifications insertに失敗しました', insertError)
         continue
       }
+      const notificationId = (insertedRow as { id: string }).id
 
       try {
         await webpush.sendNotification(
@@ -236,7 +241,17 @@ export default async function handler(req: { headers: Record<string, string | st
             endpoint: subscription.endpoint,
             keys: { p256dh: subscription.p256dh ?? '', auth: subscription.auth ?? '' },
           },
-          JSON.stringify({ title: candidate.title, message: candidate.message, url: '/' }),
+          // notificationId・deviceIdはsrc/sw.tsのnotificationclickハンドラで
+          // 既読化更新（notifications.update）を行うために必要。Service Workerは
+          // localStorageを使えずgetDeviceId()を呼べないため、送信側で判明している
+          // subscription.device_idをそのままペイロードに含める。
+          JSON.stringify({
+            title: candidate.title,
+            message: candidate.message,
+            url: '/',
+            notificationId,
+            deviceId: subscription.device_id,
+          }),
         )
         sentCount += 1
       } catch (error) {

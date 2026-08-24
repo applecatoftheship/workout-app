@@ -4,6 +4,7 @@
     "target": "es2023",
     "lib": ["ES2023", "WebWorker"],
     "module": "esnext",
+    "types": ["vite/client"],
     "skipLibCheck": true,
 
     "moduleResolution": "bundler",

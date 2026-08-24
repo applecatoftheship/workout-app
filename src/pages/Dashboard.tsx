@@ -115,18 +115,36 @@ export function Dashboard({
   useEffect(() => {
     let isMounted = true
 
-    fetchNotifications()
-      .then((data) => {
-        if (isMounted) {
-          setNotifications(data)
-        }
-      })
-      .catch((error) => {
-        console.error('Supabaseから通知の取得に失敗しました', error)
-      })
+    const loadNotifications = () => {
+      fetchNotifications()
+        .then((data) => {
+          if (isMounted) {
+            setNotifications(data)
+          }
+        })
+        .catch((error) => {
+          console.error('Supabaseから通知の取得に失敗しました', error)
+        })
+    }
+
+    loadNotifications()
+
+    // マウント時の1回だけだと、ホーム画面を開いたままプッシュ通知を受け取っても
+    // 未読バッジが更新されない問題があったため（2026年8月25日の調査で確定）、
+    // タブ/ウィンドウが再びフォアグラウンドになったタイミングでも再取得する。
+    // 既存コードにポーリング/フォーカス再取得の前例が無かったため、PWAとしての
+    // 挙動（アプリ切り替え・バックグラウンド復帰）に強いvisibilitychangeを採用した
+    // （window.focusイベントより、モバイルでのアプリ切り替えを確実に捕捉できるため）。
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadNotifications()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       isMounted = false
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 
