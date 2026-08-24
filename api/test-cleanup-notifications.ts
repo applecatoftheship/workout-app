@@ -28,6 +28,19 @@ export default async function handler(
     return
   }
 
+  if (req.query.action === 'list') {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id, title, is_read, created_at')
+      .eq('device_id', deviceId)
+    if (error) {
+      res.status(500).json({ error: error.message })
+      return
+    }
+    res.status(200).json({ rows: data })
+    return
+  }
+
   const { error, count } = await supabase
     .from('notifications')
     .delete({ count: 'exact' })
