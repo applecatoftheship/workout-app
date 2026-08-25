@@ -39,7 +39,15 @@ export function TrainingVolumeChart({ periodDailyVolume, periodVolumeMA, totalVo
   // 線が途切れないようにする（WeightChart.tsxと同じ扱い）。
   const maValues = periodDailyVolume.map((point) => maByDate.get(point.date) ?? point.volume)
 
-  const { min, range } = computeScale([...actualValues, ...maValues])
+  // UI/UXレビュー修正 項目3（2026年8月25日）：computeScaleは値の変動幅に応じて
+  // 上下にパディングを取るため、休養日（0kg）を含む期間では下限がマイナスに
+  // なり得る。総ボリュームは負の値を取り得ない指標のため、上限はそのままに
+  // 下限のみ0でクランプする（computeScale自体は他のグラフ（体重・睡眠・疲労度）
+  // でも使われている共通ロジックのため無変更）。
+  const { min: rawMin, range: rawRange } = computeScale([...actualValues, ...maValues])
+  const chartTop = rawMin + rawRange
+  const min = Math.max(0, rawMin)
+  const range = chartTop - min
   const actualPoints = pointsFor(actualValues, min, range)
   const maPoints = pointsFor(maValues, min, range)
   const areaPath = areaPathFor(maValues, min, range)
