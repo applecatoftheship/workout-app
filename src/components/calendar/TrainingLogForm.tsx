@@ -177,6 +177,10 @@ export function TrainingLogForm({
   const [formSummaryError, setFormSummaryError] = useState<string | null>(null)
   const [exercises, setExercises] = useState<ExerciseDefinition[]>([])
   const [previousRecordHints, setPreviousRecordHints] = useState<Record<number, string>>({})
+  // UI/UXレビュー修正 項目7（2026年8月25日）：重量欄のプレースホルダーを固定値
+  // 「60」から直近記録値に動的表示するため、previousRecordHints（表示用の
+  // フォーマット済み文字列）とは別に生の重量値を保持する。
+  const [previousRecordWeights, setPreviousRecordWeights] = useState<Record<number, number | null>>({})
   const [isSaving, setIsSaving] = useState(false)
 
   const loadExercises = () => {
@@ -254,6 +258,7 @@ export function TrainingLogForm({
     setFormErrors(createEmptyFormErrors(nextExercises.length))
     setFormSummaryError(null)
     setPreviousRecordHints({})
+    setPreviousRecordWeights({})
     setIsFormOpen(true)
   }
 
@@ -266,6 +271,14 @@ export function TrainingLogForm({
     }))
 
     setPreviousRecordHints((current) => {
+      if (!(index in current)) {
+        return current
+      }
+      const next = { ...current }
+      delete next[index]
+      return next
+    })
+    setPreviousRecordWeights((current) => {
       if (!(index in current)) {
         return current
       }
@@ -288,6 +301,7 @@ export function TrainingLogForm({
           ...current,
           [index]: `前回: ${record.weight != null ? `${record.weight}kg` : '-'} × ${record.reps != null ? `${record.reps}回` : '-'} × ${record.setsCount}セット`,
         }))
+        setPreviousRecordWeights((current) => ({ ...current, [index]: record.weight ?? null }))
 
         // 手入力済みのセット/回数/重量は上書きしない（前回記録の前提が変わっている可能性があるため）
         setFormState((current) => ({
@@ -432,6 +446,17 @@ export function TrainingLogForm({
     setFormErrors((current) => current.filter((_, exerciseIndex) => exerciseIndex !== index))
     setPreviousRecordHints((current) => {
       const next: Record<number, string> = {}
+      Object.entries(current).forEach(([key, value]) => {
+        const keyIndex = Number(key)
+        if (keyIndex === index) {
+          return
+        }
+        next[keyIndex > index ? keyIndex - 1 : keyIndex] = value
+      })
+      return next
+    })
+    setPreviousRecordWeights((current) => {
+      const next: Record<number, number | null> = {}
       Object.entries(current).forEach(([key, value]) => {
         const keyIndex = Number(key)
         if (keyIndex === index) {
@@ -774,7 +799,7 @@ export function TrainingLogForm({
                       step="0.1"
                       value={exercise.simple.weight}
                       onChange={(event) => handleSimpleFieldChange(index, 'weight', event.target.value)}
-                      placeholder="60"
+                      placeholder={previousRecordWeights[index] != null ? String(previousRecordWeights[index]) : '60'}
                     />
                     {formErrors[index]?.weight ? <p className="calendar-detail__error">{formErrors[index]?.weight}</p> : null}
                   </label>
