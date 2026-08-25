@@ -17,6 +17,8 @@
 }
 
 .weekly-acwr-trend__chevron {
+  width: 18px;
+  height: 18px;
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
