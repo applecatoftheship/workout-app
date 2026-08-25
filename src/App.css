@@ -1,3 +1,14 @@
+.status-bar-cover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--color-bg-base);
+  z-index: 40;
+  pointer-events: none;
+}
+
 .app-shell {
   width: min(100%, 460px);
   margin: 0 auto;

@@ -148,6 +148,13 @@ function AppShell() {
 
   return (
     <>
+      {/* UI/UXレビュー修正 項目1（2026年8月25日）：index.htmlのapple-mobile-web-app-status-bar-style
+          がblack-translucentのため、iOSのステータスバーはコンテンツの上に半透明で重なる形で
+          描画される。.app-shellのpadding-topはページ最上部（初回表示）をステータスバー分
+          押し下げるが、スクロールして別のカード（例：ACWRカード）がビューポート最上部に来ると
+          そのカードがステータスバーの下に潜り込んで見えてしまう。スクロール位置に関わらず
+          常にステータスバー領域を覆う固定バーとして描画することで解消する。 */}
+      <div className="status-bar-cover" />
       <main className="app-shell">
         <Routes>
           <Route
