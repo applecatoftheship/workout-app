@@ -16,7 +16,9 @@ import { fetchMealLogs } from './api/mealLogs'
 import { useTheme } from './hooks/useTheme'
 import { ToastProvider, useToast } from './hooks/useToast'
 import { ConfirmProvider } from './hooks/useConfirm'
+import { AuthProvider, useAuth } from './hooks/useAuth'
 import { CelebrationProvider } from './components/celebration/CelebrationProvider'
+import { Login } from './pages/Login'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
 
@@ -148,13 +150,6 @@ function AppShell() {
 
   return (
     <>
-      {/* UI/UXレビュー修正 項目1（2026年8月25日）：index.htmlのapple-mobile-web-app-status-bar-style
-          がblack-translucentのため、iOSのステータスバーはコンテンツの上に半透明で重なる形で
-          描画される。.app-shellのpadding-topはページ最上部（初回表示）をステータスバー分
-          押し下げるが、スクロールして別のカード（例：ACWRカード）がビューポート最上部に来ると
-          そのカードがステータスバーの下に潜り込んで見えてしまう。スクロール位置に関わらず
-          常にステータスバー領域を覆う固定バーとして描画することで解消する。 */}
-      <div className="status-bar-cover" />
       <main className="app-shell">
         <Routes>
           <Route
@@ -245,13 +240,39 @@ function AppShell() {
   )
 }
 
+// アカウント/ログイン機能 フェーズA（2026年8月25日）：未ログイン時はアプリ全体を
+// ログイン画面に置き換えるシンプルなProtected Route相当の実装（単一ユーザー
+// アプリのため、ルート単位の個別ガードではなく全体を一括でガードする設計とした・
+// 判断理由）。isLoading中（セッション復元中）は一瞬の未ログイン画面フラッシュを
+// 避けるため何も描画しない（bodyの背景色は既にindex.cssで設定済みのため、
+// 空白でも背景色の不一致は起きない）。
+// .status-bar-cover（UI/UXレビュー修正 項目1）はログイン画面・アプリ画面の
+// どちらでもステータスバー重なりを防ぐ必要があるため、AppShellの外側
+// （常時マウント）に配置している。
+function AuthGate() {
+  const { session, isLoading } = useAuth()
+
+  if (isLoading) {
+    return <div className="status-bar-cover" />
+  }
+
+  return (
+    <>
+      <div className="status-bar-cover" />
+      {session ? <AppShell /> : <Login />}
+    </>
+  )
+}
+
 function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
         <ConfirmProvider>
           <CelebrationProvider>
-            <AppShell />
+            <AuthProvider>
+              <AuthGate />
+            </AuthProvider>
           </CelebrationProvider>
         </ConfirmProvider>
       </ToastProvider>

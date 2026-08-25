@@ -8,6 +8,7 @@ import type { DailyCondition, DateString, TrainingLog } from '../types'
 import type { Theme } from '../hooks/useTheme'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import { useToast } from '../hooks/useToast'
+import { useAuth } from '../hooks/useAuth'
 
 const ACCENT_PRESETS = [
   { name: 'オレンジ（現在）', color: '#E85D2C' },
@@ -64,6 +65,7 @@ export function Settings({
   const [isReminderEnabled, setIsReminderEnabled] = useState(false)
   const { subscribe, unsubscribe, checkIsSubscribed } = usePushSubscription()
   const { showToast } = useToast()
+  const { user, signOut } = useAuth()
 
   useEffect(() => {
     let isMounted = true
@@ -162,10 +164,15 @@ export function Settings({
 
       <section className="panel-card">
         <h3 className="settings-section__title">アカウント</h3>
-        <p className="settings-row__description">認証機能は未実装のため、現在は単一ユーザーで運用しています。</p>
-        <button type="button" className="button button--secondary" disabled>
-          ログイン（準備中）
-        </button>
+        <div className="settings-row">
+          <div>
+            <p className="settings-row__label">アカウント保護有効</p>
+            <p className="settings-row__description">ログイン中: {user?.email ?? '不明'}</p>
+          </div>
+          <button type="button" className="btn-secondary" onClick={() => void signOut()}>
+            ログアウト
+          </button>
+        </div>
       </section>
     </div>
   )
