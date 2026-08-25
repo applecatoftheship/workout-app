@@ -19,6 +19,10 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedDeleteId, setSelectedDeleteId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
+  // UI/UXレビュー修正 項目5（2026年8月25日）：ジャンル選択→ドロップダウン閲覧の
+  // 2段階でしか食材を探せなかったため、食材名での直接検索を追加した。
+  // ジャンル選択の状態には影響しない独立した機能として実装している。
+  const [searchQuery, setSearchQuery] = useState('')
 
   const foodCategories = useMemo(
     () =>
@@ -27,6 +31,14 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
       ),
     [foodItems],
   )
+
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim()
+    if (!query) {
+      return []
+    }
+    return foodItems.filter((item) => item.name.includes(query)).slice(0, 8)
+  }, [foodItems, searchQuery])
 
   const categoryFilteredFoodItems = useMemo(() => {
     if (!selectedCategory) {
@@ -70,6 +82,36 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
 
   return (
     <>
+      <div className="calendar-detail__field calendar-detail__field--full">
+        <span>食材名で検索</span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="例: 鶏むね肉"
+        />
+        {searchQuery.trim() && searchResults.length === 0 ? (
+          <p className="calendar-detail__description">一致する食材が見つかりません</p>
+        ) : null}
+        {searchResults.length > 0 ? (
+          <div className="calendar-detail__category-filter">
+            {searchResults.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="calendar-detail__category-chip"
+                onClick={() => {
+                  onSelect(item.id as string)
+                  setSearchQuery('')
+                }}
+              >
+                {item.emoji ?? DEFAULT_FOOD_EMOJI} {item.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
       <div className="calendar-detail__field calendar-detail__field--full">
         <span>食材のジャンルを選択</span>
         <div className="calendar-detail__category-filter">

@@ -34,7 +34,18 @@ type MealLogFormState = {
   newFoodEmoji: string
 }
 
-const QUICK_FOOD_EMOJIS = ['🍚', '🥩', '🥦', '🍞', '🍜', '🍎', '🥛', '🍽️']
+// UI/UXレビュー修正 項目5（2026年8月25日）：絵文字のみのボタンだと何を表す
+// クイック選択かわからないため、各絵文字にラベルを付与した。
+const QUICK_FOOD_EMOJIS: { emoji: string; label: string }[] = [
+  { emoji: '🍚', label: '主食' },
+  { emoji: '🥩', label: '肉' },
+  { emoji: '🥦', label: '野菜' },
+  { emoji: '🍞', label: 'パン' },
+  { emoji: '🍜', label: '麺' },
+  { emoji: '🍎', label: '果物' },
+  { emoji: '🥛', label: '乳製品' },
+  { emoji: '🍽️', label: 'その他' },
+]
 const DEFAULT_FOOD_EMOJI = '🍽️'
 
 type MealLogFormErrors = {
@@ -786,14 +797,15 @@ export function MealLogForm({
               />
             </label>
             <div className="calendar-detail__inline-fields">
-              {QUICK_FOOD_EMOJIS.map((emoji) => (
+              {QUICK_FOOD_EMOJIS.map(({ emoji, label }) => (
                 <button
                   key={emoji}
                   type="button"
                   className="calendar-detail__secondary-button"
+                  title={label}
                   onClick={() => handleNewFoodFieldChange('newFoodEmoji', emoji)}
                 >
-                  {emoji}
+                  {emoji} {label}
                 </button>
               ))}
             </div>
