@@ -17,6 +17,13 @@ type AuthContextValue = {
   user: User | null
   isLoading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  // 新規サインアップ機能追加（2026年8月25日）：メール確認必須設定
+  // （[auth.email] enable_confirmations = true）の場合、signUp成功直後は
+  // data.sessionがnullで返る（確認メールのリンクを踏むまでログイン状態には
+  // ならない）。呼び出し元（Signup.tsx）がneedsEmailConfirmationを見て、
+  // 自動ログイン画面遷移ではなく「確認メールを送信しました」の案内を
+  // 表示する。
+  signUp: (email: string, password: string) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>
   signOut: () => Promise<void>
 }
 
@@ -56,12 +63,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? error.message : null }
   }
 
+  const signUp = async (
+    email: string,
+    password: string,
+  ): Promise<{ error: string | null; needsEmailConfirmation: boolean }> => {
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    if (error) {
+      return { error: error.message, needsEmailConfirmation: false }
+    }
+    return { error: null, needsEmailConfirmation: data.session === null }
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, isLoading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   )

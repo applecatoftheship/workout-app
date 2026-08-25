@@ -2,7 +2,11 @@ import { useState, type FormEvent } from 'react'
 import './Login.css'
 import { useAuth } from '../hooks/useAuth'
 
-export function Login() {
+type LoginProps = {
+  onSwitchToSignup: () => void
+}
+
+export function Login({ onSwitchToSignup }: LoginProps) {
   const { signIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -48,6 +52,12 @@ export function Login() {
         <button type="submit" className="btn-primary login-card__submit" disabled={isSubmitting}>
           {isSubmitting ? 'ログイン中...' : 'ログイン'}
         </button>
+        <p className="login-card__link">
+          アカウントをお持ちでない方は
+          <button type="button" onClick={onSwitchToSignup}>
+            こちら
+          </button>
+        </p>
       </form>
     </div>
   )

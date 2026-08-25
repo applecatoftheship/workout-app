@@ -19,6 +19,7 @@ import { ConfirmProvider } from './hooks/useConfirm'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { CelebrationProvider } from './components/celebration/CelebrationProvider'
 import { Login } from './pages/Login'
+import { Signup } from './pages/Signup'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
 
@@ -251,6 +252,11 @@ function AppShell() {
 // （常時マウント）に配置している。
 function AuthGate() {
   const { session, isLoading } = useAuth()
+  // 新規サインアップ機能追加（2026年8月25日）：ログイン/サインアップ画面の
+  // 切り替えはルーティングを増やさず、AuthGate内のローカルstateで行う
+  // （単一ユーザー限定だった頃と同じく、未ログイン時はアプリ全体を
+  // 1画面だけ表示するシンプルな構成を踏襲した・判断理由）。
+  const [authView, setAuthView] = useState<'login' | 'signup'>('login')
 
   if (isLoading) {
     return <div className="status-bar-cover" />
@@ -259,7 +265,13 @@ function AuthGate() {
   return (
     <>
       <div className="status-bar-cover" />
-      {session ? <AppShell /> : <Login />}
+      {session ? (
+        <AppShell />
+      ) : authView === 'login' ? (
+        <Login onSwitchToSignup={() => setAuthView('signup')} />
+      ) : (
+        <Signup onSwitchToLogin={() => setAuthView('login')} />
+      )}
     </>
   )
 }

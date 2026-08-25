@@ -218,15 +218,20 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-# アカウント/ログイン機能（2026年8月25日）：単一ユーザー保護のための認証導入に伴い、
-# サインアップ導線は設けない方針（指示書確定事項）のためfalseに変更した。本番反映は
-# 別途フェーズBでJohnさんの手動操作またはsupabase config push（要supabase link）で行う。
-enable_signup = false
+# 新規サインアップ機能追加（2026年8月25日）：運用方針の見直しにより、単一ユーザー
+# 限定からサインアップ開放へ変更したため、フェーズAで設定したfalseから再度trueに
+# 差し戻した。本番のSupabaseプロジェクト側にはフェーズAのfalseがまだ反映されて
+# いなかったため、本番側の追加操作（差し戻し）は不要。
+enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# 新規サインアップ機能追加（2026年8月25日）：公開サインアップに伴い、メール確認を
+# 必須にする方針のためtrueに変更した。本番プロジェクト側への反映は別途
+# supabase config push（要supabase link）またはJohnさんによるSupabase Dashboardでの
+# 手動設定が必要（完了報告に記載）。
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.

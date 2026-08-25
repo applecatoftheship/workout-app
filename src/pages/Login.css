@@ -61,3 +61,34 @@
   margin-top: 4px;
   width: 100%;
 }
+
+/* 新規サインアップ機能追加（2026年8月25日）：ログイン/サインアップ画面間の
+   行き来リンク、およびサインアップ完了時の案内メッセージ。両画面で共有する
+   ためLogin.cssに集約している。 */
+.login-card__link {
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.login-card__link button {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-left: 4px;
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.login-card__notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: var(--font-size-body-sm);
+}
