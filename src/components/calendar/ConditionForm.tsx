@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { DailyCondition, DateString, FatigueLevel, MuscleLocation, SorenessLevel } from '../../types'
 import { formatConditionSummary } from '../../utils/calendarHelpers'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../../utils/acwrHelpers'
-import { deleteDailyConditionRemote, fetchDailyConditions, upsertDailyCondition } from '../../api/dailyConditions'
+import { deleteDailyConditionRemote, fetchDailyConditions, fetchRecentWeight, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 
@@ -65,6 +65,19 @@ export function ConditionForm({
   const [conditionFormErrors, setConditionFormErrors] = useState<ConditionFormErrors>(createEmptyConditionFormErrors())
   const [conditionFormSummaryError, setConditionFormSummaryError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  // UI/UXレビュー修正 項目8（2026年8月25日）：体重欄のプレースホルダーを固定例示
+  // 「64.8」から直近実測値に動的表示するため、SoccerLogForm.tsxと同じ
+  // fetchRecentWeightパターンを踏襲する。
+  const [recentWeight, setRecentWeight] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetchRecentWeight(selectedDate)
+      .then(setRecentWeight)
+      .catch((error) => {
+        console.error('Supabaseから直近の体重記録の取得に失敗しました', error)
+        setRecentWeight(null)
+      })
+  }, [selectedDate])
 
   const selectedCondition = useMemo(
     () => dailyConditions.find((condition) => condition.date === selectedDate),
@@ -240,7 +253,7 @@ export function ConditionForm({
               step="0.1"
               value={conditionFormState.weight}
               onChange={(event) => handleConditionFieldChange('weight', event.target.value)}
-              placeholder="例: 64.8"
+              placeholder={recentWeight != null ? String(recentWeight) : '例: 64.8'}
             />
             {conditionFormErrors.weight ? <p className="calendar-detail__error">{conditionFormErrors.weight}</p> : null}
           </label>
