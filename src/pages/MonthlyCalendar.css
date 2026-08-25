@@ -211,10 +211,27 @@
   margin-top: 4px;
 }
 
+.calendar-detail__tabs-wrap {
+  position: relative;
+  margin-bottom: var(--space-sm);
+}
+
+/* 右端に「まだタブが続く」ことを示すフェードグラデーション。
+   スクロール自体を妨げないようpointer-eventsは無効化する。 */
+.calendar-detail__tabs-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  background: linear-gradient(to right, transparent, var(--color-bg-surface));
+  pointer-events: none;
+}
+
 .calendar-detail__tabs {
   display: flex;
   gap: 6px;
-  margin-bottom: var(--space-sm);
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;

@@ -330,42 +330,49 @@ export function MonthlyCalendar({
         </div>
 
         <div className="calendar-detail__group">
-          <div className="calendar-detail__tabs">
-            <button
-              type="button"
-              className={`calendar-detail__tab ${activeDetailTab === 'training' ? 'calendar-detail__tab--active' : ''}`}
-              onClick={() => setActiveDetailTab('training')}
-            >
-              トレーニング
-            </button>
-            <button
-              type="button"
-              className={`calendar-detail__tab ${activeDetailTab === 'schedule' ? 'calendar-detail__tab--active' : ''}`}
-              onClick={() => setActiveDetailTab('schedule')}
-            >
-              予定
-            </button>
-            <button
-              type="button"
-              className={`calendar-detail__tab ${activeDetailTab === 'condition' ? 'calendar-detail__tab--active' : ''}`}
-              onClick={() => setActiveDetailTab('condition')}
-            >
-              体調
-            </button>
-            <button
-              type="button"
-              className={`calendar-detail__tab ${activeDetailTab === 'meal' ? 'calendar-detail__tab--active' : ''}`}
-              onClick={() => setActiveDetailTab('meal')}
-            >
-              食事
-            </button>
-            <button
-              type="button"
-              className={`calendar-detail__tab ${activeDetailTab === 'soccer' ? 'calendar-detail__tab--active' : ''}`}
-              onClick={() => setActiveDetailTab('soccer')}
-            >
-              サッカー
-            </button>
+          {/* UI/UXレビュー修正 項目6（2026年8月25日）：横スクロール自体は既存実装
+              （Phase 4、2026年8月16日）で機能していたが、右端の「サッカー」タブが
+              スクロール可能であることを示す視覚的な手がかりがなく、見切れて
+              壊れているように見えていた。右端にフェードグラデーションを重ねて
+              スクロール可能であることを示す（タブの構成・数自体は無変更）。 */}
+          <div className="calendar-detail__tabs-wrap">
+            <div className="calendar-detail__tabs">
+              <button
+                type="button"
+                className={`calendar-detail__tab ${activeDetailTab === 'training' ? 'calendar-detail__tab--active' : ''}`}
+                onClick={() => setActiveDetailTab('training')}
+              >
+                トレーニング
+              </button>
+              <button
+                type="button"
+                className={`calendar-detail__tab ${activeDetailTab === 'schedule' ? 'calendar-detail__tab--active' : ''}`}
+                onClick={() => setActiveDetailTab('schedule')}
+              >
+                予定
+              </button>
+              <button
+                type="button"
+                className={`calendar-detail__tab ${activeDetailTab === 'condition' ? 'calendar-detail__tab--active' : ''}`}
+                onClick={() => setActiveDetailTab('condition')}
+              >
+                体調
+              </button>
+              <button
+                type="button"
+                className={`calendar-detail__tab ${activeDetailTab === 'meal' ? 'calendar-detail__tab--active' : ''}`}
+                onClick={() => setActiveDetailTab('meal')}
+              >
+                食事
+              </button>
+              <button
+                type="button"
+                className={`calendar-detail__tab ${activeDetailTab === 'soccer' ? 'calendar-detail__tab--active' : ''}`}
+                onClick={() => setActiveDetailTab('soccer')}
+              >
+                サッカー
+              </button>
+            </div>
           </div>
 
           {activeDetailTab === 'training' ? (
