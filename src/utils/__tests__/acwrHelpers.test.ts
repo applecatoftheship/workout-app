@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateACWR, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../acwrHelpers'
+import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, getACWRInsight, hasConsecutiveDangerDays } from '../acwrHelpers'
 import { toDateKey } from '../chartHelpers'
 import type { DateString, TrainingLog } from '../../types'
 
@@ -186,5 +186,57 @@ describe('daysUntilACWRAvailable', () => {
   it('7日分のデータが揃っていれば0', () => {
     const logs = [trainingLogWithVolume(0, 1000), trainingLogWithVolume(6, 1000)]
     expect(daysUntilACWRAvailable(logs, [], TODAY_KEY)).toBe(0)
+  })
+})
+
+describe('calculateDailyACWRSeries', () => {
+  it('記録が無ければ全日nullの系列を返す（日数分の長さは維持）', () => {
+    const series = calculateDailyACWRSeries([], [], TODAY_KEY, 28)
+    expect(series).toHaveLength(28)
+    expect(series.every((point) => point.acwr === null)).toBe(true)
+    expect(series[series.length - 1].date).toBe(TODAY_KEY)
+  })
+
+  it('日付は古い順→新しい順（先頭が最も過去、末尾が本日）', () => {
+    const series = calculateDailyACWRSeries([], [], TODAY_KEY, 7)
+    expect(series[0].date).toBe(dateAt(6))
+    expect(series[6].date).toBe(TODAY_KEY)
+  })
+
+  it('7日分の記録が揃った日以降はacwrが非null、それ以前はnull', () => {
+    // today-6日〜todayの7日分だけ記録があるケース：この7日間の各日を終端として
+    // 見た場合、todayから見て7日分（today-6〜today）に達するのはtoday自身のみ
+    // （today-1日を終端にすると、その時点での記録範囲はtoday-6〜today-1の6日分でまだ足りない）。
+    const logs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 5000))
+    const series = calculateDailyACWRSeries(logs, [], TODAY_KEY, 7)
+    expect(series.slice(0, 6).every((point) => point.acwr === null)).toBe(true)
+    expect(series[6].acwr).not.toBeNull()
+    expect(series[6].acwr).toBeCloseTo(1)
+  })
+})
+
+describe('getACWRInsight', () => {
+  it('0.8未満はunload（負荷低下）', () => {
+    expect(getACWRInsight(0.5).tier).toBe('unload')
+  })
+
+  it('0.8以上1.0未満はrecovery（リカバリー最適期）', () => {
+    expect(getACWRInsight(0.8).tier).toBe('recovery')
+    expect(getACWRInsight(0.99).tier).toBe('recovery')
+  })
+
+  it('1.0以上1.3未満はoptimal（最適トレーニング帯）', () => {
+    expect(getACWRInsight(1.0).tier).toBe('optimal')
+    expect(getACWRInsight(1.29).tier).toBe('optimal')
+  })
+
+  it('1.3以上1.5以下はsurge（負荷急増・警戒）', () => {
+    expect(getACWRInsight(1.3).tier).toBe('surge')
+    expect(getACWRInsight(1.5).tier).toBe('surge')
+  })
+
+  it('1.5超はspike（怪我リスク高）', () => {
+    expect(getACWRInsight(1.51).tier).toBe('spike')
+    expect(getACWRInsight(3.0).tier).toBe('spike')
   })
 })

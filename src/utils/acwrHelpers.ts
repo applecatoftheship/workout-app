@@ -25,7 +25,7 @@ export const SORENESS_LEVEL_LABELS: Record<SorenessLevel, string> = {
   severe: '強い張り（要注意）',
 }
 
-function toDateKey(date: Date): DateString {
+export function toDateKey(date: Date): DateString {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -224,4 +224,101 @@ export function daysUntilACWRAvailable(trainingLogs: TrainingLog[], soccerLogs: 
   }
   const daysAvailable = daysBetween(earliestDate, todayDate)
   return Math.max(0, MIN_DAYS_FOR_CALCULATION - daysAvailable)
+}
+
+export interface DailyACWRPoint {
+  date: DateString
+  acwr: number | null
+}
+
+/**
+ * 週次ACWRインサイト機能（2026年8月25日）：todayDateを終端とする直近days日間
+ * （既定28日）の日次ACWR推移を返す。既存のcalculateACWRを日ごとに再利用する
+ * （hasConsecutiveDangerDaysと同じ設計）ため、DBキャッシュなしで動的計算する
+ * 既存方針をそのまま踏襲している。各日についてcalculateACWRがnullを返す場合
+ * （その日の時点でまだ7日分のデータが無い、アプリ利用開始直後の期間）は
+ * acwr: nullとして返し、グラフ描画側でその日の点を省略する判断に委ねる。
+ * 局所疲労（soreness）はこの系列の用途（数値の推移・帯域分類のみ）では
+ * 参照しないため、calculateACWR呼び出し時は常にundefinedを渡す。
+ */
+export function calculateDailyACWRSeries(
+  trainingLogs: TrainingLog[],
+  soccerLogs: SoccerLog[],
+  todayDate: DateString,
+  days = 28,
+): DailyACWRPoint[] {
+  const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
+  const points: DailyACWRPoint[] = []
+
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = toDateKey(new Date(todayTime - offset * 86_400_000))
+    const result = calculateACWR(trainingLogs, soccerLogs, date, undefined, undefined)
+    points.push({ date, acwr: result ? result.acwr : null })
+  }
+
+  return points
+}
+
+export type ACWRInsightTier = 'unload' | 'recovery' | 'optimal' | 'surge' | 'spike'
+
+export interface ACWRInsight {
+  tier: ACWRInsightTier
+  title: string
+  /** src/styles/tokens.cssのCSSカスタムプロパティ名（例：'--color-warning-text'） */
+  colorToken: string
+  body: string
+}
+
+/**
+ * 週次ACWRインサイト機能：ACWR数値のみから5段階のインサイト文言を判定する
+ * （Gemini提案の文言をそのまま使用、実装指示書2026年8月25日）。
+ * determineACWRStatus（4段階＋局所疲労での補正）とは独立した別ロジック：
+ * 既存の4段階判定はACWRGaugeCard向けに局所疲労も加味した判定だが、こちらは
+ * 「ACWR数値だけを見た時のインサイト」という指示書の定義通り、局所疲労は
+ * 一切考慮しない。境界の不等号は既存のdetermineACWRStatusと同じ厳密な扱い
+ * （> 1.5 / < 0.8 / >= 1.3）に、指示書の残り2境界（1.0・0.8）を同じ流儀で追加した。
+ */
+export function getACWRInsight(acwr: number): ACWRInsight {
+  if (acwr > 1.5) {
+    return {
+      tier: 'spike',
+      title: '⚠️怪我リスク高（スパイク）',
+      colorToken: '--color-danger-text',
+      body: '急性負荷が過大（スパイク）です。怪我発生リスクが大幅に上昇しています。本日はアクティブリカバリーまたは完全休養を強く推奨します。',
+    }
+  }
+
+  if (acwr < 0.8) {
+    return {
+      tier: 'unload',
+      title: '負荷低下（維持注意）',
+      colorToken: '--color-warning-text',
+      body: 'トレーニング負荷が低下傾向です。コンディション維持のため、次回セッションの強度または時間を10〜15%程度引き上げることを推奨します。',
+    }
+  }
+
+  if (acwr >= 1.3) {
+    return {
+      tier: 'surge',
+      title: '負荷急増（警戒）',
+      colorToken: '--color-warning-text',
+      body: '急性負荷が高まっています。パフォーマンス向上に適した時期ですが疲労の蓄積に注意が必要です。高強度トレーニングの連日は避けましょう。',
+    }
+  }
+
+  if (acwr >= 1.0) {
+    return {
+      tier: 'optimal',
+      title: '最適トレーニング帯',
+      colorToken: '--color-accent-text',
+      body: '理想的な負荷コントロールです。怪我リスクを抑えつつ最も効率的にフィットネスを向上できる帯域を維持できています。このペースを継続しましょう。',
+    }
+  }
+
+  return {
+    tier: 'recovery',
+    title: 'リカバリー最適期',
+    colorToken: '--color-success-text',
+    body: '控えめな負荷で疲労が抜けやすい状態です。試合前のピーキングや疲労抜きのタイミングとして理想的な調整ができています。',
+  }
 }

@@ -4,6 +4,8 @@ import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
+import { WeeklyACWRTrendCard } from '../components/WeeklyACWRTrendCard'
+import { WeeklyACWRDetailModal } from '../components/WeeklyACWRDetailModal'
 import { RecoveryWindowCard } from '../components/RecoveryWindowCard'
 import { BellIcon, ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, TimerIcon, WeightIcon } from '../components/icons'
 import { RestTimerModal } from '../components/timer/RestTimerModal'
@@ -13,7 +15,7 @@ import { fetchSoccerLogs } from '../api/soccerLogs'
 import { fetchNotifications, markNotificationRead } from '../api/notifications'
 import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
-import { calculateACWR, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../utils/acwrHelpers'
+import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../utils/acwrHelpers'
 import { calculateDailyRecoveryResults, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../utils/recoveryHelpers'
 import { calculateAdjustedGoals, getMatchDayStatus } from '../utils/periodizationHelpers'
 import { calculateMovingAverage, getTrendTone, toDateKey as toChartDateKey } from '../utils/chartHelpers'
@@ -355,6 +357,17 @@ export function Dashboard({
     [trainingLogs, acwrSoccerLogs, dailyConditions, todayString],
   )
 
+  // 週次ACWRインサイト機能（2026年8月25日）：ACWRGaugeCard・目標ストリップと同じく
+  // 日付選択（selectedDateKey）の対象外でtodayString基準のまま固定する（「常に本日を
+  // 終端とした直近の推移」という指示書の定義に従う）。28日分をここで一度だけ計算し、
+  // ミニカードのスパークライン（末尾7件）・詳細モーダルのメイングラフ（全28件）の
+  // 両方で使い回す（DBキャッシュせず動的計算する既存方針はACWR機能全体で踏襲）。
+  const weeklyACWRSeries = useMemo(
+    () => calculateDailyACWRSeries(trainingLogs, acwrSoccerLogs, todayString, 28),
+    [trainingLogs, acwrSoccerLogs, todayString],
+  )
+  const [isWeeklyACWRDetailOpen, setIsWeeklyACWRDetailOpen] = useState(false)
+
   // リカバリー窓機能（スプリント4 Phase 2、2026年8月21日）：ACWRGaugeCard同様、
   // 日付選択（selectedDateKey）の対象外でtodayString基準のまま固定する
   // （「当日のリカバリー状態カード」という実装指示書の定義に従う）。
@@ -665,6 +678,12 @@ export function Dashboard({
         showDeloadWarning={showDeloadWarning}
       />
 
+      <WeeklyACWRTrendCard
+        weekPoints={weeklyACWRSeries.slice(-7)}
+        daysUntilAvailable={acwrDaysUntilAvailable}
+        onOpenDetail={() => setIsWeeklyACWRDetailOpen(true)}
+      />
+
       <section className="panel-card week-strip">
         <div className="week-strip__header">
           <h2 className="panel-card__title">今週の記録</h2>
@@ -918,6 +937,14 @@ export function Dashboard({
       </section>
 
       {isTimerOpen ? <RestTimerModal onClose={() => setIsTimerOpen(false)} /> : null}
+      {isWeeklyACWRDetailOpen ? (
+        <WeeklyACWRDetailModal
+          seriesPoints={weeklyACWRSeries}
+          chronicDaysAvailable={acwrResult?.chronicDays ?? 28}
+          daysUntilAvailable={acwrDaysUntilAvailable}
+          onClose={() => setIsWeeklyACWRDetailOpen(false)}
+        />
+      ) : null}
       {isNotificationModalOpen ? (
         <NotificationModal
           notifications={notifications}
