@@ -1,5 +1,4 @@
-import { supabase } from './client'
-import { DEFAULT_USER_ID } from './trainingLogs'
+import { getCurrentUserId, supabase } from './client'
 
 export type Goals = {
   yearMonth: string
@@ -46,10 +45,11 @@ function rowToGoals(row: GoalsRow): Goals {
  * 空になるのを防ぐフォールバック）。過去分が1件もない場合はnullを返す。
  */
 export async function fetchGoalsByMonth(yearMonth: string): Promise<Goals | null> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('goals')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .eq('year_month', yearMonth)
     .maybeSingle()
 
@@ -64,7 +64,7 @@ export async function fetchGoalsByMonth(yearMonth: string): Promise<Goals | null
   const { data: pastRows, error: pastError } = await supabase
     .from('goals')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .lt('year_month', yearMonth)
     .order('year_month', { ascending: false })
     .limit(1)
@@ -90,10 +90,11 @@ export async function fetchGoalsByMonth(yearMonth: string): Promise<Goals | null
  * 閲覧しただけで意図せず新しいgoals行が作成されるのを防ぐため）。
  */
 export async function fetchGoalsByMonthReadOnly(yearMonth: string): Promise<Goals | null> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('goals')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .eq('year_month', yearMonth)
     .maybeSingle()
 
@@ -106,10 +107,11 @@ export async function fetchGoalsByMonthReadOnly(yearMonth: string): Promise<Goal
 
 /** データが存在する年月（YYYY-MM）の一覧を新しい順に取得する（過去月選択UI用）。 */
 export async function fetchGoalYearMonths(): Promise<string[]> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('goals')
     .select('year_month')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .order('year_month', { ascending: false })
 
   if (error) {
@@ -120,11 +122,12 @@ export async function fetchGoalYearMonths(): Promise<string[]> {
 }
 
 export async function upsertGoals(goals: Goals): Promise<void> {
+  const userId = await getCurrentUserId()
   const { error } = await supabase
     .from('goals')
     .upsert(
       {
-        user_id: DEFAULT_USER_ID,
+        user_id: userId,
         year_month: goals.yearMonth,
         target_weight: goals.targetWeight,
         target_sleep_hours: goals.targetSleepHours,
@@ -148,7 +151,8 @@ export async function upsertGoals(goals: Goals): Promise<void> {
 // UI上できないようにガードしている（当月のgoalsはDashboardの進捗比較カード等が
 // 常に存在する前提で参照しているため）。
 export async function deleteGoalByMonth(yearMonth: string): Promise<void> {
-  const { error } = await supabase.from('goals').delete().eq('user_id', DEFAULT_USER_ID).eq('year_month', yearMonth)
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('goals').delete().eq('user_id', userId).eq('year_month', yearMonth)
 
   if (error) {
     throw error

@@ -1,5 +1,4 @@
-import { supabase } from './client'
-import { DEFAULT_USER_ID } from './trainingLogs'
+import { getCurrentUserId, supabase } from './client'
 import type { FoodItem } from '../types'
 
 type FoodItemRow = {
@@ -33,11 +32,12 @@ function rowToFoodItem(row: FoodItemRow): FoodItem {
 }
 
 export async function fetchFoodItems(): Promise<FoodItem[]> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('food_items')
     .select('*')
     .eq('is_deleted', false)
-    .or(`user_id.is.null,user_id.eq.${DEFAULT_USER_ID}`)
+    .or(`user_id.is.null,user_id.eq.${userId}`)
     .order('name', { ascending: true })
 
   if (error) {
@@ -58,6 +58,7 @@ export async function createFoodItem(input: {
   category?: string
   emoji?: string
 }): Promise<FoodItem> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('food_items')
     .insert({
@@ -70,7 +71,7 @@ export async function createFoodItem(input: {
       carbohydrates: input.carbohydrates,
       category: input.category ?? null,
       emoji: input.emoji ?? null,
-      user_id: DEFAULT_USER_ID,
+      user_id: userId,
     })
     .select()
     .single()

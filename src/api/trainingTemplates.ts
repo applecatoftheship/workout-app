@@ -1,5 +1,5 @@
-import { supabase } from './client'
-import { DEFAULT_USER_ID, fetchExercises } from './trainingLogs'
+import { getCurrentUserId, supabase } from './client'
+import { fetchExercises } from './trainingLogs'
 import type { DateString, ExerciseDefinition, TrainingTemplate, TrainingTemplateExercise } from '../types'
 
 type TrainingTemplateRow = {
@@ -40,10 +40,11 @@ function rowToTemplateExercise(
 }
 
 export async function fetchTrainingTemplates(): Promise<TrainingTemplate[]> {
+  const userId = await getCurrentUserId()
   const { data: templateRows, error: templateError } = await supabase
     .from('training_templates')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .order('created_at', { ascending: true })
 
   if (templateError) {
@@ -81,9 +82,10 @@ export async function fetchTrainingTemplates(): Promise<TrainingTemplate[]> {
 // 「実績記録時にその場でテンプレートを適用する」機能であり、テンプレート自体の
 // 作成・削除は別機能として今回新設する。
 export async function createTrainingTemplate(name: string, exerciseIds: string[]): Promise<void> {
+  const userId = await getCurrentUserId()
   const { data: insertedTemplate, error: templateError } = await supabase
     .from('training_templates')
-    .insert({ name, user_id: DEFAULT_USER_ID })
+    .insert({ name, user_id: userId })
     .select()
     .single()
 
@@ -97,6 +99,7 @@ export async function createTrainingTemplate(name: string, exerciseIds: string[]
     const { error: exercisesError } = await supabase.from('training_template_exercises').insert(
       exerciseIds.map((exerciseId, index) => ({
         template_id: templateId,
+        user_id: userId,
         exercise_id: exerciseId,
         order_index: index,
       })),
@@ -115,11 +118,12 @@ export async function createTrainingTemplate(name: string, exerciseIds: string[]
 // 全件diff同期のような危険なパターンではない。training_schedules.template_idの
 // 参照はtemplateId自体を変更しないため影響を受けない。
 export async function updateTrainingTemplate(templateId: string, name: string, exerciseIds: string[]): Promise<void> {
+  const userId = await getCurrentUserId()
   const { error: templateError } = await supabase
     .from('training_templates')
     .update({ name })
     .eq('id', templateId)
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
 
   if (templateError) {
     throw templateError
@@ -135,6 +139,7 @@ export async function updateTrainingTemplate(templateId: string, name: string, e
     const { error: exercisesError } = await supabase.from('training_template_exercises').insert(
       exerciseIds.map((exerciseId, index) => ({
         template_id: templateId,
+        user_id: userId,
         exercise_id: exerciseId,
         order_index: index,
       })),
@@ -151,7 +156,8 @@ export async function updateTrainingTemplate(templateId: string, name: string, e
 // CASCADEで自動削除され、既存のtraining_schedules.template_idを参照している
 // 予定はON DELETE SET NULLで参照のみが外れる（予定自体は消えない）。
 export async function deleteTrainingTemplate(id: string): Promise<void> {
-  const { error } = await supabase.from('training_templates').delete().eq('id', id).eq('user_id', DEFAULT_USER_ID)
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('training_templates').delete().eq('id', id).eq('user_id', userId)
 
   if (error) {
     throw error

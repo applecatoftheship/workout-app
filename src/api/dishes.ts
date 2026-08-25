@@ -1,6 +1,5 @@
-import { supabase } from './client'
+import { getCurrentUserId, supabase } from './client'
 import { fetchFoodItems } from './foodItems'
-import { DEFAULT_USER_ID } from './trainingLogs'
 import type { Dish, DishFoodItem, DishWithDetails, MealSize } from '../types'
 
 type DishRow = {
@@ -43,10 +42,11 @@ function rowToMealSize(row: MealSizeRow): MealSize {
 }
 
 export async function fetchDishesWithDetails(): Promise<DishWithDetails[]> {
+  const userId = await getCurrentUserId()
   const { data: dishRows, error: dishError } = await supabase
     .from('dishes')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .order('created_at', { ascending: true })
 
   if (dishError) {
@@ -108,9 +108,10 @@ export type DishItemInput = {
 }
 
 export async function createDish(name: string, items: DishItemInput[]): Promise<void> {
+  const userId = await getCurrentUserId()
   const { data: insertedDish, error: dishError } = await supabase
     .from('dishes')
-    .insert({ name, user_id: DEFAULT_USER_ID })
+    .insert({ name, user_id: userId })
     .select()
     .single()
 
@@ -120,10 +121,15 @@ export async function createDish(name: string, items: DishItemInput[]): Promise<
 
   const dishId = (insertedDish as DishRow).id
 
+  // dish_food_itemsのuser_id列にはDB側でDEFAULT_USER_ID相当のデフォルト値が
+  // 設定されているため、明示的に指定しなくてもエラーにはならない。ただし
+  // フェーズB移行後もそのデフォルト値は自動更新されないため、ここで明示的に
+  // 指定して依存を断つ（アカウント/ログイン機能フェーズA、2026年8月25日）。
   if (items.length > 0) {
     const { error: itemsError } = await supabase.from('dish_food_items').insert(
       items.map((item) => ({
         dish_id: dishId,
+        user_id: userId,
         food_item_id: item.foodItemId,
         amount: item.amount,
         unit: item.unit,
@@ -137,6 +143,7 @@ export async function createDish(name: string, items: DishItemInput[]): Promise<
 }
 
 export async function deleteDish(dishId: string): Promise<void> {
+  const userId = await getCurrentUserId()
   // user_idでの絞り込みは、RLSが全許可のためセキュリティ境界にはならないが、
   // アプリ側の誤操作（他ユーザーのIDを誤って渡すバグ等）を防ぐガードとして付与している
   // （技術的負債5番、2026年8月18日の調査を踏まえた対応）。
@@ -144,13 +151,13 @@ export async function deleteDish(dishId: string): Promise<void> {
     .from('dish_food_items')
     .delete()
     .eq('dish_id', dishId)
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
 
   if (itemsError) {
     throw itemsError
   }
 
-  const { error: dishError } = await supabase.from('dishes').delete().eq('id', dishId).eq('user_id', DEFAULT_USER_ID)
+  const { error: dishError } = await supabase.from('dishes').delete().eq('id', dishId).eq('user_id', userId)
 
   if (dishError) {
     throw dishError

@@ -1,6 +1,5 @@
-import { supabase } from './client'
+import { getCurrentUserId, supabase } from './client'
 import { fetchFoodItems } from './foodItems'
-import { DEFAULT_USER_ID } from './trainingLogs'
 import type { DateString, MealLog, MealLogFoodItem, MealType } from '../types'
 
 export type MealLogFoodItemInput = {
@@ -44,10 +43,11 @@ type MealLogFoodItemRow = {
 }
 
 export async function fetchMealLogs(): Promise<MealLog[]> {
+  const userId = await getCurrentUserId()
   const { data: logRows, error: logError } = await supabase
     .from('meal_logs')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .order('log_date', { ascending: true })
 
   if (logError) {
@@ -95,9 +95,10 @@ export async function fetchMealLogs(): Promise<MealLog[]> {
 }
 
 export async function upsertMealLog(input: MealLogInput): Promise<void> {
+  const userId = await getCurrentUserId()
   const { error: logError } = await supabase.from('meal_logs').upsert({
     id: input.id,
-    user_id: DEFAULT_USER_ID,
+    user_id: userId,
     log_date: input.date,
     meal_type: input.mealType,
     notes: input.notes ?? null,
@@ -115,9 +116,14 @@ export async function upsertMealLog(input: MealLogInput): Promise<void> {
   }
 
   if (input.items.length > 0) {
+    // meal_log_food_itemsのuser_id列にはDB側でDEFAULT_USER_ID相当のデフォルト値が
+    // 設定されているため、明示的に指定しなくてもエラーにはならない。ただし
+    // フェーズB移行後もそのデフォルト値は自動更新されないため、ここで明示的に
+    // 指定して依存を断つ（アカウント/ログイン機能フェーズA、2026年8月25日）。
     const { error: insertError } = await supabase.from('meal_log_food_items').insert(
       input.items.map((item) => ({
         meal_log_id: input.id,
+        user_id: userId,
         food_item_id: item.foodItemId,
         amount: item.amount,
         calories: item.calories,
@@ -134,7 +140,8 @@ export async function upsertMealLog(input: MealLogInput): Promise<void> {
 }
 
 export async function deleteMealLogRemote(id: string): Promise<void> {
-  const { error } = await supabase.from('meal_logs').delete().eq('id', id).eq('user_id', DEFAULT_USER_ID)
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('meal_logs').delete().eq('id', id).eq('user_id', userId)
 
   if (error) {
     throw error

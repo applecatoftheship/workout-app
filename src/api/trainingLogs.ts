@@ -1,7 +1,5 @@
-import { supabase } from './client'
+import { getCurrentUserId, supabase } from './client'
 import type { BodyPart, DateString, EquipmentType, ExerciseDefinition, TrainingLog, TrainingLogExercise, TrainingSet } from '../types'
-
-export const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002'
 
 // --- exercises (種目マスタ) ---
 
@@ -32,10 +30,11 @@ function rowToExerciseDefinition(row: ExerciseRow): ExerciseDefinition {
 // 種目選択UI（ExercisePicker等）からの通常呼び出しはfalse（デフォルト）のまま、
 // 削除済み種目を候補から除外する。
 export async function fetchExercises(options?: { includeDeleted?: boolean }): Promise<ExerciseDefinition[]> {
+  const userId = await getCurrentUserId()
   let query = supabase
     .from('exercises')
     .select('*')
-    .or(`is_preset.eq.true,user_id.eq.${DEFAULT_USER_ID}`)
+    .or(`is_preset.eq.true,user_id.eq.${userId}`)
     .order('name', { ascending: true })
 
   if (!options?.includeDeleted) {
@@ -67,6 +66,7 @@ export async function createExercise(input: {
   bodyPart: BodyPart
   equipmentType?: EquipmentType
 }): Promise<ExerciseDefinition> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('exercises')
     .insert({
@@ -74,7 +74,7 @@ export async function createExercise(input: {
       body_part: input.bodyPart,
       equipment_type: input.equipmentType ?? null,
       is_preset: false,
-      user_id: DEFAULT_USER_ID,
+      user_id: userId,
     })
     .select()
     .single()
@@ -158,10 +158,11 @@ function rowToTrainingLog(row: TrainingLogRow, exercises: TrainingLogExercise[])
 }
 
 export async function fetchTrainingLogs(): Promise<TrainingLog[]> {
+  const userId = await getCurrentUserId()
   const { data: logRows, error: logError } = await supabase
     .from('training_logs')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .order('log_date', { ascending: true })
 
   if (logError) {
@@ -201,12 +202,13 @@ export async function fetchTrainingLogs(): Promise<TrainingLog[]> {
 }
 
 export async function upsertTrainingLog(log: TrainingLog): Promise<void> {
+  const userId = await getCurrentUserId()
   const { data: upsertedLog, error: logError } = await supabase
     .from('training_logs')
     .upsert(
       {
         id: log.id,
-        user_id: DEFAULT_USER_ID,
+        user_id: userId,
         log_date: log.date,
         completed: log.completed,
         notes: log.notes ?? null,
@@ -232,11 +234,17 @@ export async function upsertTrainingLog(log: TrainingLog): Promise<void> {
     throw deleteExercisesError
   }
 
+  // training_log_exercises・training_setsのuser_id列にはDB側でDEFAULT_USER_ID
+  // 相当のデフォルト値が設定されているため、明示的に指定しなくてもエラーには
+  // ならない。ただしフェーズB移行後もそのデフォルト値は自動更新されないため、
+  // ここで明示的に指定して依存を断つ（アカウント/ログイン機能フェーズA、
+  // 2026年8月25日）。
   for (const [index, exercise] of log.exercises.entries()) {
     const { data: insertedExercise, error: exerciseInsertError } = await supabase
       .from('training_log_exercises')
       .insert({
         training_log_id: trainingLogId,
+        user_id: userId,
         exercise_id: exercise.exerciseId,
         order_index: exercise.orderIndex ?? index,
       })
@@ -251,6 +259,7 @@ export async function upsertTrainingLog(log: TrainingLog): Promise<void> {
       const { error: setsInsertError } = await supabase.from('training_sets').insert(
         exercise.sets.map((set) => ({
           training_log_exercise_id: (insertedExercise as TrainingLogExerciseRow).id,
+          user_id: userId,
           set_number: set.setNumber,
           weight: set.weight ?? null,
           reps: set.reps ?? null,
@@ -275,6 +284,7 @@ export type LatestExerciseRecord = {
 }
 
 export async function fetchLatestExerciseRecord(exerciseId: string): Promise<LatestExerciseRecord | null> {
+  const userId = await getCurrentUserId()
   const { data: exerciseRows, error: exerciseError } = await supabase
     .from('training_log_exercises')
     .select('id, training_log_id')
@@ -294,7 +304,7 @@ export async function fetchLatestExerciseRecord(exerciseId: string): Promise<Lat
   const { data: logRows, error: logError } = await supabase
     .from('training_logs')
     .select('id, log_date')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .in('id', trainingLogIds)
     .order('log_date', { ascending: false })
     .limit(1)
@@ -337,7 +347,8 @@ export async function fetchLatestExerciseRecord(exerciseId: string): Promise<Lat
 }
 
 export async function deleteTrainingLogRemote(id: string): Promise<void> {
-  const { error } = await supabase.from('training_logs').delete().eq('id', id).eq('user_id', DEFAULT_USER_ID)
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('training_logs').delete().eq('id', id).eq('user_id', userId)
 
   if (error) {
     throw error
@@ -350,7 +361,8 @@ export async function deleteTrainingLogRemote(id: string): Promise<void> {
 // アプリ側の誤操作（他ユーザーのIDを誤って渡すバグ等）を防ぐガードとして付与している
 // （技術的負債5番、2026年8月18日の調査を踏まえた対応）。
 export async function deleteTrainingLogExerciseRemote(id: string): Promise<void> {
-  const { error } = await supabase.from('training_log_exercises').delete().eq('id', id).eq('user_id', DEFAULT_USER_ID)
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('training_log_exercises').delete().eq('id', id).eq('user_id', userId)
 
   if (error) {
     throw error

@@ -1,5 +1,4 @@
-import { supabase } from './client'
-import { DEFAULT_USER_ID } from './trainingLogs'
+import { getCurrentUserId, supabase } from './client'
 import type { DateString, SoccerLog } from '../types'
 
 type SoccerLogRow = {
@@ -51,9 +50,9 @@ export type SoccerLogInput = {
   endTime?: string
 }
 
-function inputToRow(input: SoccerLogInput) {
+function inputToRow(input: SoccerLogInput, userId: string) {
   return {
-    user_id: DEFAULT_USER_ID,
+    user_id: userId,
     log_date: input.date,
     activity_type: input.activityType,
     training_menu: input.trainingMenu ?? null,
@@ -68,10 +67,11 @@ function inputToRow(input: SoccerLogInput) {
 }
 
 export async function fetchSoccerLogs(startDate: string, endDate: string): Promise<SoccerLog[]> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('soccer_logs')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .gte('log_date', startDate)
     .lte('log_date', endDate)
     .order('log_date', { ascending: true })
@@ -84,9 +84,10 @@ export async function fetchSoccerLogs(startDate: string, endDate: string): Promi
 }
 
 export async function createOrUpdateSoccerLog(input: SoccerLogInput): Promise<SoccerLog> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('soccer_logs')
-    .upsert(inputToRow(input), { onConflict: 'user_id,log_date' })
+    .upsert(inputToRow(input, userId), { onConflict: 'user_id,log_date' })
     .select()
     .single()
 

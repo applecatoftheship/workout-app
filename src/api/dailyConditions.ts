@@ -1,5 +1,4 @@
-import { supabase } from './client'
-import { DEFAULT_USER_ID } from './trainingLogs'
+import { getCurrentUserId, supabase } from './client'
 import type { DailyCondition, DateString, FatigueLevel, MuscleLocation, SorenessLevel } from '../types'
 
 type DailyConditionRow = {
@@ -31,10 +30,11 @@ function rowToDailyCondition(row: DailyConditionRow): DailyCondition {
 }
 
 export async function fetchRecentWeight(beforeDate: DateString): Promise<number | null> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('daily_conditions')
     .select('weight')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .lte('log_date', beforeDate)
     .order('log_date', { ascending: false })
     .limit(1)
@@ -48,10 +48,11 @@ export async function fetchRecentWeight(beforeDate: DateString): Promise<number 
 }
 
 export async function fetchDailyConditions(): Promise<DailyCondition[]> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('daily_conditions')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .order('log_date', { ascending: true })
 
   if (error) {
@@ -62,11 +63,12 @@ export async function fetchDailyConditions(): Promise<DailyCondition[]> {
 }
 
 export async function upsertDailyCondition(condition: DailyCondition): Promise<void> {
+  const userId = await getCurrentUserId()
   const { error } = await supabase
     .from('daily_conditions')
     .upsert(
       {
-        user_id: DEFAULT_USER_ID,
+        user_id: userId,
         log_date: condition.date,
         weight: condition.weight,
         sleep_hours: condition.sleepHours,

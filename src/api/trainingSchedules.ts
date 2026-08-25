@@ -1,5 +1,4 @@
-import { supabase } from './client'
-import { DEFAULT_USER_ID } from './trainingLogs'
+import { getCurrentUserId, supabase } from './client'
 import type { DateString, TrainingSchedule } from '../types'
 
 type TrainingScheduleRow = {
@@ -35,9 +34,9 @@ function rowToSchedule(row: TrainingScheduleRow): TrainingSchedule {
 
 type ScheduleInput = Omit<TrainingSchedule, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 
-function scheduleInputToRow(schedule: ScheduleInput) {
+function scheduleInputToRow(schedule: ScheduleInput, userId: string) {
   return {
-    user_id: DEFAULT_USER_ID,
+    user_id: userId,
     scheduled_date: schedule.scheduledDate,
     template_id: schedule.templateId ?? null,
     title: schedule.title,
@@ -49,10 +48,11 @@ function scheduleInputToRow(schedule: ScheduleInput) {
 }
 
 export async function fetchTrainingSchedules(startDate: string, endDate: string): Promise<TrainingSchedule[]> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('training_schedules')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .gte('scheduled_date', startDate)
     .lte('scheduled_date', endDate)
     .order('scheduled_date', { ascending: true })
@@ -65,9 +65,10 @@ export async function fetchTrainingSchedules(startDate: string, endDate: string)
 }
 
 export async function createSchedule(schedule: ScheduleInput): Promise<TrainingSchedule> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('training_schedules')
-    .insert(scheduleInputToRow(schedule))
+    .insert(scheduleInputToRow(schedule, userId))
     .select()
     .single()
 
@@ -83,9 +84,10 @@ export async function bulkCreateSchedules(schedules: ScheduleInput[]): Promise<T
     return []
   }
 
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('training_schedules')
-    .insert(schedules.map(scheduleInputToRow))
+    .insert(schedules.map((schedule) => scheduleInputToRow(schedule, userId)))
     .select()
 
   if (error) {
@@ -123,10 +125,11 @@ export async function deleteSchedule(id: string): Promise<void> {
 }
 
 export async function deleteSchedulesInRange(startDate: string, endDate: string): Promise<void> {
+  const userId = await getCurrentUserId()
   const { error } = await supabase
     .from('training_schedules')
     .delete()
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .gte('scheduled_date', startDate)
     .lte('scheduled_date', endDate)
 
@@ -136,10 +139,11 @@ export async function deleteSchedulesInRange(startDate: string, endDate: string)
 }
 
 export async function completeScheduleForDate(date: string, templateId?: string): Promise<void> {
+  const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('training_schedules')
     .select('*')
-    .eq('user_id', DEFAULT_USER_ID)
+    .eq('user_id', userId)
     .eq('scheduled_date', date)
     .eq('status', 'scheduled')
     .order('created_at', { ascending: true })
