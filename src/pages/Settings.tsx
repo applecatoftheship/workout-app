@@ -133,7 +133,8 @@ export function Settings({
                 key={preset.name}
                 className="settings-accent-swatch"
                 style={{ background: preset.color }}
-                title={preset.name}
+                title={`${preset.name}（選択機能は未実装です）`}
+                aria-disabled="true"
               />
             ))}
           </div>

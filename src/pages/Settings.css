@@ -77,6 +77,12 @@
   border-radius: var(--radius-pill);
   border: 2px solid var(--color-bg-surface);
   box-shadow: 0 0 0 1px var(--color-border);
+  /* UI/UXレビュー修正 項目2（2026年8月25日）：選択機能が未実装のため、実際の
+     プリセット色をそのまま表示するとタップ可能に見えてしまう。彩度・不透明度を
+     落として無効状態であることを視覚的に示す。 */
+  filter: grayscale(1);
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .toggle-switch {
