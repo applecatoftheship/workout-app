@@ -1,12 +1,13 @@
 // 一時的：backup_*テーブルの棚卸し用エンドポイント（読み取り専用）。
-// バックアップテーブル削除SQL準備のため、実在するテーブル名と対応する
-// 本体テーブルの件数を正確に取得する目的。確認後にこのファイルごと削除する。
+// バックアップテーブル削除SQL準備のため、実際に存在するbackup_*テーブルと
+// 対応する本体テーブルの件数を確認する目的。確認後にこのファイルを削除する。
 //
 // PostgRESTはinformation_schemaを直接公開していないため、information_schema
 // への問い合わせではなく、フェーズBのSTEP 1（20260825010000_phase_b_auth_cutover_
 // DRAFT.sql）で実際にCREATE TABLEした15テーブル分の候補名を直接probeし、
 // 実在するものだけを結果に含める方式にした（推測ではなく実際にDBへ
-// アクセスして存在確認する）。
+// アクセスして存在確認する）。エラーコード（42P01=テーブル未存在 /
+// 42501=権限不足で存在有無を判定できず）を区別して報告する。
 import { createClient } from '@supabase/supabase-js'
 
 const TEST_TOKEN = 'a7f3c9e1-verify-2026-08-25-backup-audit'
@@ -49,29 +50,29 @@ export default async function handler(
   const results: {
     backupTable: string
     sourceTable: string
-    backupExists: boolean
     backupCount: number | null
+    backupErrorCode: string | null
+    backupErrorMessage: string | null
     sourceCount: number | null
-    error: string | null
+    sourceErrorCode: string | null
+    sourceErrorMessage: string | null
   }[] = []
 
   for (const sourceTable of CANDIDATE_TABLES) {
     const backupTable = `backup_${sourceTable}`
 
     const backupResult = await supabase.from(backupTable).select('*', { count: 'exact', head: true })
-    const backupExists = !backupResult.error
-    const backupCount = backupExists ? (backupResult.count ?? null) : null
-
     const sourceResult = await supabase.from(sourceTable).select('*', { count: 'exact', head: true })
-    const sourceCount = sourceResult.error ? null : (sourceResult.count ?? null)
 
     results.push({
       backupTable,
       sourceTable,
-      backupExists,
-      backupCount,
-      sourceCount,
-      error: backupExists ? (sourceResult.error ? sourceResult.error.message : null) : (backupResult.error?.message ?? null),
+      backupCount: backupResult.error ? null : (backupResult.count ?? null),
+      backupErrorCode: backupResult.error?.code ?? null,
+      backupErrorMessage: backupResult.error?.message ?? null,
+      sourceCount: sourceResult.error ? null : (sourceResult.count ?? null),
+      sourceErrorCode: sourceResult.error?.code ?? null,
+      sourceErrorMessage: sourceResult.error?.message ?? null,
     })
   }
 
