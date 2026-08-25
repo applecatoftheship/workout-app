@@ -191,7 +191,10 @@ export interface SoccerLog extends BaseRecord {
 
 // プッシュ通知機能（2026年8月24日）。ブラウザ標準のNotification型と衝突しない
 // よう、アプリ側のドメイン型はAppNotificationという名前にしている。
-export type NotificationType = 'acwr_danger' | 'streak_broken';
+// 週次ACWRインサイト機能（2026年8月25日）：'weekly_acwr_report'を追加。
+// notificationsテーブルのtype列にCHECK制約が存在するかはsql-migrations.mdに
+// 当該テーブルの作成SQLの記録が無く未確認（実装指示書の完了報告で報告済み）。
+export type NotificationType = 'acwr_danger' | 'streak_broken' | 'weekly_acwr_report';
 
 export interface AppNotification extends BaseRecord {
   deviceId: string;

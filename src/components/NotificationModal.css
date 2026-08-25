@@ -97,6 +97,11 @@
   border-color: transparent;
 }
 
+.notification-modal__item--unread.notification-modal__item--info {
+  background: var(--color-accent-soft);
+  border-color: transparent;
+}
+
 .notification-modal__item-head {
   display: flex;
   align-items: baseline;

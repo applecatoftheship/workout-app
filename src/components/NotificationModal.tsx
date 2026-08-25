@@ -5,9 +5,16 @@ import './NotificationModal.css'
 // プッシュ通知機能 Phase 1b（2026年8月24日）。通知の一覧表示・既読化のみを行う
 // 読み取り中心のモーダル（DailyReportModal.tsxと同じ構造パターンを踏襲）。
 
-const TYPE_TONE: Record<AppNotification['type'], 'danger' | 'warning'> = {
+// 週次ACWRインサイト機能（2026年8月25日）：weekly_acwr_reportは実装指示書の
+// 5区分（最適〜危険）のいずれの重症度でも同一のNotificationType値で送信される
+// ため、acwr_danger/streak_brokenのような「型＝常に警戒色」という前提が成立しない
+// （AppNotificationはtier別の値を保持していないため、DB上のtypeだけでは区別できない）。
+// 誤って常時danger/warning色にすると好調な週次レポートまで警告色になってしまうため、
+// 中立トーン（info）を新設した。
+const TYPE_TONE: Record<AppNotification['type'], 'danger' | 'warning' | 'info'> = {
   acwr_danger: 'danger',
   streak_broken: 'warning',
+  weekly_acwr_report: 'info',
 }
 
 function formatNotificationTime(createdAt: string) {
