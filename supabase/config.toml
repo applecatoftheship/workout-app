@@ -218,7 +218,10 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = true
+# アカウント/ログイン機能（2026年8月25日）：単一ユーザー保護のための認証導入に伴い、
+# サインアップ導線は設けない方針（指示書確定事項）のためfalseに変更した。本番反映は
+# 別途フェーズBでJohnさんの手動操作またはsupabase config push（要supabase link）で行う。
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
