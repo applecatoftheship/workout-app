@@ -8,6 +8,10 @@ import { useConfirm } from '../../hooks/useConfirm'
 
 const MUSCLE_LOCATIONS: MuscleLocation[] = ['none', 'calf_l', 'calf_r', 'hamstring', 'quad', 'groin', 'other']
 const SORENESS_LEVELS: SorenessLevel[] = ['none', 'mild', 'severe']
+// UI/UXレビュー修正 項目9（2026年8月25日）：疲労度入力を<select>から、
+// 局所疲労関連項目（MUSCLE_LOCATIONS/SORENESS_LEVELS）と同じチップ型
+// ボタンUIに統一。保存値の範囲（1〜5のFatigueLevel）は変更しない。
+const FATIGUE_LEVELS: FatigueLevel[] = [1, 2, 3, 4, 5]
 
 type ConditionFormState = {
   weight: string
@@ -270,21 +274,24 @@ export function ConditionForm({
             />
             {conditionFormErrors.sleepHours ? <p className="calendar-detail__error">{conditionFormErrors.sleepHours}</p> : null}
           </label>
-          <label className="calendar-detail__field">
+          <div className="calendar-detail__field calendar-detail__field--full">
             <span>疲労度</span>
-            <select
-              value={conditionFormState.fatigue}
-              onChange={(event) => handleConditionFieldChange('fatigue', event.target.value as FatigueLevel | '')}
-            >
-              <option value="">選択してください</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-            </select>
+            <div className="calendar-detail__category-filter">
+              {FATIGUE_LEVELS.map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={`calendar-detail__category-chip${
+                    conditionFormState.fatigue === level ? ' calendar-detail__category-chip--active' : ''
+                  }`}
+                  onClick={() => handleConditionFieldChange('fatigue', level)}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
             {conditionFormErrors.fatigue ? <p className="calendar-detail__error">{conditionFormErrors.fatigue}</p> : null}
-          </label>
+          </div>
           <div className="calendar-detail__field calendar-detail__field--full">
             <span>局所疲労・張りの部位</span>
             <div className="calendar-detail__category-filter">
