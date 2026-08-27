@@ -189,6 +189,24 @@ export interface SoccerLog extends BaseRecord {
   endTime?: string;
 }
 
+// Apple Health連携（2026年8月27日）：workoutsテーブルに対応する型。
+// api/sync-apple-health.tsが自動登録する行と、将来の手動登録行の両方を表す。
+// 手動データが自動データに統合された際、統合済みの手動レコードはisPrimaryが
+// falseになる（アプリ側の一覧表示はisPrimary=trueの行のみを対象とする）。
+export interface Workout extends BaseRecord {
+  userId?: string;
+  externalId?: string;
+  activityType: string;
+  startTime: string;
+  endTime?: string;
+  durationSeconds?: number;
+  distanceMeters?: number;
+  activeCalories?: number;
+  avgHeartRate?: number;
+  isPrimary: boolean;
+  notes?: string;
+}
+
 // プッシュ通知機能（2026年8月24日）。ブラウザ標準のNotification型と衝突しない
 // よう、アプリ側のドメイン型はAppNotificationという名前にしている。
 // 週次ACWRインサイト機能（2026年8月25日）：'weekly_acwr_report'を追加。

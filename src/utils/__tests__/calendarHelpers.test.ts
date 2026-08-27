@@ -11,6 +11,7 @@ import {
   getMealTypeLabel,
   getScheduleIcon,
   toDateKey,
+  toJstDateKeyFromIso,
 } from '../calendarHelpers'
 import type { DailyCondition, SoccerLog, TrainingLogExercise, TrainingSchedule } from '../../types'
 
@@ -18,6 +19,22 @@ describe('toDateKey', () => {
   it('year/month/dayをゼロ埋めしたYYYY-MM-DDにする', () => {
     expect(toDateKey(2026, 8, 3)).toBe('2026-08-03')
     expect(toDateKey(2026, 12, 31)).toBe('2026-12-31')
+  })
+})
+
+describe('toJstDateKeyFromIso', () => {
+  it('UTC深夜帯のISO文字列はJSTでは翌日の暦日になる', () => {
+    // UTC 2026-08-26T15:30:00Z = JST 2026-08-27T00:30:00+09:00
+    expect(toJstDateKeyFromIso('2026-08-26T15:30:00Z')).toBe('2026-08-27')
+  })
+
+  it('JSTオフセット付きのISO文字列はそのままの暦日になる', () => {
+    expect(toJstDateKeyFromIso('2026-08-27T07:00:00+09:00')).toBe('2026-08-27')
+  })
+
+  it('日付が変わらない時間帯はそのままの暦日になる', () => {
+    // UTC 2026-08-27T01:00:00Z = JST 2026-08-27T10:00:00+09:00
+    expect(toJstDateKeyFromIso('2026-08-27T01:00:00Z')).toBe('2026-08-27')
   })
 })
 

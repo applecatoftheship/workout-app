@@ -8,6 +8,24 @@ export function toDateKey(year: number, month: number, day: number): DateString 
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` as DateString
 }
 
+// Apple Health連携（2026年8月27日）：workouts.start_time等のtimestamptz（ISO 8601
+// 文字列）から、JST基準の暦日（YYYY-MM-DD）を求める。api/sync-apple-health.tsの
+// toJstDateKeyと同じ換算方式（Asia/Tokyoタイムゾーンでフォーマット）だが、
+// あちらはサーバー側（api/）専用ファイルのためimportせず、同じロジックを
+// クライアント側ユーティリティとしてこちらに個別実装している。
+export function toJstDateKeyFromIso(isoString: string): DateString {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(isoString))
+  const year = parts.find((part) => part.type === 'year')?.value
+  const month = parts.find((part) => part.type === 'month')?.value
+  const day = parts.find((part) => part.type === 'day')?.value
+  return `${year}-${month}-${day}` as DateString
+}
+
 export function formatMonthLabel(date: Date) {
   return new Intl.DateTimeFormat('ja-JP', {
     year: 'numeric',

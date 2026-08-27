@@ -1,5 +1,6 @@
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../../types'
-import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel } from '../../utils/calendarHelpers'
+import { useState } from 'react'
+import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
+import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel, toJstDateKeyFromIso } from '../../utils/calendarHelpers'
 
 /**
  * カレンダー構造変更・記録モーダル・トレーニング刷新 実装指示書 Phase C（2026年8月16日）
@@ -248,6 +249,70 @@ export function SoccerSummary({ soccerLogs, selectedDate, onAdd, onEdit }: Socce
         </div>
       ) : (
         <p className="calendar-detail__empty">⚽ まだサッカー記録がありません</p>
+      )}
+    </div>
+  )
+}
+
+// Apple Health連携 Task3（2026年8月27日）：読み取り専用のワークアウト一覧。
+// 他のSummaryと異なりonAdd/onEditを持たない（手動での追加・編集UIは今回の
+// スコープ外、api/sync-apple-health.ts経由での自動登録のみ）。1日に複数件
+// 持ちうるため、SoccerSummary（1日1件前提のfind）ではなくTrainingSummaryの
+// mapパターンを踏襲している。
+function formatJstTime(isoString: string): string {
+  return new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false }).format(
+    new Date(isoString),
+  )
+}
+
+type WorkoutSummaryProps = {
+  workouts: Workout[]
+  selectedDate: DateString
+}
+
+export function WorkoutSummary({ workouts, selectedDate }: WorkoutSummaryProps) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const dayWorkouts = workouts.filter((workout) => toJstDateKeyFromIso(workout.startTime) === selectedDate)
+
+  return (
+    <div className="calendar-detail__section">
+      <div className="calendar-detail__section-header">
+        <h4>ワークアウト</h4>
+      </div>
+      {dayWorkouts.length > 0 ? (
+        <div className="calendar-detail__log-list">
+          {dayWorkouts.map((workout) => {
+            const isExpanded = workout.id != null && expandedId === workout.id
+            return (
+              <button
+                type="button"
+                key={workout.id ?? workout.startTime}
+                className="calendar-detail__item workout-summary__item"
+                onClick={() => setExpandedId(isExpanded ? null : workout.id ?? null)}
+              >
+                <div className="workout-summary__head">
+                  <span>🏃 {workout.activityType}</span>
+                  {workout.externalId ? <span className="workout-summary__watch-badge">⌚ Watch</span> : null}
+                </div>
+                <p className="calendar-detail__description">
+                  {workout.durationSeconds != null ? `${Math.round(workout.durationSeconds / 60)}分` : ''}
+                  {workout.distanceMeters != null ? ` / ${(workout.distanceMeters / 1000).toFixed(2)}km` : ''}
+                  {workout.activeCalories != null ? ` / ${Math.round(workout.activeCalories)}kcal` : ''}
+                  {workout.avgHeartRate != null ? ` / 平均心拍 ${Math.round(workout.avgHeartRate)}bpm` : ''}
+                </p>
+                {workout.notes ? <p className="calendar-detail__description">メモ: {workout.notes}</p> : null}
+                {isExpanded && workout.externalId ? (
+                  <p className="workout-summary__auto-note">
+                    Apple Watchワークアウトにより自動記録（{formatJstTime(workout.startTime)}
+                    {workout.endTime ? `〜${formatJstTime(workout.endTime)}` : ''}）
+                  </p>
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="calendar-detail__empty">🏃 まだワークアウト記録がありません</p>
       )}
     </div>
   )

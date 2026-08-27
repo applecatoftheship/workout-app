@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DailyCondition, DateString, FatigueLevel, MuscleLocation, SorenessLevel } from '../../types'
-import { formatConditionSummary } from '../../utils/calendarHelpers'
+import { formatConditionSummary, toDateKey } from '../../utils/calendarHelpers'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../../utils/acwrHelpers'
 import { deleteDailyConditionRemote, fetchDailyConditions, fetchRecentWeight, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
@@ -74,6 +74,16 @@ export function ConditionForm({
   // fetchRecentWeightパターンを踏襲する。
   const [recentWeight, setRecentWeight] = useState<number | null>(null)
 
+  // Apple Health連携 Task3（2026年8月27日）：睡眠時間の「自動同期」バッジ。
+  // DBには由来（Apple Health経由か手入力か）を記録する列が無いため、正確な
+  // 判別はできない。「今日」の記録を開いた時点で既にsleep_hoursに値が
+  // 入っていれば自動同期由来とみなし、ユーザーが数値欄を変更した瞬間に
+  // バッジを引っ込める、という画面ローカルの近似実装にとどめている
+  // （DBへの永続化は行わない）。過去日は自動同期由来かどうか判別する手段が
+  // 無いため、バッジ自体を出さない。
+  const [isTodayAutoSyncedSleep, setIsTodayAutoSyncedSleep] = useState(false)
+  const [sleepHoursEdited, setSleepHoursEdited] = useState(false)
+
   useEffect(() => {
     fetchRecentWeight(selectedDate)
       .then(setRecentWeight)
@@ -120,6 +130,12 @@ export function ConditionForm({
     )
     setConditionFormErrors(createEmptyConditionFormErrors())
     setConditionFormSummaryError(null)
+
+    const now = new Date()
+    const todayKey = toDateKey(now.getFullYear(), now.getMonth() + 1, now.getDate())
+    setIsTodayAutoSyncedSleep(selectedDate === todayKey && !!existingCondition && existingCondition.sleepHours > 0)
+    setSleepHoursEdited(false)
+
     setIsFormOpen(false)
     setIsMealFormOpen(false)
     setIsConditionFormOpen(true)
@@ -129,6 +145,9 @@ export function ConditionForm({
     field: keyof ConditionFormState,
     value: string | FatigueLevel | MuscleLocation | SorenessLevel | '',
   ) => {
+    if (field === 'sleepHours') {
+      setSleepHoursEdited(true)
+    }
     setConditionFormState((current) => ({ ...current, [field]: value }))
   }
 
@@ -262,7 +281,14 @@ export function ConditionForm({
             {conditionFormErrors.weight ? <p className="calendar-detail__error">{conditionFormErrors.weight}</p> : null}
           </label>
           <label className="calendar-detail__field">
-            <span>睡眠時間 (時間)</span>
+            <span>
+              睡眠時間 (時間)
+              {isTodayAutoSyncedSleep && !sleepHoursEdited ? (
+                <span className="condition-form__sleep-badge condition-form__sleep-badge--synced">自動同期</span>
+              ) : isTodayAutoSyncedSleep && sleepHoursEdited ? (
+                <span className="condition-form__sleep-badge condition-form__sleep-badge--edited">編集済み</span>
+              ) : null}
+            </span>
             <input
               type="number"
               min="0"

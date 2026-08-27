@@ -177,6 +177,27 @@
   font-weight: 500;
 }
 
+/* Apple Health連携 Task3（2026年8月27日）：睡眠時間欄の「自動同期」/「編集済み」バッジ */
+.condition-form__sleep-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+}
+
+.condition-form__sleep-badge--synced {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.condition-form__sleep-badge--edited {
+  background: var(--color-bg-base);
+  color: var(--color-text-muted);
+}
+
 .calendar-detail__field input,
 .calendar-detail__field select,
 .calendar-detail__field textarea {

@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../types'
+import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../types'
 import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
-import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, SoccerSummary } from '../components/calendar/CalendarDaySummaries'
+import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, SoccerSummary, WorkoutSummary } from '../components/calendar/CalendarDaySummaries'
 import { BulkScheduleImportModal } from '../components/calendar/BulkScheduleImportModal'
 import { DailyReportModal } from '../components/calendar/DailyReportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
+import { fetchWorkouts } from '../api/workouts'
 import { weekDays, toDateKey, formatMonthLabel, getScheduleIcon, buildActivityByDate, getCalendarCellState } from '../utils/calendarHelpers'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import type { RecordModalRequest } from '../components/RecordFormModal'
 
-type DetailTab = 'training' | 'schedule' | 'condition' | 'meal' | 'soccer'
-const DETAIL_TABS: DetailTab[] = ['training', 'schedule', 'condition', 'meal', 'soccer']
+type DetailTab = 'training' | 'schedule' | 'condition' | 'meal' | 'soccer' | 'workout'
+const DETAIL_TABS: DetailTab[] = ['training', 'schedule', 'condition', 'meal', 'soccer', 'workout']
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 type MonthlyCalendarProps = {
@@ -62,6 +63,7 @@ export function MonthlyCalendar({
   const [isDailyReportOpen, setIsDailyReportOpen] = useState(false)
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
   const [soccerLogs, setSoccerLogs] = useState<SoccerLog[]>([])
+  const [workouts, setWorkouts] = useState<Workout[]>([])
 
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
@@ -154,6 +156,31 @@ export function MonthlyCalendar({
       })
       .catch((error) => {
         console.error('Supabaseからサッカー記録の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [scheduleRangeStart, scheduleRangeEnd])
+
+  // Apple Health連携 Task3（2026年8月27日）：読み取り専用のためRecordFormModal
+  // 経由の書き込みが無く、schedules/soccerLogsのような「モーダルを閉じたら
+  // 再取得」の仕組みは不要（範囲変更時のみ取得すれば十分）。
+  useEffect(() => {
+    if (!scheduleRangeStart || !scheduleRangeEnd) {
+      return
+    }
+
+    let isMounted = true
+
+    fetchWorkouts(scheduleRangeStart, scheduleRangeEnd)
+      .then((data) => {
+        if (isMounted) {
+          setWorkouts(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseからワークアウト記録の取得に失敗しました', error)
       })
 
     return () => {
@@ -372,6 +399,13 @@ export function MonthlyCalendar({
               >
                 サッカー
               </button>
+              <button
+                type="button"
+                className={`calendar-detail__tab ${activeDetailTab === 'workout' ? 'calendar-detail__tab--active' : ''}`}
+                onClick={() => setActiveDetailTab('workout')}
+              >
+                ワークアウト
+              </button>
             </div>
           </div>
 
@@ -430,6 +464,8 @@ export function MonthlyCalendar({
               onEdit={() => openRecordModal({ type: 'soccer', date: selectedDate })}
             />
           ) : null}
+
+          {activeDetailTab === 'workout' ? <WorkoutSummary workouts={workouts} selectedDate={selectedDate} /> : null}
         </div>
       </div>
 
