@@ -119,7 +119,13 @@ async function handleWorkout(supabase: SupabaseClient, userId: string, payload: 
 
   if (manualMatch) {
     const nextNotes = manualMatch.notes ? `${manualMatch.notes}\n[自動連携により統合]` : '[自動連携により統合]'
-    const { error: updateError } = await supabase.from('workouts').update({ notes: nextNotes, updated_at: new Date().toISOString() }).eq('id', manualMatch.id)
+    // is_primaryは自動データ側（このあとupsertする新規行）だけがtrueになるよう、
+    // 統合される手動データ側は同じUPDATEでfalseに落とす（1ワークアウトにつき
+    // is_primary: trueが常に1件になるようにするための修正、2026年8月27日）。
+    const { error: updateError } = await supabase
+      .from('workouts')
+      .update({ notes: nextNotes, is_primary: false, updated_at: new Date().toISOString() })
+      .eq('id', manualMatch.id)
     if (updateError) {
       throw updateError
     }
