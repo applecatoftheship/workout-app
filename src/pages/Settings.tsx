@@ -105,7 +105,7 @@ export function Settings({
         <div className="settings-profile__avatar">👤</div>
         <div>
           <p className="settings-profile__name">ゲストユーザー</p>
-          <p className="settings-profile__meta">年齢: 未設定 ／ 身長: 未設定 ／ ポジション: 未設定</p>
+          <p className="settings-profile__meta">年齢: 未設定 ／ 身長: 未設定</p>
         </div>
       </section>
 
