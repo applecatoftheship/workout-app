@@ -15,6 +15,25 @@ import type { AvatarType, DateString, Profile } from '../types'
 // 既に多用している慣習にも合わせている）。
 const PRESET_AVATARS = ['👤', '🏃', '🏋️', '⚽', '🚴', '🧘', '🥊', '🏊', '🎽', '💪']
 
+// 【原因究明のための一時対応、2026年8月27日】写真アップロード・プロフィール
+// 保存の両方で汎用エラー文言しか表示されず原因の切り分けができなかったため、
+// api/sync-apple-health.tsで行ったのと同様に、Supabase/PostgREST/Storageの
+// エラーオブジェクトからmessage（無ければJSON文字列化）を取り出してUIに
+// 表示する。原因が特定でき安定稼働を確認できたら撤去し、汎用文言のみに戻すこと。
+function describeError(error: unknown): string {
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
 type UserProfileProps = {
   profile: Profile | null
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>
@@ -80,7 +99,9 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
       setAvatarValue(publicUrl)
     } catch (error) {
       console.error('アバター画像のアップロードに失敗しました', error)
-      showToast('画像のアップロードに失敗しました。もう一度お試しください', 'error')
+      // 【原因究明のための一時対応、2026年8月27日】原因が特定でき安定稼働を
+      // 確認できたら、詳細メッセージの表示は取りやめて汎用文言のみに戻すこと。
+      showToast(`画像のアップロードに失敗しました: ${describeError(error)}`, 'error')
     } finally {
       setIsUploadingAvatar(false)
     }
@@ -117,7 +138,9 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
       showToast('プロフィールを保存しました', 'success')
     } catch (error) {
       console.error('プロフィールの保存に失敗しました', error)
-      showToast('保存に失敗しました。もう一度お試しください', 'error')
+      // 【原因究明のための一時対応、2026年8月27日】原因が特定でき安定稼働を
+      // 確認できたら、詳細メッセージの表示は取りやめて汎用文言のみに戻すこと。
+      showToast(`保存に失敗しました: ${describeError(error)}`, 'error')
     } finally {
       setIsSaving(false)
     }
