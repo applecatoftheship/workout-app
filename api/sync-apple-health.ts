@@ -281,7 +281,8 @@ export default async function handler(
   try {
     payload = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Record<string, unknown> | null | undefined
   } catch (parseError) {
-    res.status(400).json({ error: 'invalid JSON body', message: parseError instanceof Error ? parseError.message : String(parseError) })
+    console.error('Apple Health同期リクエストのJSONパースに失敗しました', parseError)
+    res.status(400).json({ error: 'invalid JSON body' })
     return
   }
 
@@ -305,25 +306,15 @@ export default async function handler(
     res.status(200).json({ ok: true, type: 'workout', ...result })
   } catch (error) {
     if (error instanceof ValidationError) {
-      res.status(400).json({ error: 'validation failed', message: error.message })
+      console.error('Apple Health同期リクエストのバリデーションに失敗しました', error)
+      res.status(400).json({ error: 'invalid payload' })
       return
     }
 
+    // 原因究明のための一時的な詳細エラーレスポンス（message/details/hint/code）は
+    // Apple Health連携の稼働が安定したため撤去し、本来の汎用レスポンスに戻した
+    // （2026年8月27日）。詳細はVercelのサーバーログ（console.error）側で確認する。
     console.error('Apple Health同期処理に失敗しました', error)
-    // 【2026年8月27日、原因究明のための一時対応】従来は{"error":"sync failed"}の
-    // みを返しクライアント側で原因の切り分けができなかったため、Supabase/
-    // PostgRESTのエラー詳細（message/details/hint/code）を一時的にそのまま
-    // レスポンスへ含めるようにした。原因が確定し安定稼働を確認できたら、
-    // 詳細情報の返却は取りやめて{"error":"sync failed"}のみに戻すことを推奨する
-    // （このエンドポイントはx-webhook-secretで保護されているとはいえ、内部の
-    // エラー詳細を外部レスポンスに含め続けるのが望ましいとは言えないため）。
-    const supabaseError = error as { message?: string; details?: string; hint?: string; code?: string } | null
-    res.status(500).json({
-      error: 'sync failed',
-      message: supabaseError?.message ?? (error instanceof Error ? error.message : String(error)),
-      details: supabaseError?.details ?? null,
-      hint: supabaseError?.hint ?? null,
-      code: supabaseError?.code ?? null,
-    })
+    res.status(500).json({ error: 'sync failed' })
   }
 }
