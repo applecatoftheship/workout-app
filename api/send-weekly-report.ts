@@ -21,7 +21,7 @@ import webpush from 'web-push'
 import { calculateACWR, getACWRInsight } from '../src/utils/acwrHelpers.js'
 import { shouldCreateNotification } from '../src/utils/notificationHelpers.js'
 import type { ACWRInsightTier } from '../src/utils/acwrHelpers.js'
-import type { DailyCondition, DateString, SoccerLog, TrainingLog } from '../src/types.js'
+import type { DailyCondition, DateString, SoccerLog, TrainingLog, Workout } from '../src/types.js'
 
 function todayInJst(): DateString {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -148,6 +148,24 @@ async function fetchDailyConditions(supabase: SupabaseClient, userId: string): P
   }))
 }
 
+// Apple Health連携（2026年8月27日）：ACWRの負荷計算にワークアウト（距離のみ）を
+// 組み込むための取得関数。api/send-reminder.tsと同一内容（両ファイルとも
+// データ取得ヘルパーを個別に持つ既存パターンを踏襲）。
+async function fetchWorkoutsForAcwr(supabase: SupabaseClient, userId: string): Promise<Workout[]> {
+  const { data, error } = await supabase
+    .from('workouts')
+    .select('start_time, distance_meters, is_primary')
+    .eq('user_id', userId)
+    .eq('is_primary', true)
+  if (error) throw error
+
+  return (data as unknown as { start_time: string; distance_meters: number | null; is_primary: boolean }[]).map((row) => ({
+    startTime: row.start_time,
+    distanceMeters: row.distance_meters ?? undefined,
+    isPrimary: row.is_primary,
+  }))
+}
+
 // 実装指示書の5区分の文言をそのまま使用。getACWRInsight（acwrHelpers.ts）の
 // tierと対応させ、数値算出・帯域判定ロジック自体はacwrHelpers.tsを再利用する。
 function buildWeeklyReportMessage(acwr: number): { title: string; message: string } {
@@ -265,14 +283,23 @@ export default async function handler(req: { headers: Record<string, string | st
   const resultByUser: Record<string, { acwr: number; tier: string } | { skipped: string }> = {}
 
   for (const [userId, subscriptions] of subscriptionsByUser) {
-    const [trainingLogs, soccerLogs, dailyConditions] = await Promise.all([
+    const [trainingLogs, soccerLogs, dailyConditions, workouts] = await Promise.all([
       fetchTrainingLogsForAcwr(supabase, userId),
       fetchSoccerLogsForAcwr(supabase, userId),
       fetchDailyConditions(supabase, userId),
+      fetchWorkoutsForAcwr(supabase, userId),
     ])
 
     const todayCondition = dailyConditions.find((condition) => condition.date === targetDate)
-    const result = calculateACWR(trainingLogs, soccerLogs, targetDate, todayCondition?.muscleSorenessLevel, todayCondition?.muscleSorenessLocation)
+    const result = calculateACWR(
+      trainingLogs,
+      soccerLogs,
+      targetDate,
+      todayCondition?.muscleSorenessLevel,
+      todayCondition?.muscleSorenessLocation,
+      workouts,
+      dailyConditions,
+    )
 
     // フォールバック処理：データ不足（7日未満）でACWRが算出できないユーザーは
     // 送信すべき内容が無いため、そのユーザーだけスキップして次のユーザーへ進む。

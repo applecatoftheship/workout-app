@@ -1,9 +1,16 @@
-import type { ACWRResult, DailyCondition, DateString, MuscleLocation, SoccerLog, SorenessLevel, TrainingLog } from '../types.js'
+import type { ACWRResult, DailyCondition, DateString, MuscleLocation, SoccerLog, SorenessLevel, TrainingLog, Workout } from '../types.js'
 
 // 運動負荷の正規化定数（将来的なチューニングに対応できるよう分離）
 export const GYM_VOLUME_DIVISOR = 100 // 筋トレ総挙上量(kg) → 負荷スコア換算
 export const SOCCER_CALORIE_DIVISOR = 8 // サッカー消費カロリー(kcal) → 負荷スコア換算
 export const MAX_SINGLE_LOAD_SCORE = 100 // 単一アクティビティの最大スコア上限
+
+// Apple Health連携（2026年8月27日）：ワークアウト（Apple Watch自動記録）の
+// 負荷換算に使う定数。実装指示書の式：
+//   推定消費カロリー(kcal) = 体重(kg) × (distance_meters ÷ 1000) × WORKOUT_CALORIE_FACTOR
+//   ワークアウトの負荷 = 推定消費カロリー ÷ SOCCER_CALORIE_DIVISOR（サッカーと同じ換算係数）
+export const WORKOUT_CALORIE_FACTOR = 1.0 // 体重(kg)×距離(km)あたりの推定消費カロリー係数
+export const DEFAULT_WEIGHT_KG = 70 // 体重記録が無い日・ユーザーの場合のフォールバック
 
 const ACUTE_WINDOW_DAYS = 7
 const CHRONIC_WINDOW_DAYS = 28
@@ -32,6 +39,46 @@ export function toDateKey(date: Date): DateString {
   return `${year}-${month}-${day}` as DateString
 }
 
+// Apple Health連携（2026年8月27日）：workouts.startTime（timestamptz）から
+// JST基準の暦日を求める。src/utils/calendarHelpers.tsのtoJstDateKeyFromIsoと
+// 同じ換算方式だが、calendarHelpers.tsはacwrHelpers.tsのMUSCLE_LOCATION_LABELS等を
+// 既に逆方向にimportしているため、ここでcalendarHelpers.tsをimportすると循環参照に
+// なる。そのため小さな純関数をこのファイル内に個別実装している
+// （api/sync-apple-health.ts・api/send-reminder.ts等、api/配下の各ファイルが
+// 同種の変換を個別に持っているのと同じ判断）。
+function toJstDateKeyFromIso(isoString: string): DateString {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(isoString))
+  const year = parts.find((part) => part.type === 'year')?.value
+  const month = parts.find((part) => part.type === 'month')?.value
+  const day = parts.find((part) => part.type === 'day')?.value
+  return `${year}-${month}-${day}` as DateString
+}
+
+// Apple Health連携（2026年8月27日）：workoutsの負荷換算に使う「対象日以前の
+// 直近実測体重」。src/api/dailyConditions.tsのfetchRecentWeight（`.lte('log_date',
+// beforeDate)`、対象日当日も含む）と同じ「以前」の意味に合わせている。
+// 該当する体重記録が無い場合はDEFAULT_WEIGHT_KG（70kg）にフォールバックする。
+function findRecentWeightOnOrBefore(dailyConditions: DailyCondition[], date: DateString): number {
+  let bestDate: DateString | null = null
+  let bestWeight = DEFAULT_WEIGHT_KG
+
+  dailyConditions.forEach((condition) => {
+    if (condition.date <= date && condition.weight > 0) {
+      if (bestDate === null || condition.date > bestDate) {
+        bestDate = condition.date
+        bestWeight = condition.weight
+      }
+    }
+  })
+
+  return bestWeight
+}
+
 function daysBetween(start: DateString, end: DateString): number {
   const startTime = new Date(`${start}T00:00:00`).getTime()
   const endTime = new Date(`${end}T00:00:00`).getTime()
@@ -47,10 +94,16 @@ function findEarliestDate(trainingLogs: TrainingLog[], soccerLogs: SoccerLog[]):
 }
 
 /**
- * 日付ごとの統合負荷（筋トレ負荷＋サッカー負荷）を算出する。
+ * 日付ごとの統合負荷（筋トレ負荷＋サッカー負荷＋ワークアウト負荷）を算出する。
  * 記録がない日は0（完全休養日）。DBにはキャッシュせず、呼び出しのたびに算出する。
+ * workouts・dailyConditionsは省略可（デフォルト空配列、既存呼び出しとの後方互換）。
  */
-function calculateDailyLoadMap(trainingLogs: TrainingLog[], soccerLogs: SoccerLog[]): Map<DateString, number> {
+function calculateDailyLoadMap(
+  trainingLogs: TrainingLog[],
+  soccerLogs: SoccerLog[],
+  workouts: Workout[] = [],
+  dailyConditions: DailyCondition[] = [],
+): Map<DateString, number> {
   const map = new Map<DateString, number>()
 
   const volumeByDate = new Map<DateString, number>()
@@ -70,6 +123,24 @@ function calculateDailyLoadMap(trainingLogs: TrainingLog[], soccerLogs: SoccerLo
     const soccerLoad = Math.min(MAX_SINGLE_LOAD_SCORE, (log.caloriesBurned ?? 0) / SOCCER_CALORIE_DIVISOR)
     map.set(log.date, (map.get(log.date) ?? 0) + soccerLoad)
   })
+
+  // Apple Health連携（2026年8月27日、実装指示書）：is_primary = trueの行のみ対象
+  // （呼び出し元・fetchWorkoutsは既にis_primary=trueのみ返す前提だが、この関数
+  // 自体の契約としても明示的にフィルタする）。
+  //   推定消費カロリー(kcal) = 体重(kg) × (distance_meters ÷ 1000) × WORKOUT_CALORIE_FACTOR
+  //   ワークアウトの負荷 = 推定消費カロリー ÷ SOCCER_CALORIE_DIVISOR（サッカーと同じ係数）
+  // 体重はfetchRecentWeightと同じ「対象日以前の直近実測値」パターン、
+  // 記録が無ければDEFAULT_WEIGHT_KG（70kg）にフォールバックする。
+  workouts
+    .filter((workout) => workout.isPrimary)
+    .forEach((workout) => {
+      const dateKey = toJstDateKeyFromIso(workout.startTime)
+      const distanceKm = (workout.distanceMeters ?? 0) / 1000
+      const weightKg = findRecentWeightOnOrBefore(dailyConditions, dateKey)
+      const estimatedCalories = weightKg * distanceKm * WORKOUT_CALORIE_FACTOR
+      const workoutLoad = Math.min(MAX_SINGLE_LOAD_SCORE, estimatedCalories / SOCCER_CALORIE_DIVISOR)
+      map.set(dateKey, (map.get(dateKey) ?? 0) + workoutLoad)
+    })
 
   return map
 }
@@ -139,7 +210,15 @@ export function calculateACWR(
   todayDate: DateString,
   todaySorenessLevel: SorenessLevel | undefined,
   todaySorenessLocation: MuscleLocation | undefined,
+  // Apple Health連携（2026年8月27日）：既存呼び出しとの後方互換のため末尾に
+  // 追加、省略時は空配列（ワークアウト負荷ゼロ）扱い。
+  workouts: Workout[] = [],
+  dailyConditions: DailyCondition[] = [],
 ): ACWRResult | null {
+  // findEarliestDate・daysUntilACWRAvailableはtrainingLogs/soccerLogsのみを見る
+  // 既存仕様のまま変更していない（今回の指示範囲はcalculateDailyLoadMapへの
+  // 負荷入力追加のみのため）。ワークアウト記録しかない利用者の「データ蓄積中」
+  // 判定がずれる可能性がある点は既知の限界として残る。
   const earliestDate = findEarliestDate(trainingLogs, soccerLogs)
   if (!earliestDate) {
     return null
@@ -150,7 +229,7 @@ export function calculateACWR(
     return null
   }
 
-  const dailyLoadMap = calculateDailyLoadMap(trainingLogs, soccerLogs)
+  const dailyLoadMap = calculateDailyLoadMap(trainingLogs, soccerLogs, workouts, dailyConditions)
   const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
 
   const loadForOffset = (offsetDays: number) => {
@@ -199,6 +278,8 @@ export function hasConsecutiveDangerDays(
   dailyConditions: DailyCondition[],
   todayDate: DateString,
   consecutiveDays = 3,
+  // Apple Health連携（2026年8月27日）：既存呼び出しとの後方互換のため末尾に追加。
+  workouts: Workout[] = [],
 ): boolean {
   const conditionByDate = new Map(dailyConditions.map((condition) => [condition.date, condition]))
   const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
@@ -206,7 +287,15 @@ export function hasConsecutiveDangerDays(
   for (let offset = 0; offset < consecutiveDays; offset += 1) {
     const date = toDateKey(new Date(todayTime - offset * 86_400_000))
     const condition = conditionByDate.get(date)
-    const result = calculateACWR(trainingLogs, soccerLogs, date, condition?.muscleSorenessLevel, condition?.muscleSorenessLocation)
+    const result = calculateACWR(
+      trainingLogs,
+      soccerLogs,
+      date,
+      condition?.muscleSorenessLevel,
+      condition?.muscleSorenessLocation,
+      workouts,
+      dailyConditions,
+    )
 
     if (result?.status !== 'danger') {
       return false
@@ -246,13 +335,18 @@ export function calculateDailyACWRSeries(
   soccerLogs: SoccerLog[],
   todayDate: DateString,
   days = 28,
+  // Apple Health連携（2026年8月27日）：既存呼び出しとの後方互換のため末尾に追加。
+  // calculateACWRの薄いラッパーのため、ここにworkouts/dailyConditionsを渡すだけで
+  // 週次ACWR（WeeklyACWRTrendCard・WeeklyACWRDetailModal）にも自動的に反映される。
+  workouts: Workout[] = [],
+  dailyConditions: DailyCondition[] = [],
 ): DailyACWRPoint[] {
   const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
   const points: DailyACWRPoint[] = []
 
   for (let offset = days - 1; offset >= 0; offset -= 1) {
     const date = toDateKey(new Date(todayTime - offset * 86_400_000))
-    const result = calculateACWR(trainingLogs, soccerLogs, date, undefined, undefined)
+    const result = calculateACWR(trainingLogs, soccerLogs, date, undefined, undefined, workouts, dailyConditions)
     points.push({ date, acwr: result ? result.acwr : null })
   }
 

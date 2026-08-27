@@ -245,30 +245,31 @@ export function Dashboard({
     }
   }, [acwrChronicStartKey, todayString])
 
-  // リカバリー窓機能へのApple Health連携（2026年8月27日）：recoveryResultsは
-  // ACWRGaugeCard同様に常にtodayString基準（週送り・日付選択の対象外）のため、
-  // 週間ストリップ用のweekWorkouts（weekOffsetで変動する）とは別に、常に
-  // 今日を含む単日範囲でworkoutsを取得する（acwrSoccerLogsと同じ「常にtoday基準」
-  // の考え方）。
-  const [todayWorkouts, setTodayWorkouts] = useState<Workout[]>([])
+  // ACWR・リカバリー窓機能へのApple Health連携（2026年8月27日）：ACWRの慢性負荷
+  // 計算（28日）・recoveryResults（常にtodayString基準）の両方が必要とするため、
+  // acwrSoccerLogsと全く同じ「直近28日・常にtoday終端」の範囲でworkoutsを取得する
+  // （週間ストリップ用のweekWorkouts＝weekOffsetで変動する範囲とは別。前回実装した
+  // 単日のみのtodayWorkouts取得は、このacwrWorkouts（todayを含む上位互換の範囲）に
+  // 統合し廃止した）。
+  const [acwrWorkouts, setAcwrWorkouts] = useState<Workout[]>([])
 
   useEffect(() => {
     let isMounted = true
 
-    fetchWorkouts(todayString, todayString)
+    fetchWorkouts(acwrChronicStartKey, todayString)
       .then((data) => {
         if (isMounted) {
-          setTodayWorkouts(data)
+          setAcwrWorkouts(data)
         }
       })
       .catch((error) => {
-        console.error('Supabaseから本日のワークアウト記録の取得に失敗しました', error)
+        console.error('Supabaseから疲労残高計算用のワークアウト記録の取得に失敗しました', error)
       })
 
     return () => {
       isMounted = false
     }
-  }, [todayString])
+  }, [acwrChronicStartKey, todayString])
 
   // スプリント3（MD基準の栄養調整、2026年8月18日）：MD判定には選択日の前日〜
   // 3日後を含む範囲の予定が必要だが、週間ストリップ用のweekSchedules（週境界で
@@ -384,8 +385,10 @@ export function Dashboard({
         todayString,
         todayCondition?.muscleSorenessLevel,
         todayCondition?.muscleSorenessLocation,
+        acwrWorkouts,
+        dailyConditions,
       ),
-    [trainingLogs, acwrSoccerLogs, todayString, todayCondition],
+    [trainingLogs, acwrSoccerLogs, todayString, todayCondition, acwrWorkouts, dailyConditions],
   )
   const acwrDaysUntilAvailable = useMemo(
     () => daysUntilACWRAvailable(trainingLogs, acwrSoccerLogs, todayString),
@@ -395,8 +398,8 @@ export function Dashboard({
   // 🔴警戒状態が続いている場合に警告を表示する。ACWRGaugeCard同様、日付選択の
   // 対象外でtodayString基準のまま。
   const showDeloadWarning = useMemo(
-    () => hasConsecutiveDangerDays(trainingLogs, acwrSoccerLogs, dailyConditions, todayString),
-    [trainingLogs, acwrSoccerLogs, dailyConditions, todayString],
+    () => hasConsecutiveDangerDays(trainingLogs, acwrSoccerLogs, dailyConditions, todayString, 3, acwrWorkouts),
+    [trainingLogs, acwrSoccerLogs, dailyConditions, todayString, acwrWorkouts],
   )
 
   // 週次ACWRインサイト機能（2026年8月25日）：ACWRGaugeCard・目標ストリップと同じく
@@ -405,8 +408,8 @@ export function Dashboard({
   // ミニカードのスパークライン（末尾7件）・詳細モーダルのメイングラフ（全28件）の
   // 両方で使い回す（DBキャッシュせず動的計算する既存方針はACWR機能全体で踏襲）。
   const weeklyACWRSeries = useMemo(
-    () => calculateDailyACWRSeries(trainingLogs, acwrSoccerLogs, todayString, 28),
-    [trainingLogs, acwrSoccerLogs, todayString],
+    () => calculateDailyACWRSeries(trainingLogs, acwrSoccerLogs, todayString, 28, acwrWorkouts, dailyConditions),
+    [trainingLogs, acwrSoccerLogs, todayString, acwrWorkouts, dailyConditions],
   )
   const [isWeeklyACWRDetailOpen, setIsWeeklyACWRDetailOpen] = useState(false)
 
@@ -428,9 +431,9 @@ export function Dashboard({
         todayString,
         recoveryNow,
         DEFAULT_RECOVERY_WINDOW_CONFIG,
-        todayWorkouts,
+        acwrWorkouts,
       ),
-    [trainingLogs, acwrSoccerLogs, mealLogs, todayString, recoveryNow, todayWorkouts],
+    [trainingLogs, acwrSoccerLogs, mealLogs, todayString, recoveryNow, acwrWorkouts],
   )
 
   // activeなセッションが1つも無くなったら（missed/completedに確定した、または

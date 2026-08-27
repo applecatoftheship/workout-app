@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, getACWRInsight, hasConsecutiveDangerDays } from '../acwrHelpers'
 import { toDateKey } from '../chartHelpers'
-import type { DateString, TrainingLog } from '../../types'
+import type { DailyCondition, DateString, TrainingLog, Workout } from '../../types'
 
 const TODAY = new Date(2026, 7, 23) // 2026-08-23
 
@@ -27,6 +27,22 @@ function trainingLogWithVolume(offsetDaysAgo: number, volume: number): TrainingL
       },
     ],
   }
+}
+
+// Apple Health連携（2026年8月27日）：ワークアウト負荷のテスト用ヘルパー。
+// startTimeはJST日中の時刻にして、toJstDateKeyFromIso変換でdateAt(offsetDaysAgo)と
+// 同じ暦日になるようにしている。
+function workoutAt(offsetDaysAgo: number, distanceMeters: number, isPrimary = true): Workout {
+  return {
+    activityType: 'running',
+    startTime: `${dateAt(offsetDaysAgo)}T12:00:00+09:00`,
+    distanceMeters,
+    isPrimary,
+  }
+}
+
+function dailyConditionAt(offsetDaysAgo: number, weight: number): DailyCondition {
+  return { date: dateAt(offsetDaysAgo), weight, sleepHours: 7, fatigue: 3 }
 }
 
 describe('calculateACWR', () => {
@@ -142,6 +158,70 @@ describe('calculateACWR', () => {
 
       const withSoreness = calculateACWR(logs, [], TODAY_KEY, 'severe', 'quad')
       expect(withSoreness!.status).toBe('warning')
+    })
+  })
+
+  describe('ワークアウト負荷（Apple Health連携、2026年8月27日追加）', () => {
+    // findEarliestDate（ひいてはcalculateACWRのnullガード）はtrainingLogs/soccerLogsの
+    // みを見る既存仕様のため、workoutsだけではdaysAvailableの起点が定まらない。
+    // ボリューム0のトレーニング実績を「アンカー」として1件加え、7日分のデータ
+    // 蓄積があることを確立した上でワークアウト負荷の計算だけを検証する。
+    const anchor = trainingLogWithVolume(6, 0)
+
+    it('体重記録がある場合：推定消費カロリー=体重×距離(km)×1.0、負荷=カロリー÷8', () => {
+      // weight=80kg, distance=8000m(8km) -> 推定消費カロリー=80×8×1.0=640kcal
+      // -> 負荷=640/8=80（サッカーと同じ÷8換算）
+      const workouts = Array.from({ length: 7 }, (_, i) => workoutAt(i, 8000))
+      const dailyConditions = Array.from({ length: 7 }, (_, i) => dailyConditionAt(i, 80))
+
+      const result = calculateACWR([anchor], [], TODAY_KEY, undefined, undefined, workouts, dailyConditions)
+
+      expect(result).not.toBeNull()
+      expect(result!.acuteLoad).toBeCloseTo(80)
+      expect(result!.chronicLoad).toBeCloseTo(80)
+      expect(result!.acwr).toBeCloseTo(1)
+    })
+
+    it('体重記録が無い場合：DEFAULT_WEIGHT_KG(70kg)にフォールバックする', () => {
+      // weight=70kg(フォールバック), distance=8000m -> 推定消費カロリー=70×8×1.0=560kcal
+      // -> 負荷=560/8=70
+      const workouts = Array.from({ length: 7 }, (_, i) => workoutAt(i, 8000))
+
+      const result = calculateACWR([anchor], [], TODAY_KEY, undefined, undefined, workouts, [])
+
+      expect(result).not.toBeNull()
+      expect(result!.acuteLoad).toBeCloseTo(70)
+    })
+
+    it('対象日以前の直近の体重記録を使う（fetchRecentWeightと同じ「以前」の意味）', () => {
+      // 7日前の1件のみ体重記録があり、それ以降（今日を含む）は新しい記録が無い
+      // ケース：「対象日以前で直近」の探索により、今日分の負荷計算にもこの
+      // 7日前の記録（60kg）がそのまま使われる。
+      const workouts = [workoutAt(0, 8000)]
+      const dailyConditions = [dailyConditionAt(6, 60)]
+
+      const result = calculateACWR([anchor], [], TODAY_KEY, undefined, undefined, workouts, dailyConditions)
+
+      // 60kg × 8km × 1.0 / 8 = 60 のワークアウト負荷が今日1日分だけ乗る
+      // （直近7日平均）ため、acuteLoad = 60/7
+      expect(result!.acuteLoad).toBeCloseTo(60 / 7)
+    })
+
+    it('is_primary=falseのワークアウトは負荷に含まれない', () => {
+      const workouts = Array.from({ length: 7 }, (_, i) => workoutAt(i, 8000, false))
+      const dailyConditions = Array.from({ length: 7 }, (_, i) => dailyConditionAt(i, 80))
+
+      const result = calculateACWR([anchor], [], TODAY_KEY, undefined, undefined, workouts, dailyConditions)
+
+      expect(result).not.toBeNull()
+      expect(result!.acuteLoad).toBe(0)
+      expect(result!.acwr).toBe(0)
+    })
+
+    it('workouts省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
+      const logs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 5000))
+      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      expect(result!.acwr).toBeCloseTo(1)
     })
   })
 })

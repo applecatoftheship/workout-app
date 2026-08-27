@@ -28,7 +28,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { detectAcwrDangerNotification, detectStreakBrokenNotification, shouldCreateNotification } from '../src/utils/notificationHelpers.js'
 import type { NotificationCandidate } from '../src/utils/notificationHelpers.js'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog } from '../src/types.js'
+import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, Workout } from '../src/types.js'
 
 function todayInJst(): DateString {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -131,6 +131,25 @@ async function fetchSoccerLogsForAcwr(supabase: SupabaseClient, userId: string):
     date: row.log_date as DateString,
     activityType: row.activity_type,
     caloriesBurned: row.calories_burned ?? undefined,
+  }))
+}
+
+// Apple Health連携（2026年8月27日）：ACWRの負荷計算にワークアウト（距離のみ）を
+// 組み込むための取得関数。calculateDailyLoadMap（src/utils/acwrHelpers.ts）自体が
+// is_primary = trueで再フィルタするため、ここでのis_primaryフィルタは冗長だが、
+// 不要な行を取得しないための早期絞り込みとして残す。
+async function fetchWorkoutsForAcwr(supabase: SupabaseClient, userId: string): Promise<Workout[]> {
+  const { data, error } = await supabase
+    .from('workouts')
+    .select('start_time, distance_meters, is_primary')
+    .eq('user_id', userId)
+    .eq('is_primary', true)
+  if (error) throw error
+
+  return (data as unknown as { start_time: string; distance_meters: number | null; is_primary: boolean }[]).map((row) => ({
+    startTime: row.start_time,
+    distanceMeters: row.distance_meters ?? undefined,
+    isPrimary: row.is_primary,
   }))
 }
 
@@ -281,17 +300,26 @@ export default async function handler(req: { headers: Record<string, string | st
   const sentTypesByUser: Record<string, string[]> = {}
 
   for (const [userId, subscriptions] of subscriptionsByUser) {
-    const [trainingLogs, soccerLogs, mealLogs, dailyConditions] = await Promise.all([
+    const [trainingLogs, soccerLogs, mealLogs, dailyConditions, workouts] = await Promise.all([
       fetchTrainingLogsForAcwr(supabase, userId),
       fetchSoccerLogsForAcwr(supabase, userId),
       fetchMealLogsForStreak(supabase, userId),
       fetchDailyConditions(supabase, userId),
+      fetchWorkoutsForAcwr(supabase, userId),
     ])
 
     const todayCondition = dailyConditions.find((condition) => condition.date === targetDate)
 
     const candidates = [
-      detectAcwrDangerNotification(trainingLogs, soccerLogs, targetDate, todayCondition?.muscleSorenessLevel, todayCondition?.muscleSorenessLocation),
+      detectAcwrDangerNotification(
+        trainingLogs,
+        soccerLogs,
+        targetDate,
+        todayCondition?.muscleSorenessLevel,
+        todayCondition?.muscleSorenessLocation,
+        workouts,
+        dailyConditions,
+      ),
       detectStreakBrokenNotification(trainingLogs, soccerLogs, mealLogs, dailyConditions, targetDate),
     ].filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
 

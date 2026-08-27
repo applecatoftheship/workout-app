@@ -4,7 +4,7 @@
 // streakHelpers.tsと同じく、判定ロジックのみを担当する層として分離）。
 import { calculateACWR } from './acwrHelpers.js'
 import { calculateCurrentStreak } from './streakHelpers.js'
-import type { DailyCondition, DateString, MealLog, NotificationType, SoccerLog, TrainingLog } from '../types.js'
+import type { DailyCondition, DateString, MealLog, NotificationType, SoccerLog, TrainingLog, Workout } from '../types.js'
 
 export type NotificationCandidate = {
   type: NotificationType
@@ -53,8 +53,11 @@ export function detectAcwrDangerNotification(
   targetDate: DateString,
   todaySorenessLevel: DailyCondition['muscleSorenessLevel'],
   todaySorenessLocation: DailyCondition['muscleSorenessLocation'],
+  // Apple Health連携（2026年8月27日）：既存呼び出しとの後方互換のため末尾に追加。
+  workouts: Workout[] = [],
+  dailyConditions: DailyCondition[] = [],
 ): NotificationCandidate | null {
-  const result = calculateACWR(trainingLogs, soccerLogs, targetDate, todaySorenessLevel, todaySorenessLocation)
+  const result = calculateACWR(trainingLogs, soccerLogs, targetDate, todaySorenessLevel, todaySorenessLocation, workouts, dailyConditions)
   if (!result || result.acwr <= 1.5) {
     return null
   }
