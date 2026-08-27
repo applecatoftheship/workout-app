@@ -19,10 +19,21 @@
 // このファイルのSyncPayload型を変更すること）】
 //
 //   { "type": "sleep", "total_asleep_seconds": number, "start_time": string(ISO8601) }
-//   { "type": "workout", "apple_workout_id": string, "activity_type": string,
-//     "start_time": string(ISO8601), "end_time"?: string(ISO8601),
-//     "duration_seconds"?: number, "distance_meters"?: number,
-//     "active_calories"?: number, "avg_heart_rate"?: number }
+//   { "type": "workout", "start_time": string(ISO8601),
+//     "apple_workout_id"?: string, "activity_type"?: string,
+//     "end_time"?: string, "duration_seconds"?: number,
+//     "distance_meters"?: number, "active_calories"?: number,
+//     "avg_heart_rate"?: number }
+//
+// 【2026年8月27日改修】Apple純正Shortcutsの制約上、ワークアウトは当面
+// type・distance_meters・start_timeの3項目のみが送られてくる運用に変更された。
+// apple_workout_id・activity_type・end_time・duration_seconds・active_calories・
+// avg_heart_rateはすべて任意項目として扱い、workouts.activity_type列の
+// NOT NULL制約も解除するマイグレーションを別途用意した（supabase/migrations/
+// 20260827010000_workouts_activity_type_nullable_DRAFT.sql、未実行）。
+// あわせて、apple_workout_id（external_id）が無い場合の重複防止キーとして
+// (user_id, start_time)の完全一致を代替に使うようhandleWorkoutを変更した
+// （詳細は同関数内のコメント参照）。
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -34,9 +45,9 @@ type SleepPayload = {
 
 type WorkoutPayload = {
   type: 'workout'
-  apple_workout_id: string
-  activity_type: string
   start_time: string
+  apple_workout_id?: string
+  activity_type?: string
   end_time?: string
   duration_seconds?: number
   distance_meters?: number
@@ -45,6 +56,8 @@ type WorkoutPayload = {
 }
 
 type SyncPayload = SleepPayload | WorkoutPayload
+
+class ValidationError extends Error {}
 
 const MERGE_WINDOW_MS = 30 * 60 * 1000 // 手動データとの統合判定：開始時刻の前後30分
 
@@ -70,6 +83,39 @@ function jstDateRangeUtc(dateKey: string): { startUtc: string; endUtc: string } 
   return { startUtc, endUtc: endUtc.toISOString() }
 }
 
+function isValidIsoDate(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !Number.isNaN(new Date(value).getTime())
+}
+
+function validateSleepPayload(payload: Record<string, unknown>): asserts payload is SleepPayload {
+  if (typeof payload.total_asleep_seconds !== 'number' || !Number.isFinite(payload.total_asleep_seconds)) {
+    throw new ValidationError('total_asleep_seconds is required and must be a number')
+  }
+  if (!isValidIsoDate(payload.start_time)) {
+    throw new ValidationError('start_time is required and must be a valid ISO8601 date string')
+  }
+}
+
+// 2026年8月27日改修：apple_workout_id・activity_type等はすべて任意項目に変更。
+// start_timeのみ必須（重複防止・日付判定の両方で使うため）。
+function validateWorkoutPayload(payload: Record<string, unknown>): asserts payload is WorkoutPayload {
+  if (!isValidIsoDate(payload.start_time)) {
+    throw new ValidationError('start_time is required and must be a valid ISO8601 date string')
+  }
+  const optionalStringFields = ['apple_workout_id', 'activity_type', 'end_time'] as const
+  for (const field of optionalStringFields) {
+    if (payload[field] !== undefined && typeof payload[field] !== 'string') {
+      throw new ValidationError(`${field} must be a string if provided`)
+    }
+  }
+  const optionalNumberFields = ['duration_seconds', 'distance_meters', 'active_calories', 'avg_heart_rate'] as const
+  for (const field of optionalNumberFields) {
+    if (payload[field] !== undefined && (typeof payload[field] !== 'number' || !Number.isFinite(payload[field]))) {
+      throw new ValidationError(`${field} must be a number if provided`)
+    }
+  }
+}
+
 async function handleSleep(supabase: SupabaseClient, userId: string, payload: SleepPayload): Promise<{ synced: string }> {
   // 小数点第1位で丸める（指示書通り）。今回はsleep_hoursのみを対象とし、
   // HRV・安静時心拍数・就寝/起床時刻は指示書の通りスコープ外として無視する。
@@ -90,15 +136,87 @@ async function handleSleep(supabase: SupabaseClient, userId: string, payload: Sl
   return { synced: logDate }
 }
 
-async function handleWorkout(supabase: SupabaseClient, userId: string, payload: WorkoutPayload): Promise<{ mergedManualId: string | null }> {
+type WorkoutRow = { id: string; notes: string | null }
+
+async function handleWorkout(supabase: SupabaseClient, userId: string, payload: WorkoutPayload): Promise<{ mergedManualId: string | null; selfDedupId: string | null }> {
+  const workoutRow = {
+    user_id: userId,
+    external_id: payload.apple_workout_id ?? null,
+    activity_type: payload.activity_type ?? null,
+    start_time: payload.start_time,
+    end_time: payload.end_time ?? null,
+    duration_seconds: payload.duration_seconds ?? null,
+    distance_meters: payload.distance_meters ?? null,
+    active_calories: payload.active_calories ?? null,
+    avg_heart_rate: payload.avg_heart_rate ?? null,
+    is_primary: true,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (payload.apple_workout_id) {
+    // apple_workout_idをexternal_idとしてupsert（完全重複防止。同じワークアウトの
+    // 再送信を受けても行が増えない）。
+    const mergedManualId = await mergeManualDataIfPresent(supabase, userId, payload)
+
+    const { error: upsertError } = await supabase.from('workouts').upsert(workoutRow, { onConflict: 'external_id' })
+    if (upsertError) {
+      throw upsertError
+    }
+
+    return { mergedManualId, selfDedupId: null }
+  }
+
+  // 【2026年8月27日改修：apple_workout_id未指定時の代替重複防止キー】
+  // external_idが無い場合、upsertのonConflict対象（unique制約）が使えないため、
+  // 同一ユーザー・同一start_time（完全一致）・external_id IS NULLの既存行を
+  // アプリ側で検索し、見つかればUPDATE、無ければINSERTする（DB側にDeferrable/
+  // Partial Unique Indexを追加する案も検討したが、PostgRESTのupsert onConflictは
+  // 列リストのみでWHERE句付きのPartial Unique Indexを正しく参照できないため
+  // 見送った）。この完全一致チェックは「同じ同期イベントの再送」を検知する
+  // ためのもので、下記の「同日・前後30分以内の手動データ統合」ロジック
+  // （既存、external_idありのケースと共通）とは別の目的・別の照合条件である点に
+  // 注意（前者はstart_time完全一致、後者は30分の許容窓を持つ）。
+  const { data: selfDedupCandidates, error: selfDedupError } = await supabase
+    .from('workouts')
+    .select('id')
+    .eq('user_id', userId)
+    .is('external_id', null)
+    .eq('start_time', payload.start_time)
+    .limit(1)
+
+  if (selfDedupError) {
+    throw selfDedupError
+  }
+
+  const selfDedupMatch = (selfDedupCandidates as { id: string }[] | null)?.[0] ?? null
+
+  if (selfDedupMatch) {
+    const { error: updateError } = await supabase.from('workouts').update(workoutRow).eq('id', selfDedupMatch.id)
+    if (updateError) {
+      throw updateError
+    }
+    return { mergedManualId: null, selfDedupId: selfDedupMatch.id }
+  }
+
+  const mergedManualId = await mergeManualDataIfPresent(supabase, userId, payload)
+
+  const { error: insertError } = await supabase.from('workouts').insert(workoutRow)
+  if (insertError) {
+    throw insertError
+  }
+
+  return { mergedManualId, selfDedupId: null }
+}
+
+// 「同日かつ開始時刻が前後30分以内」＝日付境界（JST暦日）とタイムスタンプの
+// 前後30分窓の両方を満たす行、かつ手動データ（external_id IS NULL）のみが対象。
+async function mergeManualDataIfPresent(supabase: SupabaseClient, userId: string, payload: WorkoutPayload): Promise<string | null> {
   const startTime = new Date(payload.start_time)
   const windowStart = new Date(startTime.getTime() - MERGE_WINDOW_MS).toISOString()
   const windowEnd = new Date(startTime.getTime() + MERGE_WINDOW_MS).toISOString()
   const dateKey = toJstDateKey(payload.start_time)
   const { startUtc: dayStart, endUtc: dayEnd } = jstDateRangeUtc(dateKey)
 
-  // 「同日かつ開始時刻が前後30分以内」＝日付境界（JST暦日）とタイムスタンプの
-  // 前後30分窓の両方を満たす行、かつ手動データ（external_id IS NULL）のみが対象。
   const { data: manualCandidates, error: manualError } = await supabase
     .from('workouts')
     .select('id, notes')
@@ -114,49 +232,24 @@ async function handleWorkout(supabase: SupabaseClient, userId: string, payload: 
     throw manualError
   }
 
-  const manualMatch = (manualCandidates as { id: string; notes: string | null }[] | null)?.[0] ?? null
-  let mergedManualId: string | null = null
-
-  if (manualMatch) {
-    const nextNotes = manualMatch.notes ? `${manualMatch.notes}\n[自動連携により統合]` : '[自動連携により統合]'
-    // is_primaryは自動データ側（このあとupsertする新規行）だけがtrueになるよう、
-    // 統合される手動データ側は同じUPDATEでfalseに落とす（1ワークアウトにつき
-    // is_primary: trueが常に1件になるようにするための修正、2026年8月27日）。
-    const { error: updateError } = await supabase
-      .from('workouts')
-      .update({ notes: nextNotes, is_primary: false, updated_at: new Date().toISOString() })
-      .eq('id', manualMatch.id)
-    if (updateError) {
-      throw updateError
-    }
-    mergedManualId = manualMatch.id
+  const manualMatch = (manualCandidates as WorkoutRow[] | null)?.[0] ?? null
+  if (!manualMatch) {
+    return null
   }
 
-  // apple_workout_idをexternal_idとしてupsert（完全重複防止。同じワークアウトの
-  // 再送信を受けても行が増えない）。is_primary: trueで自動データ自身は常に登録する
-  // （手動データとの統合有無に関わらず、指示書の指定通り）。
-  const { error: upsertError } = await supabase.from('workouts').upsert(
-    {
-      user_id: userId,
-      external_id: payload.apple_workout_id,
-      activity_type: payload.activity_type,
-      start_time: payload.start_time,
-      end_time: payload.end_time ?? null,
-      duration_seconds: payload.duration_seconds ?? null,
-      distance_meters: payload.distance_meters ?? null,
-      active_calories: payload.active_calories ?? null,
-      avg_heart_rate: payload.avg_heart_rate ?? null,
-      is_primary: true,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'external_id' },
-  )
-
-  if (upsertError) {
-    throw upsertError
+  const nextNotes = manualMatch.notes ? `${manualMatch.notes}\n[自動連携により統合]` : '[自動連携により統合]'
+  // is_primaryは自動データ側だけがtrueになるよう、統合される手動データ側は
+  // 同じUPDATEでfalseに落とす（1ワークアウトにつきis_primary: trueが常に
+  // 1件になるようにするための修正、2026年8月27日）。
+  const { error: updateError } = await supabase
+    .from('workouts')
+    .update({ notes: nextNotes, is_primary: false, updated_at: new Date().toISOString() })
+    .eq('id', manualMatch.id)
+  if (updateError) {
+    throw updateError
   }
 
-  return { mergedManualId }
+  return manualMatch.id
 }
 
 export default async function handler(
@@ -184,7 +277,13 @@ export default async function handler(
     return
   }
 
-  const payload = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as SyncPayload | null | undefined
+  let payload: Record<string, unknown> | null | undefined
+  try {
+    payload = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Record<string, unknown> | null | undefined
+  } catch (parseError) {
+    res.status(400).json({ error: 'invalid JSON body', message: parseError instanceof Error ? parseError.message : String(parseError) })
+    return
+  }
 
   if (!payload || (payload.type !== 'sleep' && payload.type !== 'workout')) {
     res.status(400).json({ error: 'invalid payload: type must be "sleep" or "workout"' })
@@ -195,15 +294,36 @@ export default async function handler(
 
   try {
     if (payload.type === 'sleep') {
+      validateSleepPayload(payload)
       const result = await handleSleep(supabase, syncUserId, payload)
       res.status(200).json({ ok: true, type: 'sleep', ...result })
       return
     }
 
+    validateWorkoutPayload(payload)
     const result = await handleWorkout(supabase, syncUserId, payload)
     res.status(200).json({ ok: true, type: 'workout', ...result })
   } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({ error: 'validation failed', message: error.message })
+      return
+    }
+
     console.error('Apple Health同期処理に失敗しました', error)
-    res.status(500).json({ error: 'sync failed' })
+    // 【2026年8月27日、原因究明のための一時対応】従来は{"error":"sync failed"}の
+    // みを返しクライアント側で原因の切り分けができなかったため、Supabase/
+    // PostgRESTのエラー詳細（message/details/hint/code）を一時的にそのまま
+    // レスポンスへ含めるようにした。原因が確定し安定稼働を確認できたら、
+    // 詳細情報の返却は取りやめて{"error":"sync failed"}のみに戻すことを推奨する
+    // （このエンドポイントはx-webhook-secretで保護されているとはいえ、内部の
+    // エラー詳細を外部レスポンスに含め続けるのが望ましいとは言えないため）。
+    const supabaseError = error as { message?: string; details?: string; hint?: string; code?: string } | null
+    res.status(500).json({
+      error: 'sync failed',
+      message: supabaseError?.message ?? (error instanceof Error ? error.message : String(error)),
+      details: supabaseError?.details ?? null,
+      hint: supabaseError?.hint ?? null,
+      code: supabaseError?.code ?? null,
+    })
   }
 }

@@ -291,7 +291,10 @@ export function WorkoutSummary({ workouts, selectedDate }: WorkoutSummaryProps) 
                 onClick={() => setExpandedId(isExpanded ? null : workout.id ?? null)}
               >
                 <div className="workout-summary__head">
-                  <span>🏃 {workout.activityType}</span>
+                  {/* activityTypeはoptional（2026年8月27日改修、Apple純正Shortcuts制約で
+                      distance_meters・start_timeのみ送られてくるケースがあるため）。
+                      未指定時は汎用ラベルにフォールバックする。 */}
+                  <span>🏃 {workout.activityType ?? 'ワークアウト'}</span>
                   {workout.externalId ? <span className="workout-summary__watch-badge">⌚ Watch</span> : null}
                 </div>
                 <p className="calendar-detail__description">

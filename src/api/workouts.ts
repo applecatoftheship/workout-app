@@ -5,7 +5,7 @@ type WorkoutRow = {
   id: string
   user_id: string | null
   external_id: string | null
-  activity_type: string
+  activity_type: string | null
   start_time: string
   end_time: string | null
   duration_seconds: number | null
@@ -23,7 +23,7 @@ function rowToWorkout(row: WorkoutRow): Workout {
     id: row.id,
     userId: row.user_id ?? undefined,
     externalId: row.external_id ?? undefined,
-    activityType: row.activity_type,
+    activityType: row.activity_type ?? undefined,
     startTime: row.start_time,
     endTime: row.end_time ?? undefined,
     durationSeconds: row.duration_seconds ?? undefined,

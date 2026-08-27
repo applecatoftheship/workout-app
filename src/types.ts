@@ -193,10 +193,13 @@ export interface SoccerLog extends BaseRecord {
 // api/sync-apple-health.tsが自動登録する行と、将来の手動登録行の両方を表す。
 // 手動データが自動データに統合された際、統合済みの手動レコードはisPrimaryが
 // falseになる（アプリ側の一覧表示はisPrimary=trueの行のみを対象とする）。
+// activityTypeはoptional（2026年8月27日改修）：Apple純正Shortcutsの制約上、
+// 当面ワークアウト送信はdistance_meters・start_timeのみとなり、activity_type
+// が送られてこないケースがあるため（api/sync-apple-health.ts参照）。
 export interface Workout extends BaseRecord {
   userId?: string;
   externalId?: string;
-  activityType: string;
+  activityType?: string;
   startTime: string;
   endTime?: string;
   durationSeconds?: number;
