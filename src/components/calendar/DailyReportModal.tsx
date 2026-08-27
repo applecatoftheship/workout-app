@@ -1,8 +1,8 @@
 import { calculateDailyRecoveryResults, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../../utils/recoveryHelpers'
-import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel } from '../../utils/calendarHelpers'
+import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel, toJstDateKeyFromIso } from '../../utils/calendarHelpers'
 import { RecoveryWindowCard } from '../RecoveryWindowCard'
 import { CloseIcon } from '../icons'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../../types'
+import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
 import './DailyReportModal.css'
 
 // カレンダー「詳細」バッジ：日次レポート機能（Phase 2、2026年8月22日）。
@@ -33,6 +33,12 @@ type DailyReportModalProps = {
   dailyConditions: DailyCondition[]
   mealLogs: MealLog[]
   soccerLogs: SoccerLog[]
+  // Apple Health連携 Task4（2026年8月27日）：workoutsテーブル新設（Task1）より
+  // 後に実装された日次レポートは、当初このテーブルを参照していなかった
+  // （Johnさんからの指摘を受けて追加）。fetchWorkoutsが既にis_primary=trueの
+  // 行のみを返すため、ここでの追加フィルタは不要（CalendarDaySummaries.tsxの
+  // WorkoutSummaryと同じ前提）。
+  workouts: Workout[]
   onClose: () => void
 }
 
@@ -43,6 +49,7 @@ export function DailyReportModal({
   dailyConditions,
   mealLogs,
   soccerLogs,
+  workouts,
   onClose,
 }: DailyReportModalProps) {
   const dayTrainingLogs = trainingLogs.filter((log) => log.date === selectedDate)
@@ -50,6 +57,10 @@ export function DailyReportModal({
   const condition = dailyConditions.find((current) => current.date === selectedDate)
   const dayMealLogs = mealLogs.filter((log) => log.date === selectedDate)
   const soccerLog = soccerLogs.find((log) => log.date === selectedDate)
+  // workouts.start_timeはtimestamptzのため、CalendarDaySummaries.tsxの
+  // WorkoutSummaryと同じくtoJstDateKeyFromIsoでJST暦日に変換してから絞り込む
+  // （log_dateのような単純な日付カラムでの比較はできない）。
+  const dayWorkouts = workouts.filter((workout) => toJstDateKeyFromIso(workout.startTime) === selectedDate)
 
   const mealTotals = dayMealLogs.reduce(
     (acc, log) => ({
@@ -192,6 +203,40 @@ export function DailyReportModal({
                   <p className="daily-report__note">最高速度: {soccerLog.maxSpeedKmh}km/h</p>
                 ) : null}
                 {soccerLog.notes ? <p className="daily-report__note">メモ: {soccerLog.notes}</p> : null}
+              </div>
+            ) : (
+              <p className="daily-report__empty">記録なし</p>
+            )}
+          </section>
+
+          <section className="daily-report__section">
+            <h4>ワークアウト</h4>
+            {dayWorkouts.length > 0 ? (
+              <div className="daily-report__log-list">
+                {dayWorkouts.map((workout, index) => (
+                  <div key={workout.id ?? index} className="daily-report__item">
+                    <p className="daily-report__item-head">
+                      {/* activityTypeはoptional（Apple純正Shortcutsの制約でdistance_meters・
+                          start_timeのみ送られてくる場合があるため）。CalendarDaySummaries.tsx
+                          のWorkoutSummaryと同じフォールバック文言に揃える。 */}
+                      🏃 {workout.activityType ?? 'ワークアウト'}
+                      {workout.externalId ? '（⌚ Watch）' : ''}
+                    </p>
+                    {workout.durationSeconds != null ? (
+                      <p className="daily-report__note">時間: {Math.round(workout.durationSeconds / 60)}分</p>
+                    ) : null}
+                    {workout.distanceMeters != null ? (
+                      <p className="daily-report__note">距離: {(workout.distanceMeters / 1000).toFixed(2)}km</p>
+                    ) : null}
+                    {workout.activeCalories != null ? (
+                      <p className="daily-report__note">消費カロリー: {Math.round(workout.activeCalories)}kcal</p>
+                    ) : null}
+                    {workout.avgHeartRate != null ? (
+                      <p className="daily-report__note">平均心拍: {Math.round(workout.avgHeartRate)}bpm</p>
+                    ) : null}
+                    {workout.notes ? <p className="daily-report__note">メモ: {workout.notes}</p> : null}
+                  </div>
+                ))}
               </div>
             ) : (
               <p className="daily-report__empty">記録なし</p>
