@@ -379,7 +379,18 @@ export function MonthlyCalendar({
             <TrainingSummary
               trainingLogs={trainingLogs}
               selectedDate={selectedDate}
-              onAdd={() => openRecordModal({ type: 'training', date: selectedDate })}
+              onAdd={() => {
+                // 不具合対応（2026年8月26日）：対象日に既存のトレーニング実績が
+                // あれば、空フォームではなく既存の種目を読み込んだ編集経路
+                // （trainingLogIndex指定）を再利用する。training_logsは
+                // unique(user_id, log_date)のため対象日1件のみ該当しうる。
+                const existingIndex = trainingLogs.findIndex((log) => log.date === selectedDate)
+                openRecordModal(
+                  existingIndex >= 0
+                    ? { type: 'training', date: selectedDate, trainingLogIndex: existingIndex }
+                    : { type: 'training', date: selectedDate },
+                )
+              }}
               onEdit={(index) => openRecordModal({ type: 'training', date: selectedDate, trainingLogIndex: index })}
             />
           ) : null}

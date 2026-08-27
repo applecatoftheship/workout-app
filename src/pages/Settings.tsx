@@ -104,7 +104,11 @@ export function Settings({
       <section className="panel-card settings-profile">
         <div className="settings-profile__avatar">👤</div>
         <div>
-          <p className="settings-profile__name">ゲストユーザー</p>
+          {/* Settings画面はAuthGate（App.tsx）の内側＝ログイン後のみ到達可能なため、
+              userは常に存在する前提。「アカウント」セクション（下部）が既に
+              メールアドレス全体を表示しているため、ここでは重複を避けローカル
+              パート（@より前）のみを名前代わりに表示する。 */}
+          <p className="settings-profile__name">{user?.email?.split('@')[0] ?? 'ユーザー'}</p>
           <p className="settings-profile__meta">年齢: 未設定 ／ 身長: 未設定</p>
         </div>
       </section>

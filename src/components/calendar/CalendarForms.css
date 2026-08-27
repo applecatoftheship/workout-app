@@ -184,7 +184,10 @@
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   background: var(--color-bg-surface);
-  font-size: var(--font-size-body);
+  /* iOS Safariは16px未満のinputへのフォーカス時に自動拡大するため、
+     デザイン上のフォントサイズスケール（--font-size-*）とは別に固定値で
+     16pxを指定する（不具合対応、2026年8月26日）。 */
+  font-size: 16px;
   color: var(--color-text-primary);
   font-family: var(--font-base);
 }
