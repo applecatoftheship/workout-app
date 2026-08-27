@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import './Settings.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { TrainingTemplateManager } from '../components/TrainingTemplateManager'
 import type { RecordModalRequest } from '../components/RecordFormModal'
 import type { Goals } from '../api/goals'
-import type { DailyCondition, DateString, TrainingLog } from '../types'
+import type { DailyCondition, DateString, Profile, TrainingLog } from '../types'
 import type { Theme } from '../hooks/useTheme'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import { useToast } from '../hooks/useToast'
 import { useAuth } from '../hooks/useAuth'
+import { ChevronRightIcon } from '../components/icons'
 
 const ACCENT_PRESETS = [
   { name: 'オレンジ（現在）', color: '#E85D2C' },
@@ -47,6 +49,7 @@ type SettingsProps = {
   theme: Theme
   setTheme: React.Dispatch<React.SetStateAction<Theme>>
   openRecordModal: (request: Omit<RecordModalRequest, 'requestId'>) => void
+  profile: Profile | null
 }
 
 export function Settings({
@@ -59,7 +62,9 @@ export function Settings({
   theme,
   setTheme,
   openRecordModal,
+  profile,
 }: SettingsProps) {
+  const navigate = useNavigate()
   // 記録リマインダー（プッシュ通知機能 Phase 1b、2026年8月24日）：ONにした瞬間に
   // ブラウザの通知許可リクエストを呼び出す。拒否・購読失敗時はトグルをOFFに戻す。
   const [isReminderEnabled, setIsReminderEnabled] = useState(false)
@@ -101,17 +106,27 @@ export function Settings({
 
   return (
     <div className="settings-page">
-      <section className="panel-card settings-profile">
-        <div className="settings-profile__avatar">👤</div>
-        <div>
-          {/* Settings画面はAuthGate（App.tsx）の内側＝ログイン後のみ到達可能なため、
-              userは常に存在する前提。「アカウント」セクション（下部）が既に
-              メールアドレス全体を表示しているため、ここでは重複を避けローカル
-              パート（@より前）のみを名前代わりに表示する。 */}
-          <p className="settings-profile__name">{user?.email?.split('@')[0] ?? 'ユーザー'}</p>
-          <p className="settings-profile__meta">年齢: 未設定 ／ 身長: 未設定</p>
+      {/* プロフィール機能（2026年8月27日）：カード全体をタップ可能にし、
+          ユーザー詳細画面（/settings/profile）へ遷移する。名前はprofile.displayName
+          を優先し、未設定時は従来通りメールのローカルパートにフォールバックする
+          （「アカウント」セクション（下部）が既にメールアドレス全体を表示している
+          ため、ここでは重複を避ける）。 */}
+      <button type="button" className="panel-card settings-profile" onClick={() => navigate('/settings/profile')}>
+        <div className="settings-profile__avatar">
+          {profile?.avatarType === 'upload' && profile.avatarValue ? (
+            <img src={profile.avatarValue} alt="" className="settings-profile__avatar-image" />
+          ) : (
+            profile?.avatarValue ?? '👤'
+          )}
         </div>
-      </section>
+        <div className="settings-profile__body">
+          <p className="settings-profile__name">{profile?.displayName || user?.email?.split('@')[0] || 'ユーザー'}</p>
+          <p className="settings-profile__meta">
+            年齢: {profile?.age != null ? `${profile.age}歳` : '未設定'} ／ 身長: {profile?.heightCm != null ? `${profile.heightCm}cm` : '未設定'}
+          </p>
+        </div>
+        <ChevronRightIcon className="settings-profile__chevron" strokeWidth={1.8} />
+      </button>
 
       <GoalPanel goals={goals} setGoals={setGoals} trainingLogs={trainingLogs} dailyConditions={dailyConditions} today={today} />
 

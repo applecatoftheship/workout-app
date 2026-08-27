@@ -210,6 +210,24 @@ export interface Workout extends BaseRecord {
   notes?: string;
 }
 
+// プロフィール機能（2026年8月27日）：profilesテーブルに対応する型。1ユーザー1行
+// （user_idが主キー）。体重はdaily_conditions.weightに一本化する方針のためここには
+// 含まない（src/api/dailyConditions.tsのupsertWeightOnly参照）。
+export type AvatarType = 'preset' | 'upload';
+
+export interface Profile {
+  userId: string;
+  displayName?: string;
+  age?: number;
+  heightCm?: number;
+  bodyFatPercentage?: number;
+  // presetの場合は絵文字そのもの、uploadの場合はSupabase Storageの公開URL。
+  avatarType?: AvatarType;
+  avatarValue?: string;
+  createdAt?: DateString;
+  updatedAt?: DateString;
+}
+
 // プッシュ通知機能（2026年8月24日）。ブラウザ標準のNotification型と衝突しない
 // よう、アプリ側のドメイン型はAppNotificationという名前にしている。
 // 週次ACWRインサイト機能（2026年8月25日）：'weekly_acwr_report'を追加。

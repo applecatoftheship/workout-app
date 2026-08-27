@@ -85,6 +85,24 @@ export async function upsertDailyCondition(condition: DailyCondition): Promise<v
   }
 }
 
+// プロフィール機能（2026年8月27日）：ユーザー詳細画面の体重入力用。
+// api/sync-apple-health.tsのhandleSleep（睡眠時間のみのupsert）と同じ「部分列
+// upsert」パターンを踏襲し、user_id・log_date・weight以外の列（睡眠時間・疲労度・
+// メモ等）には触れない。PostgRESTのupsertは渡した列のみをDO UPDATE SETするため、
+// 今日のdaily_conditions行が既に他フォーム（ConditionForm.tsx）で作成されていても
+// weight以外は上書きされない。既存の体重記録の保存先（daily_conditions）を
+// 分断しないための実装（実装指示書の確認事項①への対応）。
+export async function upsertWeightOnly(logDate: DateString, weight: number): Promise<void> {
+  const userId = await getCurrentUserId()
+  const { error } = await supabase
+    .from('daily_conditions')
+    .upsert({ user_id: userId, log_date: logDate, weight }, { onConflict: 'user_id,log_date' })
+
+  if (error) {
+    throw error
+  }
+}
+
 export async function deleteDailyConditionRemote(id: string): Promise<void> {
   const { error } = await supabase.from('daily_conditions').delete().eq('id', id)
 

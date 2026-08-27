@@ -8,6 +8,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
 }
 
 .settings-profile__avatar {
@@ -20,6 +26,18 @@
   justify-content: center;
   font-size: 1.3rem;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.settings-profile__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.settings-profile__body {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .settings-profile__name {
@@ -32,6 +50,13 @@
   margin: 0;
   font-size: var(--font-size-body-sm);
   color: var(--color-text-secondary);
+}
+
+.settings-profile__chevron {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
 }
 
 .settings-section__title {

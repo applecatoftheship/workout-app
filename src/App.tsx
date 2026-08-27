@@ -13,6 +13,8 @@ import { fetchDailyConditions } from './api/dailyConditions'
 import { fetchGoalsByMonth } from './api/goals'
 import { fetchTrainingLogs } from './api/trainingLogs'
 import { fetchMealLogs } from './api/mealLogs'
+import { fetchProfile } from './api/profiles'
+import { UserProfile } from './pages/UserProfile'
 import { useTheme } from './hooks/useTheme'
 import { ToastProvider, useToast } from './hooks/useToast'
 import { ConfirmProvider } from './hooks/useConfirm'
@@ -21,7 +23,7 @@ import { CelebrationProvider } from './components/celebration/CelebrationProvide
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import type { Goals } from './api/goals'
-import type { DateString, DailyCondition, MealLog, TrainingLog } from './types'
+import type { DateString, DailyCondition, MealLog, Profile, TrainingLog } from './types'
 
 const today = new Date()
 const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}` as DateString
@@ -53,6 +55,7 @@ function AppShell() {
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
   const [dailyConditions, setDailyConditions] = useState<DailyCondition[]>([])
   const [goals, setGoals] = useState<Goals>({ ...defaultGoals })
+  const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -145,6 +148,28 @@ function AppShell() {
     }
   }, [])
 
+  // プロフィール機能（2026年8月27日）：設定画面のサマリーカード・ユーザー詳細
+  // 画面の両方で使うため、他のグローバルstate（goals・dailyConditions等）と
+  // 同じくAppShellで一度だけ取得する。未保存ユーザーはfetchProfileがnullを
+  // 返す（profilesは1行も作られていない状態がありうるテーブルのため）。
+  useEffect(() => {
+    let isMounted = true
+
+    fetchProfile()
+      .then((data) => {
+        if (isMounted) {
+          setProfile(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseからプロフィールの取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   const openRecordModal = (request: Omit<RecordModalRequest, 'requestId'>) => {
     setRecordModalRequest({ ...request, requestId: Date.now() })
   }
@@ -210,8 +235,16 @@ function AppShell() {
                 theme={theme}
                 setTheme={setTheme}
                 openRecordModal={openRecordModal}
+                profile={profile}
               />
             }
+          />
+          {/* ユーザー詳細画面（2026年8月27日）：設定画面からのドリルダウン専用の
+              サブページのため、BottomNavのタブハイライト用APP_VIEW_PATHSには
+              含めていない（あちらは4つのボトムナビ本体のタブ用）。 */}
+          <Route
+            path="/settings/profile"
+            element={<UserProfile profile={profile} setProfile={setProfile} todayString={todayString} />}
           />
         </Routes>
       </main>
