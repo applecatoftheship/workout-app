@@ -36,20 +36,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (isMounted) {
-        setSession(data.session)
-        setIsLoading(false)
-      }
-    })
+    // コールドスタート時の認証状態初期化（不具合対応、2026年8月27日）：
+    // supabase-js（GoTrueClient.__loadSession、node_modules/@supabase/auth-js
+    // のソースで確認済み）は、アクセストークンが実際に期限切れの状態で
+    // リフレッシュを試みた際、一時的なネットワークエラー（PWAがバックグラウンド
+    // から復帰した直後で接続がまだ確立していない、等）が起きると、リフレッシュ
+    // トークン自体が無効というわけではないにもかかわらず、error付きで
+    // session: nullを返す設計になっている。これを無条件に「未ログイン」として
+    // 扱うと、コールドスタートのたびに（特にモバイル・PWAで）実際にはログイン
+    // 済みなのにログイン画面に戻される症状の主因になりうるため、error付きで
+    // nullが返ってきた場合に限り1回だけ短い間隔を空けて再試行し、それでも
+    // 失敗した場合のみ実際に未ログイン扱いとする。
+    const loadSession = (isRetry = false) => {
+      supabase.auth
+        .getSession()
+        .then(({ data, error }) => {
+          if (!isMounted) return
+          if (error && !data.session && !isRetry) {
+            window.setTimeout(() => loadSession(true), 1500)
+            return
+          }
+          setSession(data.session)
+          setIsLoading(false)
+        })
+        .catch((error) => {
+          // getSession()自体が例外を投げた場合（未捕捉のPromise拒否）にisLoadingが
+          // 永久にtrueのまま固まってしまうのを防ぐガード。
+          if (!isMounted) return
+          console.error('セッション復元に失敗しました', error)
+          setIsLoading(false)
+        })
+    }
+
+    loadSession()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (isMounted) {
-        setSession(nextSession)
-        setIsLoading(false)
-      }
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!isMounted) return
+      // INITIAL_SESSIONは上のloadSession（リトライ込み）が既に権威的に処理する
+      // ため、ここでは無視する（二重処理・上書きレースを防ぐ。onAuthStateChange
+      // 側のINITIAL_SESSION発行も同じくGoTrueClientの内部エラー時にnullで発火
+      // しうるため、ここで拾ってしまうとloadSession側の再試行結果を上書きし得る）。
+      if (event === 'INITIAL_SESSION') return
+      setSession(nextSession)
+      setIsLoading(false)
     })
 
     return () => {
