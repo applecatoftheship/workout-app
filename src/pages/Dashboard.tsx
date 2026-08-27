@@ -47,6 +47,17 @@ function formatExerciseCompact(exercise: TrainingLogExercise) {
   return `${name} - ${weightText}×${repsText}×${exercise.sets.length}セット`
 }
 
+// Apple Health連携（2026年8月27日）：「今日の内容」アコーディオンのワークアウト
+// 表示。CalendarDaySummaries.tsxのWorkoutSummary・DailyReportModal.tsxのワーク
+// アウトセクションと表示方針を統一する（activity_typeがNULLの場合は「ワークアウト」
+// にフォールバック、external_idありの場合は「⌚ Watch」の注記）。
+function formatWorkoutCompact(workout: Workout) {
+  const label = workout.activityType ?? 'ワークアウト'
+  const watchNote = workout.externalId ? '（⌚ Watch）' : ''
+  const distanceText = workout.distanceMeters != null ? ` ${(workout.distanceMeters / 1000).toFixed(2)}km` : ''
+  return `${label}${watchNote}${distanceText}`
+}
+
 /**
  * スプリント2（2026年8月17日）：統計カードの「前週比」用に、移動平均データ列から
  * 指定日のちょうど7日前のポイントを探す。該当日に記録がなければnull
@@ -583,6 +594,19 @@ export function Dashboard({
     ? todayLoggedExercises.map((exercise) => formatExerciseCompact(exercise)).join(' / ')
     : '記録なし'
 
+  // Apple Health連携（2026年8月27日）：「今日の内容」アコーディオンはこのブロックの
+  // 他の値（todayTrainingSummary等）と同じくselectedDateKey基準（名前に反して
+  // 「今日」固定ではなく、週間ストリップでの日付選択に連動する既存仕様）。
+  // 新規APIコールはせず、ACWR用に取得済みのacwrWorkouts（直近28日・常にtoday終端）
+  // から選択日分を抽出する（サッカーは既存方針通り引き続き対象外）。
+  const selectedDateWorkouts = useMemo(
+    () => acwrWorkouts.filter((workout) => toJstDateKeyFromIso(workout.startTime) === selectedDateKey),
+    [acwrWorkouts, selectedDateKey],
+  )
+  const todayWorkoutSummary = selectedDateWorkouts.length > 0
+    ? selectedDateWorkouts.map((workout) => formatWorkoutCompact(workout)).join(' / ')
+    : '記録なし'
+
   // 統計カードの「実測」注記（本日実測 / 実測）は、選択日にちょうど記録があるときだけ表示する。
   const selectedCondition = useMemo(
     () => dailyConditions.find((condition) => condition.date === selectedDateKey),
@@ -891,11 +915,15 @@ export function Dashboard({
         </button>
         {isTodayDetailOpen ? (
           <div className="accordion-body">
-            <p className="panel-card__description">筋トレ・体調を一目で確認できます。</p>
+            <p className="panel-card__description">筋トレ・ワークアウト・体調を一目で確認できます。</p>
             <div className="detail-list">
               <div className="detail-item">
                 <span className="detail-label">トレーニング</span>
                 <p>{todayTrainingSummary}</p>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">ワークアウト</span>
+                <p>{todayWorkoutSummary}</p>
               </div>
               <div className="detail-item">
                 <span className="detail-label">体調メモ</span>
