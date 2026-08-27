@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { BodyPart, DailyCondition, MealLog, SoccerLog, TrainingLog } from '../types'
+import type { BodyPart, DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, Workout } from '../types'
 import './ProgressGraph.css'
 import '../components/graphs/ChartCommon.css'
 import { TrainingChart } from '../components/graphs/TrainingChart'
@@ -12,7 +12,8 @@ import { WeightChart } from '../components/graphs/WeightChart'
 import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
 import { fetchSoccerLogs } from '../api/soccerLogs'
-import { calculateWeeklyRecoverySummary } from '../utils/recoveryHelpers'
+import { fetchWorkouts } from '../api/workouts'
+import { calculateWeeklyRecoverySummary, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../utils/recoveryHelpers'
 import {
   buildDateList,
   calculateDenseMovingAverage,
@@ -112,6 +113,10 @@ export function ProgressGraph({
   // 同じ「そのページが必要とする範囲だけ個別に取得する」既存方針を踏襲し、
   // 今週の範囲のみをここで取得する。
   const [weekSoccerLogs, setWeekSoccerLogs] = useState<SoccerLog[]>([])
+  // Apple Health連携（2026年8月27日）：weekSoccerLogsと同じく、このページ専用に
+  // 今週の範囲だけを個別取得する（fetchWorkoutsは既にis_primary = trueの行のみを
+  // 返すため、Task3で確立した既存パターン通り追加フィルタは不要）。
+  const [weekWorkouts, setWeekWorkouts] = useState<Workout[]>([])
   const recoveryWeekRange = useMemo(() => getPeriodRange('week', today), [today])
   const recoveryWeekStartKey = toDateKey(recoveryWeekRange.start)
   const recoveryWeekEndKey = toDateKey(recoveryWeekRange.end)
@@ -132,9 +137,25 @@ export function ProgressGraph({
     }
   }, [recoveryWeekStartKey, recoveryWeekEndKey])
 
+  useEffect(() => {
+    let isMounted = true
+    fetchWorkouts(recoveryWeekStartKey as DateString, recoveryWeekEndKey as DateString)
+      .then((data) => {
+        if (isMounted) {
+          setWeekWorkouts(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから今週のワークアウト記録の取得に失敗しました', error)
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [recoveryWeekStartKey, recoveryWeekEndKey])
+
   const recoveryWeeklySummary = useMemo(
-    () => calculateWeeklyRecoverySummary(trainingLogs, weekSoccerLogs, mealLogs, today, new Date()),
-    [trainingLogs, weekSoccerLogs, mealLogs, today],
+    () => calculateWeeklyRecoverySummary(trainingLogs, weekSoccerLogs, mealLogs, today, new Date(), DEFAULT_RECOVERY_WINDOW_CONFIG, weekWorkouts),
+    [trainingLogs, weekSoccerLogs, mealLogs, today, weekWorkouts],
   )
 
   const earliestDate = useMemo(() => {

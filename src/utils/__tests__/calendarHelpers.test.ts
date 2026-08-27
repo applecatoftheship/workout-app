@@ -13,7 +13,7 @@ import {
   toDateKey,
   toJstDateKeyFromIso,
 } from '../calendarHelpers'
-import type { DailyCondition, SoccerLog, TrainingLogExercise, TrainingSchedule } from '../../types'
+import type { DailyCondition, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../../types'
 
 describe('toDateKey', () => {
   it('year/month/dayをゼロ埋めしたYYYY-MM-DDにする', () => {
@@ -143,6 +143,21 @@ describe('buildActivityByDate', () => {
     const result = buildActivityByDate(new Map(), soccerLogsByDate)
     expect(result.has('2026-08-23')).toBe(false)
   })
+
+  it('Apple Watchワークアウトがある日はappleWorkoutを含む（2026年8月27日追加）', () => {
+    const workoutsByDate = new Map([['2026-08-23', [{ activityType: 'running', startTime: '2026-08-23T10:00:00+09:00', isPrimary: true } as Workout]]])
+    const result = buildActivityByDate(new Map(), new Map(), workoutsByDate)
+    expect(result.get('2026-08-23')?.has('appleWorkout')).toBe(true)
+  })
+
+  it('workoutsByDate省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
+    const schedulesByDate = new Map([
+      ['2026-08-23', [{ id: '1', userId: 'u', scheduledDate: '2026-08-23', title: 'A', emoji: '🏋️', status: 'scheduled', templateId: null } as TrainingSchedule]],
+    ])
+    const result = buildActivityByDate(schedulesByDate, new Map())
+    expect(result.get('2026-08-23')?.has('workout')).toBe(true)
+    expect(result.get('2026-08-23')?.has('appleWorkout')).toBe(false)
+  })
 })
 
 describe('getCalendarCellState', () => {
@@ -197,6 +212,29 @@ describe('getCalendarCellState', () => {
       hasSoccerLog: true,
     })
     expect(result).toEqual([{ type: 'soccer', icon: '⚽', status: 'completed_unplanned' }])
+  })
+
+  it('Apple Watchワークアウトがあれば常にcompleted_unplannedのappleWorkoutアイテムが追加される（2026年8月27日追加）', () => {
+    const result = getCalendarCellState({
+      isPast: false,
+      hasSchedule: false,
+      scheduleIcon: '🏋️',
+      hasTrainingLog: false,
+      hasSoccerLog: false,
+      hasAppleWorkout: true,
+    })
+    expect(result).toEqual([{ type: 'appleWorkout', icon: '🏃', status: 'completed_unplanned' }])
+  })
+
+  it('hasAppleWorkout省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
+    const result = getCalendarCellState({
+      isPast: true,
+      hasSchedule: false,
+      scheduleIcon: '🏋️',
+      hasTrainingLog: false,
+      hasSoccerLog: false,
+    })
+    expect(result).toEqual([])
   })
 })
 

@@ -84,6 +84,7 @@ export function DailyReportModal({
     selectedDate,
     now,
     DEFAULT_RECOVERY_WINDOW_CONFIG,
+    workouts,
   )
 
   return (

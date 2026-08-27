@@ -4,7 +4,7 @@ import {
   calculateWeeklyRecoverySummary,
   DEFAULT_RECOVERY_WINDOW_CONFIG,
 } from '../recoveryHelpers'
-import type { MealLog, SoccerLog, TrainingLog } from '../../types'
+import type { MealLog, SoccerLog, TrainingLog, Workout } from '../../types'
 
 const DATE = '2026-08-23' as const
 const END_TIME = '2026-08-23T18:00:00.000Z' // config.windowMinutes=45 -> 窓終了18:45
@@ -15,6 +15,12 @@ function workoutLog(endTime?: string): TrainingLog {
 function soccerLog(endTime?: string): SoccerLog {
   return { date: DATE, activityType: '練習', endTime }
 }
+// Apple Health連携（2026年8月27日追加）：workoutsはtraining_logs/soccer_logsの
+// ようなdateプロパティを持たず、startTime（timestamptz）からJST暦日を導出する
+// ため、startTimeはDATE（2026-08-23）のJST日中の時刻にしている。
+function appleWorkout(endTime?: string): Workout {
+  return { activityType: 'running', startTime: '2026-08-23T09:00:00+09:00', endTime, isPrimary: true }
+}
 function meal(mealTime: string, protein: number, carbohydrates: number): MealLog {
   return { date: DATE, mealType: 'lunch', foods: ['プロテイン'], calories: 200, protein, fat: 5, carbohydrates, mealTime }
 }
@@ -23,6 +29,34 @@ describe('calculateDailyRecoveryResults', () => {
   it('該当日にend_time付きのセッションが無ければ空配列', () => {
     const results = calculateDailyRecoveryResults([workoutLog(undefined)], [], [], DATE, new Date(END_TIME))
     expect(results).toEqual([])
+  })
+
+  it('Apple Watchワークアウト（end_time付き）はappleWorkoutセッションとして判定される（2026年8月27日追加）', () => {
+    const meals = [meal('2026-08-23T18:20:00.000Z', 25, 35)]
+    const results = calculateDailyRecoveryResults(
+      [],
+      [],
+      meals,
+      DATE,
+      new Date('2026-08-23T18:30:00.000Z'),
+      DEFAULT_RECOVERY_WINDOW_CONFIG,
+      [appleWorkout(END_TIME)],
+    )
+
+    expect(results).toHaveLength(1)
+    expect(results[0].sessionType).toBe('appleWorkout')
+    expect(results[0].status).toBe('completed_full')
+  })
+
+  it('end_timeが無いApple Watchワークアウトは対象外', () => {
+    const results = calculateDailyRecoveryResults([], [], [], DATE, new Date(END_TIME), DEFAULT_RECOVERY_WINDOW_CONFIG, [appleWorkout(undefined)])
+    expect(results).toEqual([])
+  })
+
+  it('workouts省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
+    const results = calculateDailyRecoveryResults([workoutLog(END_TIME)], [], [], DATE, new Date(END_TIME))
+    expect(results).toHaveLength(1)
+    expect(results[0].sessionType).toBe('workout')
   })
 
   it('窓内でP・C両方の目標を満たせばcompleted_full', () => {

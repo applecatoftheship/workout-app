@@ -9,7 +9,7 @@ import { DailyReportModal } from '../components/calendar/DailyReportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { fetchWorkouts } from '../api/workouts'
-import { weekDays, toDateKey, formatMonthLabel, getScheduleIcon, buildActivityByDate, getCalendarCellState } from '../utils/calendarHelpers'
+import { weekDays, toDateKey, formatMonthLabel, getScheduleIcon, buildActivityByDate, getCalendarCellState, toJstDateKeyFromIso } from '../utils/calendarHelpers'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import type { RecordModalRequest } from '../components/RecordFormModal'
 
@@ -214,9 +214,22 @@ export function MonthlyCalendar({
     return map
   }, [trainingLogs])
 
+  // Apple Health連携（2026年8月27日）：fetchWorkoutsが既にis_primary = trueの
+  // 行のみを返すため、ここでの追加フィルタは不要（Task3で確立した既存パターン）。
+  const workoutsByDate = useMemo(() => {
+    const map = new Map<string, Workout[]>()
+    workouts.forEach((workout) => {
+      const dateKey = toJstDateKeyFromIso(workout.startTime)
+      const list = map.get(dateKey) ?? []
+      list.push(workout)
+      map.set(dateKey, list)
+    })
+    return map
+  }, [workouts])
+
   const activityByDate = useMemo(
-    () => buildActivityByDate(schedulesByDate, soccerLogsByDate),
-    [schedulesByDate, soccerLogsByDate],
+    () => buildActivityByDate(schedulesByDate, soccerLogsByDate, workoutsByDate),
+    [schedulesByDate, soccerLogsByDate, workoutsByDate],
   )
 
   const refetchSoccerLogs = () => {
@@ -321,6 +334,7 @@ export function MonthlyCalendar({
             scheduleIcon: getScheduleIcon(daySchedules),
             hasTrainingLog: dayTrainingLogs.length > 0,
             hasSoccerLog: activityByDate.get(day.dateKey)?.has('soccer') ?? false,
+            hasAppleWorkout: activityByDate.get(day.dateKey)?.has('appleWorkout') ?? false,
           })
 
           return (

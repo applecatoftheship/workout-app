@@ -12,8 +12,9 @@ import { RestTimerModal } from '../components/timer/RestTimerModal'
 import { NotificationModal } from '../components/NotificationModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
+import { fetchWorkouts } from '../api/workouts'
 import { fetchNotifications, markNotificationRead } from '../api/notifications'
-import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, weekDays } from '../utils/calendarHelpers'
+import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, toJstDateKeyFromIso, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
 import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../utils/acwrHelpers'
 import { calculateDailyRecoveryResults, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../utils/recoveryHelpers'
@@ -30,6 +31,7 @@ import type {
   TrainingLog,
   TrainingLogExercise,
   TrainingSchedule,
+  Workout,
 } from '../types'
 
 function formatExerciseCompact(exercise: TrainingLogExercise) {
@@ -159,6 +161,7 @@ export function Dashboard({
 
   const [weekSchedules, setWeekSchedules] = useState<TrainingSchedule[]>([])
   const [weekSoccerLogs, setWeekSoccerLogs] = useState<SoccerLog[]>([])
+  const [weekWorkouts, setWeekWorkouts] = useState<Workout[]>([])
   const [acwrSoccerLogs, setAcwrSoccerLogs] = useState<SoccerLog[]>([])
   // ホーム日付選択（2026年8月17日）：週間ストリップの週移動（A-1）と、
   // 日付タップによるホーム画面全体の日付コンテキスト切り替え（A-2）。
@@ -198,15 +201,16 @@ export function Dashboard({
   useEffect(() => {
     let isMounted = true
 
-    Promise.all([fetchTrainingSchedules(weekStartKey, weekEndKey), fetchSoccerLogs(weekStartKey, weekEndKey)])
-      .then(([scheduleData, soccerData]) => {
+    Promise.all([fetchTrainingSchedules(weekStartKey, weekEndKey), fetchSoccerLogs(weekStartKey, weekEndKey), fetchWorkouts(weekStartKey, weekEndKey)])
+      .then(([scheduleData, soccerData, workoutData]) => {
         if (isMounted) {
           setWeekSchedules(scheduleData)
           setWeekSoccerLogs(soccerData)
+          setWeekWorkouts(workoutData)
         }
       })
       .catch((error) => {
-        console.error('Supabaseから今週の予定・サッカー記録の取得に失敗しました', error)
+        console.error('Supabaseから今週の予定・サッカー記録・ワークアウト記録の取得に失敗しました', error)
       })
 
     return () => {
@@ -240,6 +244,31 @@ export function Dashboard({
       isMounted = false
     }
   }, [acwrChronicStartKey, todayString])
+
+  // リカバリー窓機能へのApple Health連携（2026年8月27日）：recoveryResultsは
+  // ACWRGaugeCard同様に常にtodayString基準（週送り・日付選択の対象外）のため、
+  // 週間ストリップ用のweekWorkouts（weekOffsetで変動する）とは別に、常に
+  // 今日を含む単日範囲でworkoutsを取得する（acwrSoccerLogsと同じ「常にtoday基準」
+  // の考え方）。
+  const [todayWorkouts, setTodayWorkouts] = useState<Workout[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchWorkouts(todayString, todayString)
+      .then((data) => {
+        if (isMounted) {
+          setTodayWorkouts(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseから本日のワークアウト記録の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [todayString])
 
   // スプリント3（MD基準の栄養調整、2026年8月18日）：MD判定には選択日の前日〜
   // 3日後を含む範囲の予定が必要だが、週間ストリップ用のweekSchedules（週境界で
@@ -322,9 +351,22 @@ export function Dashboard({
     return map
   }, [trainingLogs])
 
+  // Apple Health連携（2026年8月27日）：fetchWorkoutsが既にis_primary = trueの
+  // 行のみを返すため、ここでの追加フィルタは不要（Task3で確立した既存パターン）。
+  const weekWorkoutsByDate = useMemo(() => {
+    const map = new Map<string, Workout[]>()
+    weekWorkouts.forEach((workout) => {
+      const dateKey = toJstDateKeyFromIso(workout.startTime)
+      const list = map.get(dateKey) ?? []
+      list.push(workout)
+      map.set(dateKey, list)
+    })
+    return map
+  }, [weekWorkouts])
+
   const weekActivityByDate = useMemo(
-    () => buildActivityByDate(weekSchedulesByDate, weekSoccerLogsByDate),
-    [weekSchedulesByDate, weekSoccerLogsByDate],
+    () => buildActivityByDate(weekSchedulesByDate, weekSoccerLogsByDate, weekWorkoutsByDate),
+    [weekSchedulesByDate, weekSoccerLogsByDate, weekWorkoutsByDate],
   )
 
   // ACWRGaugeCard・目標ストリップは日付選択の対象外のため、常にtodayString基準の
@@ -378,8 +420,17 @@ export function Dashboard({
   const [recoveryNow, setRecoveryNow] = useState(() => new Date())
 
   const recoveryResults = useMemo(
-    () => calculateDailyRecoveryResults(trainingLogs, acwrSoccerLogs, mealLogs, todayString, recoveryNow, DEFAULT_RECOVERY_WINDOW_CONFIG),
-    [trainingLogs, acwrSoccerLogs, mealLogs, todayString, recoveryNow],
+    () =>
+      calculateDailyRecoveryResults(
+        trainingLogs,
+        acwrSoccerLogs,
+        mealLogs,
+        todayString,
+        recoveryNow,
+        DEFAULT_RECOVERY_WINDOW_CONFIG,
+        todayWorkouts,
+      ),
+    [trainingLogs, acwrSoccerLogs, mealLogs, todayString, recoveryNow, todayWorkouts],
   )
 
   // activeなセッションが1つも無くなったら（missed/completedに確定した、または
@@ -717,6 +768,7 @@ export function Dashboard({
               scheduleIcon: getScheduleIcon(daySchedules),
               hasTrainingLog: dayTrainingLogs.length > 0,
               hasSoccerLog: weekActivityByDate.get(dateKey)?.has('soccer') ?? false,
+              hasAppleWorkout: weekActivityByDate.get(dateKey)?.has('appleWorkout') ?? false,
             })
 
             return (

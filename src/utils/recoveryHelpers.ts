@@ -1,6 +1,7 @@
-import type { DateString, MealLog, SoccerLog, TrainingLog } from '../types'
+import type { DateString, MealLog, SoccerLog, TrainingLog, Workout } from '../types'
 import type { RecoveryResult, RecoveryStatus, RecoveryWindowConfig } from '../types/recovery'
 import { getPeriodRange, toDateKey } from './chartHelpers'
+import { toJstDateKeyFromIso } from './calendarHelpers'
 
 // リカバリー窓機能（スプリント4 Phase 2、2026年8月21日）：windowMinutes・
 // targetProteinGrams・targetCarbGramsはユーザー設定UIが未実装のためハードコードの
@@ -67,12 +68,18 @@ function calculateRecoveryForSession(
 }
 
 /**
- * 指定日のトレーニング・サッカーそれぞれのセッション（end_timeが設定されている
- * もののみ対象。Phase 1実装前の記録はend_timeがNULLのため自動的に対象外になる）
- * に対してリカバリー窓判定を行う。該当セッションが1件も無い日は空配列を返す
+ * 指定日のトレーニング・サッカー・Apple Watchワークアウトそれぞれのセッション
+ * （end_timeが設定されているもののみ対象。Phase 1実装前の記録・distance_metersのみの
+ * Apple Watch同期データ等、end_timeがNULLのものは自動的に対象外になる）に対して
+ * リカバリー窓判定を行う。該当セッションが1件も無い日は空配列を返す
  * （呼び出し側で「no_session」＝カード非表示として扱う）。
- * DBにはキャッシュせず、呼び出しのたびにtrainingLogs/soccerLogs/mealLogsから
+ * DBにはキャッシュせず、呼び出しのたびにtrainingLogs/soccerLogs/workouts/mealLogsから
  * 動的に計算する（ACWR・移動平均と同じ方針）。
+ * workoutsはworkouts.start_timeがtimestamptzのため、他2つのdateプロパティのような
+ * 単純な文字列一致ではなくtoJstDateKeyFromIsoでJST暦日に変換してから絞り込む
+ * （CalendarDaySummaries.tsxのWorkoutSummary等と同じ変換）。呼び出し元は
+ * is_primary = trueの行のみを渡す前提（Task3で確立した既存パターン、
+ * fetchWorkoutsが既にサーバー側でフィルタ済み）。
  */
 export function calculateDailyRecoveryResults(
   trainingLogs: TrainingLog[],
@@ -81,6 +88,7 @@ export function calculateDailyRecoveryResults(
   dateKey: DateString,
   now: Date,
   config: RecoveryWindowConfig = DEFAULT_RECOVERY_WINDOW_CONFIG,
+  workouts: Workout[] = [],
 ): RecoveryResult[] {
   const results: RecoveryResult[] = []
 
@@ -94,6 +102,12 @@ export function calculateDailyRecoveryResults(
     .filter((log) => log.date === dateKey && log.endTime)
     .forEach((log) => {
       results.push(calculateRecoveryForSession('soccer', dateKey, log.endTime as string, mealLogs, config, now))
+    })
+
+  workouts
+    .filter((workout) => workout.endTime && toJstDateKeyFromIso(workout.startTime) === dateKey)
+    .forEach((workout) => {
+      results.push(calculateRecoveryForSession('appleWorkout', dateKey, workout.endTime as string, mealLogs, config, now))
     })
 
   return results
@@ -116,6 +130,7 @@ export function calculateWeeklyRecoverySummary(
   today: Date,
   now: Date,
   config: RecoveryWindowConfig = DEFAULT_RECOVERY_WINDOW_CONFIG,
+  workouts: Workout[] = [],
 ): { achievedCount: number; totalCount: number } {
   const { start, end } = getPeriodRange('week', today)
   const dateKeys: DateString[] = []
@@ -129,7 +144,7 @@ export function calculateWeeklyRecoverySummary(
   let totalCount = 0
 
   dateKeys.forEach((dateKey) => {
-    const results = calculateDailyRecoveryResults(trainingLogs, soccerLogs, mealLogs, dateKey, now, config)
+    const results = calculateDailyRecoveryResults(trainingLogs, soccerLogs, mealLogs, dateKey, now, config, workouts)
     results.forEach((result) => {
       totalCount += 1
       if (ACHIEVED_STATUSES.has(result.status)) {

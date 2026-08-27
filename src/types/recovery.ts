@@ -16,7 +16,9 @@ export interface RecoveryWindowConfig {
 export type RecoveryStatus = 'active' | 'completed_full' | 'completed_protein_only' | 'missed' | 'no_session'
 
 export interface RecoveryResult {
-  sessionType: 'workout' | 'soccer'
+  // 'appleWorkout'（2026年8月27日追加）：workoutsテーブル（Apple Watch自動記録）
+  // 由来のセッション。既存の'workout'（training_logs由来）とは区別する。
+  sessionType: 'workout' | 'soccer' | 'appleWorkout'
   sessionDate: string
   sessionEndTime: string // timestamptz（ISO 8601）
   windowEndTime: string // sessionEndTime + windowMinutes（ISO 8601）

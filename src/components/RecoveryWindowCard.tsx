@@ -10,6 +10,7 @@ type RecoveryWindowCardProps = {
 const SESSION_LABEL: Record<RecoveryResult['sessionType'], string> = {
   workout: '筋トレ',
   soccer: 'サッカー',
+  appleWorkout: 'ワークアウト',
 }
 
 // リカバリー窓機能（スプリント4 Phase 2、2026年8月21日）：activeの残り時間表示は

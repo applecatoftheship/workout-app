@@ -1,4 +1,4 @@
-import type { DateString, DailyCondition, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule } from '../types'
+import type { DateString, DailyCondition, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types'
 import type { ActivityType, CalendarCellItem } from '../types/calendar'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from './acwrHelpers'
 
@@ -76,6 +76,7 @@ export function getScheduleIcon(daySchedules: TrainingSchedule[]): string {
 export function buildActivityByDate(
   schedulesByDate: Map<string, TrainingSchedule[]>,
   soccerLogsByDate: Map<string, SoccerLog[]>,
+  workoutsByDate?: Map<string, Workout[]>,
 ): Map<string, Set<ActivityType>> {
   const map = new Map<string, Set<ActivityType>>()
 
@@ -97,6 +98,16 @@ export function buildActivityByDate(
     }
   })
 
+  // Apple Health連携（2026年8月27日）：workoutsByDate引数は省略可能とし、既存の
+  // buildActivityByDate(schedulesByDate, soccerLogsByDate)呼び出し（テスト等）を
+  // 壊さないようにしている。呼び出し側はis_primary = trueの行のみを渡す前提
+  // （Task3で確立した既存パターン、fetchWorkoutsが既にサーバー側でフィルタ済み）。
+  workoutsByDate?.forEach((dayWorkouts, dateKey) => {
+    if (dayWorkouts.length > 0) {
+      addActivity(dateKey, 'appleWorkout')
+    }
+  })
+
   return map
 }
 
@@ -106,6 +117,8 @@ export interface GetCellStateParams {
   scheduleIcon: string // getScheduleIconで選定した表示絵文字
   hasTrainingLog: boolean
   hasSoccerLog: boolean
+  // Apple Health連携（2026年8月27日）：省略時はfalse扱い（既存呼び出しを壊さない）。
+  hasAppleWorkout?: boolean
 }
 
 // 予定と実績を日付ベースで突き合わせ、カレンダーセルに表示するアイテムを
@@ -113,7 +126,7 @@ export interface GetCellStateParams {
 // （hasSchedule && isPast && !hasTrainingLog）は意図的に何も追加しない
 // （＝missedはセル非表示）。
 export function getCalendarCellState(params: GetCellStateParams): CalendarCellItem[] {
-  const { isPast, hasSchedule, scheduleIcon, hasTrainingLog, hasSoccerLog } = params
+  const { isPast, hasSchedule, scheduleIcon, hasTrainingLog, hasSoccerLog, hasAppleWorkout } = params
   const items: CalendarCellItem[] = []
 
   if (hasTrainingLog) {
@@ -132,6 +145,13 @@ export function getCalendarCellState(params: GetCellStateParams): CalendarCellIt
 
   if (hasSoccerLog) {
     items.push({ type: 'soccer', icon: '⚽', status: 'completed_unplanned' })
+  }
+
+  // Apple Watchワークアウトには「予定」の概念が無い（training_schedulesのような
+  // 事前登録が無く、常に自動記録＝実績のみ）ため、soccerと同じくstatusは
+  // 常にcompleted_unplanned固定とする。
+  if (hasAppleWorkout) {
+    items.push({ type: 'appleWorkout', icon: '🏃', status: 'completed_unplanned' })
   }
 
   return items
