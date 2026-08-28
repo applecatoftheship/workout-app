@@ -247,7 +247,7 @@ export function Settings({
           <div>
             <p className="settings-row__label">ダークモード</p>
             <p className="settings-row__description">
-              {theme === 'dark' ? '現在ダークモードです' : '現在ライトモードです'}（リロードでOS設定に戻ります）
+              {theme === 'dark' ? '現在ダークモードです' : '現在ライトモードです'}（選択内容は保存され、リロード後も維持されます）
             </p>
           </div>
           <ToggleSwitch checked={theme === 'dark'} onChange={(checked) => setTheme(checked ? 'dark' : 'light')} label="ダークモード" />
