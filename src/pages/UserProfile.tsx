@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import './UserProfile.css'
 import '../components/calendar/CalendarForms.css'
 import { ChevronLeftIcon } from '../components/icons'
+import { AvatarCropModal } from '../components/AvatarCropModal'
 import { fetchProfile, upsertProfile, uploadAvatarFile } from '../api/profiles'
 import { fetchRecentWeight, upsertWeightOnly } from '../api/dailyConditions'
 import { useToast } from '../hooks/useToast'
@@ -35,6 +36,10 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
   const [recentWeight, setRecentWeight] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  // トリミング機能（2026年8月28日）：ファイル選択直後には即アップロードせず、
+  // ローカルのobject URLをAvatarCropModalに渡してユーザーの調整を待つ。
+  // 「適用」で初めてuploadAvatarFileを呼ぶ（キャンセル時はアップロード自体発生しない）。
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
 
   // profileがApp.tsx側で後から取得完了するケース（初回マウント時点ではまだ
   // fetchProfile()が解決していない）に対応するため、propsの変化を見て
@@ -66,15 +71,28 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
     setAvatarValue(emoji)
   }
 
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) {
       return
     }
+    setCropImageSrc(URL.createObjectURL(file))
+  }
 
+  const handleCropCancel = () => {
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc)
+    }
+    setCropImageSrc(null)
+  }
+
+  const handleCropConfirm = async (blob: Blob) => {
+    const sourceToRevoke = cropImageSrc
+    setCropImageSrc(null)
     setIsUploadingAvatar(true)
     try {
+      const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' })
       const publicUrl = await uploadAvatarFile(file)
       setAvatarType('upload')
       setAvatarValue(publicUrl)
@@ -83,6 +101,9 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
       showToast('画像のアップロードに失敗しました。もう一度お試しください', 'error')
     } finally {
       setIsUploadingAvatar(false)
+      if (sourceToRevoke) {
+        URL.revokeObjectURL(sourceToRevoke)
+      }
     }
   }
 
@@ -143,7 +164,7 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
 
         <label className="btn-secondary user-profile__upload-button">
           {isUploadingAvatar ? 'アップロード中...' : '写真をアップロード'}
-          <input type="file" accept="image/*" onChange={(event) => void handleFileChange(event)} disabled={isUploadingAvatar} hidden />
+          <input type="file" accept="image/*" onChange={handleFileChange} disabled={isUploadingAvatar} hidden />
         </label>
 
         <p className="user-profile__preset-label">アイコンから選択</p>
@@ -217,6 +238,10 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
           </button>
         </div>
       </section>
+
+      {cropImageSrc ? (
+        <AvatarCropModal imageSrc={cropImageSrc} onCancel={handleCropCancel} onConfirm={(blob) => void handleCropConfirm(blob)} />
+      ) : null}
     </div>
   )
 }
