@@ -1,5 +1,5 @@
 import { getCurrentUserId, supabase } from './client'
-import type { AvatarType, DateString, Profile } from '../types'
+import type { AccentColorId, AvatarType, DateString, FirstDayOfWeek, Profile } from '../types'
 
 type ProfileRow = {
   user_id: string
@@ -9,6 +9,8 @@ type ProfileRow = {
   body_fat_percentage: number | null
   avatar_type: string | null
   avatar_value: string | null
+  first_day_of_week: number | null
+  accent_color: string | null
   created_at: string
   updated_at: string
 }
@@ -22,6 +24,8 @@ function rowToProfile(row: ProfileRow): Profile {
     bodyFatPercentage: row.body_fat_percentage ?? undefined,
     avatarType: (row.avatar_type as AvatarType | null) ?? undefined,
     avatarValue: row.avatar_value ?? undefined,
+    firstDayOfWeek: (row.first_day_of_week as FirstDayOfWeek | null) ?? undefined,
+    accentColor: (row.accent_color as AccentColorId | null) ?? undefined,
     createdAt: row.created_at as DateString,
     updatedAt: row.updated_at as DateString,
   }
@@ -47,12 +51,19 @@ export type ProfileInput = {
   bodyFatPercentage?: number
   avatarType?: AvatarType
   avatarValue?: string
+  firstDayOfWeek?: FirstDayOfWeek
+  accentColor?: AccentColorId
 }
 
 // profilesの全列はこの画面のみが書き込む（他機能との共有列が無い）ため、
 // daily_conditions.weightのような部分列upsert（upsertWeightOnly参照）にはせず、
 // フォームの現在値をそのまま全体upsertする（既存のupsertDailyCondition等と
-// 同じ「全体upsert」方式）。
+// 同じ「全体upsert」方式）。呼び出し側（UserProfile.tsx・Settings.tsx）は
+// どちらも、変更したい列だけでなく現在のprofile全体を組み立てて渡すこと
+// （さもないと未指定の列がnullで上書きされてしまう。設定画面拡張Phase 1
+// 実装時、UserProfile.tsx側がfirstDayOfWeek/accentColorを渡さず保存すると
+// Settings.tsx側で設定した値が消えるバグを実装中に発見し、両呼び出し元を
+// 修正した）。
 export async function upsertProfile(input: ProfileInput): Promise<void> {
   const userId = await getCurrentUserId()
   const { error } = await supabase.from('profiles').upsert(
@@ -64,6 +75,8 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
       body_fat_percentage: input.bodyFatPercentage ?? null,
       avatar_type: input.avatarType ?? null,
       avatar_value: input.avatarValue ?? null,
+      first_day_of_week: input.firstDayOfWeek ?? 1,
+      accent_color: input.accentColor ?? 'orange',
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },

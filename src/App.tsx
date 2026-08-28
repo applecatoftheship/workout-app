@@ -20,10 +20,14 @@ import { ToastProvider, useToast } from './hooks/useToast'
 import { ConfirmProvider } from './hooks/useConfirm'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { CelebrationProvider } from './components/celebration/CelebrationProvider'
+import { SplashScreen } from './components/SplashScreen'
+import { applyAccentColor } from './utils/accentColor'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, Profile, TrainingLog } from './types'
+
+const SPLASH_MINIMUM_VISIBLE_MS = 500
 
 const today = new Date()
 const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}` as DateString
@@ -56,11 +60,29 @@ function AppShell() {
   const [dailyConditions, setDailyConditions] = useState<DailyCondition[]>([])
   const [goals, setGoals] = useState<Goals>({ ...defaultGoals })
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false)
 
+  // 体調記録・トレーニング記録・目標設定は、以前は「state変化のたびに
+  // ローカルとリモートの差分を取ってリモート側を削除→再作成する」sync方式だった。
+  // フェッチが失敗/不完全なまま空のローカルstateで同期されるとリモートの
+  // 既存データが全損する構造的な欠陥があったため（2026年8月17日、データ損失
+  // 事故の調査で判明）、個別の保存・削除操作の際にAPIを直接呼び出す方式
+  // （食事記録・サッカー記録・予定と同じ方式）に統一した。このため、
+  // ここでの自動同期useEffectは廃止済み。各フォーム
+  // （TrainingLogForm・ConditionForm・GoalPanel）が保存・削除のたびに
+  // 個別APIを呼び、成功後にfetchで取得し直したデータでローカルstateを更新する。
+
+  // 初回データ取得＋スプラッシュ画面（設定画面拡張Phase 1、2026年8月28日）：
+  // 従来は5つの独立したuseEffectでそれぞれ個別にfetchしていたが、スプラッシュ画面の
+  // 「初回データ取得が完了するまで表示」を実現するにはひとつのPromiseにまとめる
+  // 必要があるため、1つのuseEffectに統合した。各fetchの個別のcatch（エラートースト・
+  // console.error）は従来通り維持しており、1つが失敗してもPromise.all全体は
+  // reject させず（catch内でthrowし直していないため）解決する設計にしている
+  // （さもないと一部データの取得失敗だけでスプラッシュ画面が消えなくなってしまう）。
   useEffect(() => {
     let isMounted = true
 
-    fetchDailyConditions()
+    const dailyConditionsPromise = fetchDailyConditions()
       .then((data) => {
         if (isMounted) {
           setDailyConditions(data)
@@ -73,25 +95,7 @@ function AppShell() {
         }
       })
 
-    return () => {
-      isMounted = false
-    }
-  }, [showToast])
-
-  // 体調記録・トレーニング記録・目標設定は、以前は「state変化のたびに
-  // ローカルとリモートの差分を取ってリモート側を削除→再作成する」sync方式だった。
-  // フェッチが失敗/不完全なまま空のローカルstateで同期されるとリモートの
-  // 既存データが全損する構造的な欠陥があったため（2026年8月17日、データ損失
-  // 事故の調査で判明）、個別の保存・削除操作の際にAPIを直接呼び出す方式
-  // （食事記録・サッカー記録・予定と同じ方式）に統一した。このため、
-  // ここでの自動同期useEffectは廃止済み。各フォーム
-  // （TrainingLogForm・ConditionForm・GoalPanel）が保存・削除のたびに
-  // 個別APIを呼び、成功後にfetchで取得し直したデータでローカルstateを更新する。
-
-  useEffect(() => {
-    let isMounted = true
-
-    fetchGoalsByMonth(currentYearMonth)
+    const goalsPromise = fetchGoalsByMonth(currentYearMonth)
       .then((data) => {
         if (isMounted && data) {
           setGoals(data)
@@ -104,15 +108,7 @@ function AppShell() {
         }
       })
 
-    return () => {
-      isMounted = false
-    }
-  }, [showToast])
-
-  useEffect(() => {
-    let isMounted = true
-
-    fetchTrainingLogs()
+    const trainingLogsPromise = fetchTrainingLogs()
       .then((data) => {
         if (isMounted) {
           setTrainingLogs(data)
@@ -125,15 +121,7 @@ function AppShell() {
         }
       })
 
-    return () => {
-      isMounted = false
-    }
-  }, [showToast])
-
-  useEffect(() => {
-    let isMounted = true
-
-    fetchMealLogs()
+    const mealLogsPromise = fetchMealLogs()
       .then((data) => {
         if (isMounted) {
           setMealLogs(data)
@@ -143,19 +131,11 @@ function AppShell() {
         console.error('Supabaseから食事記録の取得に失敗しました', error)
       })
 
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  // プロフィール機能（2026年8月27日）：設定画面のサマリーカード・ユーザー詳細
-  // 画面の両方で使うため、他のグローバルstate（goals・dailyConditions等）と
-  // 同じくAppShellで一度だけ取得する。未保存ユーザーはfetchProfileがnullを
-  // 返す（profilesは1行も作られていない状態がありうるテーブルのため）。
-  useEffect(() => {
-    let isMounted = true
-
-    fetchProfile()
+    // プロフィール機能（2026年8月27日）：設定画面のサマリーカード・ユーザー詳細
+    // 画面の両方で使うため、他のグローバルstate（goals・dailyConditions等）と
+    // 同じくAppShellで一度だけ取得する。未保存ユーザーはfetchProfileがnullを
+    // 返す（profilesは1行も作られていない状態がありうるテーブルのため）。
+    const profilePromise = fetchProfile()
       .then((data) => {
         if (isMounted) {
           setProfile(data)
@@ -165,10 +145,30 @@ function AppShell() {
         console.error('Supabaseからプロフィールの取得に失敗しました', error)
       })
 
+    const minimumSplashDuration = new Promise<void>((resolve) => {
+      setTimeout(resolve, SPLASH_MINIMUM_VISIBLE_MS)
+    })
+
+    Promise.all([dailyConditionsPromise, goalsPromise, trainingLogsPromise, mealLogsPromise, profilePromise, minimumSplashDuration]).then(
+      () => {
+        if (isMounted) {
+          setIsInitialLoadComplete(true)
+        }
+      },
+    )
+
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [showToast])
+
+  // アクセントカラー設定（設定画面拡張Phase 1、2026年8月28日）：profile.accentColorと
+  // 現在のテーマ（ライト/ダーク）の両方に応じてCSS変数（--color-accent等）を
+  // document.documentElementへ動的上書きする。テーマ切り替え時も再適用が
+  // 必要なため両方をdepsに含めている（src/utils/accentColor.ts参照）。
+  useEffect(() => {
+    applyAccentColor(profile?.accentColor, theme)
+  }, [profile?.accentColor, theme])
 
   const openRecordModal = (request: Omit<RecordModalRequest, 'requestId'>) => {
     setRecordModalRequest({ ...request, requestId: Date.now() })
@@ -176,6 +176,8 @@ function AppShell() {
 
   return (
     <>
+      <SplashScreen isVisible={!isInitialLoadComplete} />
+
       <main className="app-shell">
         <Routes>
           <Route
@@ -205,6 +207,7 @@ function AppShell() {
                 setDailyConditions={setDailyConditions}
                 openRecordModal={openRecordModal}
                 isRecordModalOpen={recordModalRequest !== null}
+                firstDayOfWeek={profile?.firstDayOfWeek ?? 1}
               />
             }
           />
@@ -236,6 +239,7 @@ function AppShell() {
                 setTheme={setTheme}
                 openRecordModal={openRecordModal}
                 profile={profile}
+                setProfile={setProfile}
               />
             }
           />

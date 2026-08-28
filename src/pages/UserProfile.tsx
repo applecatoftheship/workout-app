@@ -117,6 +117,11 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
         bodyFatPercentage: bodyFatPercentage.trim() ? Number(bodyFatPercentage) : undefined,
         avatarType,
         avatarValue,
+        // 設定画面拡張Phase 1（2026年8月28日）：この画面が持たない列
+        // （firstDayOfWeek・accentColor、Settings.tsxが書き込む）も、upsertProfileが
+        // 全体upsert方式のため明示的に引き継がないとnull/デフォルトで上書きされてしまう。
+        firstDayOfWeek: profile?.firstDayOfWeek,
+        accentColor: profile?.accentColor,
       })
 
       // 体重（daily_conditions.weight）の保存先は分断しない方針のため、

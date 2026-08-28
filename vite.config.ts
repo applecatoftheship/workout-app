@@ -15,7 +15,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       manifestFilename: 'manifest.webmanifest',
-      includeAssets: ['favicon.svg', 'icons/*.svg'],
+      includeAssets: ['favicon.svg', 'icons/*.svg', 'icons/splash/*.png'],
       devOptions: {
         enabled: true,
         type: 'module',

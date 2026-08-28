@@ -1,8 +1,27 @@
-import type { DateString, DailyCondition, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types'
+import type { DateString, DailyCondition, FirstDayOfWeek, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types'
 import type { ActivityType, CalendarCellItem } from '../types/calendar'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from './acwrHelpers'
 
 export const weekDays = ['日', '月', '火', '水', '木', '金', '土']
+
+// 設定画面拡張 Phase 1（2026年8月28日）：カレンダー週始まり設定。weekDaysは
+// 常に日曜始まり固定の配列のため、firstDayOfWeek（1:月曜/0:日曜）に応じて
+// 表示順を並び替える。MonthlyCalendar.tsxの週見出し（calendar-weekdays）専用。
+export function getOrderedWeekDayLabels(firstDayOfWeek: FirstDayOfWeek): string[] {
+  return firstDayOfWeek === 1 ? [...weekDays.slice(1), weekDays[0]] : [...weekDays]
+}
+
+// 月グリッド（6週×7日=42マス）の開始日を求める。Date.getDay()は常に
+// 日曜=0起算のため、firstDayOfWeekとのズレをoffsetとして差し引く。
+// 例：1日が水曜（getDay()=3）でfirstDayOfWeek=1（月曜始まり）の場合、
+// offset=(3-1+7)%7=2 → 月曜から始まるグリッドになる。
+export function getCalendarGridStartDate(year: number, month: number, firstDayOfWeek: FirstDayOfWeek): Date {
+  const firstDay = new Date(year, month, 1)
+  const offset = (firstDay.getDay() - firstDayOfWeek + 7) % 7
+  const startDate = new Date(firstDay)
+  startDate.setDate(firstDay.getDate() - offset)
+  return startDate
+}
 
 export function toDateKey(year: number, month: number, day: number): DateString {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` as DateString

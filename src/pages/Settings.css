@@ -99,15 +99,23 @@
 .settings-accent-swatch {
   width: 22px;
   height: 22px;
+  padding: 0;
   border-radius: var(--radius-pill);
   border: 2px solid var(--color-bg-surface);
   box-shadow: 0 0 0 1px var(--color-border);
-  /* UI/UXレビュー修正 項目2（2026年8月25日）：選択機能が未実装のため、実際の
-     プリセット色をそのまま表示するとタップ可能に見えてしまう。彩度・不透明度を
-     落として無効状態であることを視覚的に示す。 */
-  filter: grayscale(1);
-  opacity: 0.4;
+  cursor: pointer;
+}
+
+.settings-accent-swatch:disabled {
   cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 設定画面拡張Phase 1（2026年8月28日）：選択機能を正式に解放。
+   選択中の色はリング（--color-text-primary、テーマに関わらず視認できるよう
+   彩色スウォッチと明確にコントラストする色を使う）で示す。 */
+.settings-accent-swatch--selected {
+  box-shadow: 0 0 0 2px var(--color-bg-surface), 0 0 0 4px var(--color-text-primary);
 }
 
 .toggle-switch {

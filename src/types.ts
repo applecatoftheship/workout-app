@@ -215,6 +215,11 @@ export interface Workout extends BaseRecord {
 // 含まない（src/api/dailyConditions.tsのupsertWeightOnly参照）。
 export type AvatarType = 'preset' | 'upload';
 
+// 設定画面拡張 Phase 1（2026年8月28日）：カレンダー週始まり・アクセントカラー設定を追加。
+// 1: 月曜始まり, 0: 日曜始まり（DBのfirst_day_of_week列と同じ意味）。
+export type FirstDayOfWeek = 0 | 1;
+export type AccentColorId = 'teal' | 'orange' | 'blue' | 'purple';
+
 export interface Profile {
   userId: string;
   displayName?: string;
@@ -224,6 +229,8 @@ export interface Profile {
   // presetの場合は絵文字そのもの、uploadの場合はSupabase Storageの公開URL。
   avatarType?: AvatarType;
   avatarValue?: string;
+  firstDayOfWeek?: FirstDayOfWeek;
+  accentColor?: AccentColorId;
   createdAt?: DateString;
   updatedAt?: DateString;
 }

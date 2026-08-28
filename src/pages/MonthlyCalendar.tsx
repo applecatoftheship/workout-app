@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../types'
+import type { DailyCondition, DateString, FirstDayOfWeek, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../types'
 import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
 import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, SoccerSummary, WorkoutSummary } from '../components/calendar/CalendarDaySummaries'
@@ -9,7 +9,16 @@ import { DailyReportModal } from '../components/calendar/DailyReportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { fetchWorkouts } from '../api/workouts'
-import { weekDays, toDateKey, formatMonthLabel, getScheduleIcon, buildActivityByDate, getCalendarCellState, toJstDateKeyFromIso } from '../utils/calendarHelpers'
+import {
+  toDateKey,
+  formatMonthLabel,
+  getScheduleIcon,
+  buildActivityByDate,
+  getCalendarCellState,
+  toJstDateKeyFromIso,
+  getOrderedWeekDayLabels,
+  getCalendarGridStartDate,
+} from '../utils/calendarHelpers'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import type { RecordModalRequest } from '../components/RecordFormModal'
 
@@ -26,6 +35,7 @@ type MonthlyCalendarProps = {
   setDailyConditions: React.Dispatch<React.SetStateAction<DailyCondition[]>>
   openRecordModal: (request: Omit<RecordModalRequest, 'requestId'>) => void
   isRecordModalOpen: boolean
+  firstDayOfWeek: FirstDayOfWeek
 }
 
 export function MonthlyCalendar({
@@ -37,6 +47,7 @@ export function MonthlyCalendar({
   setDailyConditions,
   openRecordModal,
   isRecordModalOpen,
+  firstDayOfWeek,
 }: MonthlyCalendarProps) {
   const today = new Date()
   const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate())
@@ -67,11 +78,10 @@ export function MonthlyCalendar({
 
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
+  const orderedWeekDayLabels = getOrderedWeekDayLabels(firstDayOfWeek)
 
   const calendarDays = useMemo(() => {
-    const firstDay = new Date(year, month, 1)
-    const startDate = new Date(firstDay)
-    startDate.setDate(firstDay.getDate() - firstDay.getDay())
+    const startDate = getCalendarGridStartDate(year, month, firstDayOfWeek)
 
     const days: Array<{
       date: Date
@@ -92,7 +102,7 @@ export function MonthlyCalendar({
     }
 
     return days
-  }, [month, year])
+  }, [month, year, firstDayOfWeek])
 
   const scheduleRangeStart = calendarDays[0]?.dateKey
   const scheduleRangeEnd = calendarDays[calendarDays.length - 1]?.dateKey
@@ -312,14 +322,19 @@ export function MonthlyCalendar({
       </div>
 
       <div className="calendar-weekdays" aria-label="曜日">
-        {weekDays.map((day, index) => (
-          <div
-            key={day}
-            className={`calendar-weekday ${index === 0 ? 'calendar-weekday--sunday' : ''} ${index === 6 ? 'calendar-weekday--saturday' : ''}`}
-          >
-            {day}
-          </div>
-        ))}
+        {orderedWeekDayLabels.map((day, index) => {
+          // firstDayOfWeek起算のindexから実際の曜日番号（0=日,6=土）に戻して判定する。
+          // 週始まりが月曜の場合、表示上の並びは月〜日でindex 6が日曜になる。
+          const dayOfWeek = (index + firstDayOfWeek) % 7
+          return (
+            <div
+              key={day}
+              className={`calendar-weekday ${dayOfWeek === 0 ? 'calendar-weekday--sunday' : ''} ${dayOfWeek === 6 ? 'calendar-weekday--saturday' : ''}`}
+            >
+              {day}
+            </div>
+          )
+        })}
       </div>
 
       <div className="calendar-grid">

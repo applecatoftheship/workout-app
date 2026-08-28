@@ -5,18 +5,21 @@ import { GoalPanel } from '../components/GoalPanel'
 import { TrainingTemplateManager } from '../components/TrainingTemplateManager'
 import type { RecordModalRequest } from '../components/RecordFormModal'
 import type { Goals } from '../api/goals'
-import type { DailyCondition, DateString, Profile, TrainingLog } from '../types'
+import type { AccentColorId, DailyCondition, DateString, FirstDayOfWeek, Profile, TrainingLog } from '../types'
 import type { Theme } from '../hooks/useTheme'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import { useToast } from '../hooks/useToast'
 import { useAuth } from '../hooks/useAuth'
 import { ChevronRightIcon } from '../components/icons'
+import { fetchProfile, upsertProfile } from '../api/profiles'
+import { ACCENT_COLOR_IDS, ACCENT_COLOR_LABELS, DEFAULT_ACCENT_COLOR } from '../utils/accentColor'
 
-const ACCENT_PRESETS = [
-  { name: 'オレンジ（現在）', color: '#E85D2C' },
-  { name: 'ティール', color: '#1D9C93' },
-  { name: 'ブルー', color: '#2F6FED' },
-]
+const ACCENT_SWATCH_COLORS: Record<AccentColorId, string> = {
+  orange: '#E85D2C',
+  teal: '#1D9C93',
+  blue: '#2F6FED',
+  purple: '#8B5CF6',
+}
 
 type ToggleSwitchProps = {
   checked: boolean
@@ -50,6 +53,7 @@ type SettingsProps = {
   setTheme: React.Dispatch<React.SetStateAction<Theme>>
   openRecordModal: (request: Omit<RecordModalRequest, 'requestId'>) => void
   profile: Profile | null
+  setProfile: React.Dispatch<React.SetStateAction<Profile | null>>
 }
 
 export function Settings({
@@ -63,6 +67,7 @@ export function Settings({
   setTheme,
   openRecordModal,
   profile,
+  setProfile,
 }: SettingsProps) {
   const navigate = useNavigate()
   // 記録リマインダー（プッシュ通知機能 Phase 1b、2026年8月24日）：ONにした瞬間に
@@ -71,6 +76,36 @@ export function Settings({
   const { subscribe, unsubscribe, checkIsSubscribed } = usePushSubscription()
   const { showToast } = useToast()
   const { user, signOut } = useAuth()
+  const [isSavingPreference, setIsSavingPreference] = useState(false)
+
+  // カレンダー週始まり・アクセントカラー設定（設定画面拡張Phase 1、2026年8月28日）：
+  // upsertProfileは全体upsert方式のため、この画面が持たない他の列（displayName・
+  // age・avatarType等、UserProfile.tsxが書き込む）を現在のprofileから引き継いで
+  // 渡さないとnull/デフォルトで上書きしてしまう（UserProfile.tsx側でも同種の
+  // 対応を行っている、src/api/profiles.tsのコメント参照）。
+  const persistProfilePreference = async (patch: Partial<Pick<Profile, 'firstDayOfWeek' | 'accentColor'>>) => {
+    setIsSavingPreference(true)
+    try {
+      await upsertProfile({
+        displayName: profile?.displayName,
+        age: profile?.age,
+        heightCm: profile?.heightCm,
+        bodyFatPercentage: profile?.bodyFatPercentage,
+        avatarType: profile?.avatarType,
+        avatarValue: profile?.avatarValue,
+        firstDayOfWeek: profile?.firstDayOfWeek ?? 1,
+        accentColor: profile?.accentColor ?? DEFAULT_ACCENT_COLOR,
+        ...patch,
+      })
+      const updated = await fetchProfile()
+      setProfile(updated)
+    } catch (error) {
+      console.error('設定の保存に失敗しました', error)
+      showToast('設定の保存に失敗しました。もう一度お試しください', 'error')
+    } finally {
+      setIsSavingPreference(false)
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -145,19 +180,43 @@ export function Settings({
         </div>
         <div className="settings-row">
           <div>
-            <p className="settings-row__label">アクセントカラー</p>
-            <p className="settings-row__description">選択機能は今後追加予定です</p>
+            <p className="settings-row__label">週の始まり</p>
+            <p className="settings-row__description">
+              {(profile?.firstDayOfWeek ?? 1) === 1 ? 'カレンダーは月曜始まりです' : 'カレンダーは日曜始まりです'}
+            </p>
           </div>
-          <div className="settings-accent-swatches">
-            {ACCENT_PRESETS.map((preset) => (
-              <span
-                key={preset.name}
-                className="settings-accent-swatch"
-                style={{ background: preset.color }}
-                title={`${preset.name}（選択機能は未実装です）`}
-                aria-disabled="true"
-              />
-            ))}
+          <ToggleSwitch
+            checked={(profile?.firstDayOfWeek ?? 1) === 1}
+            onChange={(checked) => {
+              const nextValue: FirstDayOfWeek = checked ? 1 : 0
+              void persistProfilePreference({ firstDayOfWeek: nextValue })
+            }}
+            label="週の始まりを月曜にする"
+          />
+        </div>
+        <div className="settings-row">
+          <div>
+            <p className="settings-row__label">アクセントカラー</p>
+            <p className="settings-row__description">アプリ全体のボタン・強調表示の色を選べます</p>
+          </div>
+          <div className="settings-accent-swatches" role="radiogroup" aria-label="アクセントカラー">
+            {ACCENT_COLOR_IDS.map((colorId) => {
+              const isSelected = (profile?.accentColor ?? DEFAULT_ACCENT_COLOR) === colorId
+              return (
+                <button
+                  type="button"
+                  key={colorId}
+                  role="radio"
+                  aria-checked={isSelected}
+                  className={`settings-accent-swatch${isSelected ? ' settings-accent-swatch--selected' : ''}`}
+                  style={{ background: ACCENT_SWATCH_COLORS[colorId] }}
+                  title={ACCENT_COLOR_LABELS[colorId]}
+                  aria-label={ACCENT_COLOR_LABELS[colorId]}
+                  disabled={isSavingPreference}
+                  onClick={() => void persistProfilePreference({ accentColor: colorId })}
+                />
+              )
+            })}
           </div>
         </div>
       </section>

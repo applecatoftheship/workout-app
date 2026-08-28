@@ -7,11 +7,14 @@ import {
   formatMonthLabel,
   formatTrainingLogItem,
   getCalendarCellState,
+  getCalendarGridStartDate,
   getCurrentTimeHHMM,
   getMealTypeLabel,
+  getOrderedWeekDayLabels,
   getScheduleIcon,
   toDateKey,
   toJstDateKeyFromIso,
+  weekDays,
 } from '../calendarHelpers'
 import type { DailyCondition, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../../types'
 
@@ -35,6 +38,42 @@ describe('toJstDateKeyFromIso', () => {
   it('日付が変わらない時間帯はそのままの暦日になる', () => {
     // UTC 2026-08-27T01:00:00Z = JST 2026-08-27T10:00:00+09:00
     expect(toJstDateKeyFromIso('2026-08-27T01:00:00Z')).toBe('2026-08-27')
+  })
+})
+
+describe('getOrderedWeekDayLabels', () => {
+  it('firstDayOfWeek=0（日曜始まり）はweekDaysをそのまま返す', () => {
+    expect(getOrderedWeekDayLabels(0)).toEqual(weekDays)
+  })
+
+  it('firstDayOfWeek=1（月曜始まり）は月〜日の並びで日曜が末尾に来る', () => {
+    expect(getOrderedWeekDayLabels(1)).toEqual(['月', '火', '水', '木', '金', '土', '日'])
+  })
+})
+
+describe('getCalendarGridStartDate', () => {
+  it('firstDayOfWeek=0の場合、1日が水曜の月は直前の日曜から始まる', () => {
+    // 2026年8月1日は土曜日のため、9月（1日が火曜）で確認する
+    const start = getCalendarGridStartDate(2026, 8, 0)
+    expect(start.getDay()).toBe(0)
+    expect(start.getDate()).toBe(30)
+    expect(start.getMonth()).toBe(7)
+  })
+
+  it('firstDayOfWeek=1の場合、同じ月でも直前の月曜から始まる', () => {
+    const start = getCalendarGridStartDate(2026, 8, 1)
+    expect(start.getDay()).toBe(1)
+    expect(start.getDate()).toBe(31)
+    expect(start.getMonth()).toBe(7)
+  })
+
+  it('1日がちょうどfirstDayOfWeekの曜日と一致する場合はオフセット0になる', () => {
+    // 2026年9月1日は火曜日のため、firstDayOfWeek=2相当の検証はできないが、
+    // 1日自身が起点になるケース（firstDayOfWeek=0で1日が日曜の月）で確認する。
+    // 2026年11月1日は日曜日。
+    const start = getCalendarGridStartDate(2026, 10, 0)
+    expect(start.getDate()).toBe(1)
+    expect(start.getMonth()).toBe(10)
   })
 })
 
