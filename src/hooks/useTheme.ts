@@ -2,18 +2,23 @@ import { useEffect, useState } from 'react'
 
 export type Theme = 'light' | 'dark'
 
+const THEME_STORAGE_KEY = 'workout-app:theme'
+
+// 既定値はダーク固定（2026年8月28日、デフォルトテーマ変更）。旧実装は
+// OS設定（prefers-color-scheme）に追従していたが、今回の変更で既定値を
+// ダークに統一したためOS設定の参照は廃止した。localStorageに保存済みの値が
+// あればそれを優先する（手動で選んだテーマはリロード後も維持する）。
 function getInitialTheme(): Theme {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  const stored = localStorage.getItem(THEME_STORAGE_KEY)
+  return stored === 'light' ? 'light' : 'dark'
 }
 
-// 永続化なし（セッション中のみ保持、案A）。リロードすると再びOS設定に戻る。
-// 理由：localStorageが使用不可のため、Supabaseへの永続化（案B）は
-// 次フェーズ以降で必要になれば検討する。
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
 
   return { theme, setTheme }
