@@ -518,6 +518,7 @@ export function MonthlyCalendar({
           mealLogs={mealLogs}
           soccerLogs={soccerLogs}
           workouts={workouts}
+          setDailyConditions={setDailyConditions}
           onClose={() => setIsDailyReportOpen(false)}
         />
       ) : null}

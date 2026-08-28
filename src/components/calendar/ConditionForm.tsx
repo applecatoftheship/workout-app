@@ -5,6 +5,8 @@ import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../../utils/acwrH
 import { deleteDailyConditionRemote, fetchDailyConditions, fetchRecentWeight, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
+import { useDailyAiComment } from '../../hooks/useDailyAiComment'
+import { AiCommentCard } from '../AiCommentCard'
 
 const MUSCLE_LOCATIONS: MuscleLocation[] = ['none', 'calf_l', 'calf_r', 'hamstring', 'quad', 'groin', 'other']
 const SORENESS_LEVELS: SorenessLevel[] = ['none', 'mild', 'severe']
@@ -97,6 +99,13 @@ export function ConditionForm({
     () => dailyConditions.find((condition) => condition.date === selectedDate),
     [dailyConditions, selectedDate],
   )
+
+  const { isGenerating: isGeneratingAiComment } = useDailyAiComment({
+    condition: selectedCondition,
+    selectedDate,
+    dailyConditions,
+    setDailyConditions,
+  })
 
   useEffect(() => {
     setIsConditionFormOpen(false)
@@ -264,6 +273,7 @@ export function ConditionForm({
             </button>
           </div>
           {selectedCondition.notes ? <p className="calendar-detail__description">メモ: {selectedCondition.notes}</p> : null}
+          <AiCommentCard comment={selectedCondition.aiComment} isGenerating={isGeneratingAiComment} />
         </div>
       ) : isConditionFormOpen ? (
         <div className="calendar-detail__form">

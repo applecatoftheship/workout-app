@@ -1,0 +1,43 @@
+.ai-comment-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+  box-shadow: var(--shadow-card);
+}
+
+.ai-comment-card__icon {
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.ai-comment-card__text {
+  margin: 0;
+  color: var(--color-accent-text);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.ai-comment-card--loading .ai-comment-card__text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.85;
+}
+
+.ai-comment-card__spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent-text);
+  border-top-color: transparent;
+  animation: ai-comment-card-spin 0.7s linear infinite;
+}
+
+@keyframes ai-comment-card-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

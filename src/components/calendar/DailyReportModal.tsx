@@ -1,6 +1,9 @@
+import type { Dispatch, SetStateAction } from 'react'
 import { calculateDailyRecoveryResults, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../../utils/recoveryHelpers'
 import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel, toJstDateKeyFromIso } from '../../utils/calendarHelpers'
 import { RecoveryWindowCard } from '../RecoveryWindowCard'
+import { AiCommentCard } from '../AiCommentCard'
+import { useDailyAiComment } from '../../hooks/useDailyAiComment'
 import { CloseIcon } from '../icons'
 import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
 import './DailyReportModal.css'
@@ -39,6 +42,7 @@ type DailyReportModalProps = {
   // 行のみを返すため、ここでの追加フィルタは不要（CalendarDaySummaries.tsxの
   // WorkoutSummaryと同じ前提）。
   workouts: Workout[]
+  setDailyConditions: Dispatch<SetStateAction<DailyCondition[]>>
   onClose: () => void
 }
 
@@ -50,6 +54,7 @@ export function DailyReportModal({
   mealLogs,
   soccerLogs,
   workouts,
+  setDailyConditions,
   onClose,
 }: DailyReportModalProps) {
   const dayTrainingLogs = trainingLogs.filter((log) => log.date === selectedDate)
@@ -61,6 +66,13 @@ export function DailyReportModal({
   // WorkoutSummaryと同じくtoJstDateKeyFromIsoでJST暦日に変換してから絞り込む
   // （log_dateのような単純な日付カラムでの比較はできない）。
   const dayWorkouts = workouts.filter((workout) => toJstDateKeyFromIso(workout.startTime) === selectedDate)
+
+  const { isGenerating: isGeneratingAiComment } = useDailyAiComment({
+    condition,
+    selectedDate,
+    dailyConditions,
+    setDailyConditions,
+  })
 
   const mealTotals = dayMealLogs.reduce(
     (acc, log) => ({
@@ -153,6 +165,7 @@ export function DailyReportModal({
               <div className="daily-report__item">
                 <p>{formatConditionSummary(condition)}</p>
                 {condition.notes ? <p className="daily-report__note">メモ: {condition.notes}</p> : null}
+                <AiCommentCard comment={condition.aiComment} isGenerating={isGeneratingAiComment} />
               </div>
             ) : (
               <p className="daily-report__empty">記録なし</p>

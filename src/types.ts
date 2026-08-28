@@ -136,6 +136,9 @@ export interface DailyCondition extends BaseRecord {
   notes?: string;
   muscleSorenessLocation?: MuscleLocation;
   muscleSorenessLevel?: SorenessLevel;
+  /** AIコンディショニングアドバイザー（設定画面拡張Phase 3、2026年8月28日）。
+   * 当日分のみapi/generate-daily-comment.ts経由で生成・保存される。 */
+  aiComment?: string;
 }
 
 export interface ACWRResult {

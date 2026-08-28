@@ -10,6 +10,7 @@ type DailyConditionRow = {
   notes: string | null
   muscle_soreness_location: string | null
   muscle_soreness_level: string | null
+  ai_comment: string | null
   created_at: string
   updated_at: string
 }
@@ -24,6 +25,7 @@ function rowToDailyCondition(row: DailyConditionRow): DailyCondition {
     notes: row.notes ?? undefined,
     muscleSorenessLocation: (row.muscle_soreness_location ?? 'none') as MuscleLocation,
     muscleSorenessLevel: (row.muscle_soreness_level ?? 'none') as SorenessLevel,
+    aiComment: row.ai_comment ?? undefined,
     createdAt: row.created_at as DateString,
     updatedAt: row.updated_at as DateString,
   }
