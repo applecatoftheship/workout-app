@@ -1,41 +1,25 @@
 -- AIコメント自動生成cron（api/generate-daily-comments.ts、2026年8月29日新設）が
--- 必要とするservice_role権限の確認・追加。
+-- 必要とするservice_role権限の調査記録。
 --
--- 【未実行】Supabase SQL Editorで人間（John）が手動実行すること。Claude Codeからは
--- 直接Supabaseへ接続できないため、下記STEP 0の確認クエリも含めて全て未実行・未検証。
+-- 【2026年8月29日、調査完了・実行不要と判明】
+-- 当初、cronが参照するテーブルのうちmeal_log_food_items・workoutsへの
+-- service_role権限付与状況が未確認だったため、このファイルは両テーブルへの
+-- SELECT権限を確認・追加するDRAFTとして作成した。
 --
--- 【背景】新設cronが参照するテーブルのうち、service_role向けの権限付与状況が
--- 未確認のものが2つある：
---   1. meal_log_food_items（SELECT）：食事記録の栄養値はmeal_logs列ではなく
---      meal_log_food_itemsの確定スナップショット列を合算して求める設計のため、
---      cronのdailySummary生成にこのテーブルへのSELECTが必須。過去の調査
---      （バックログC-14）で「service_role向けgrantの記録が見当たらない」6テーブルの
---      1つとして挙がっており（20260828040000_service_role_select_grants_DRAFT.sql
---      参照）、そちらも【未実行】のまま。
---   2. workouts（SELECT）：20260827000000_apple_health_workouts_DRAFT.sqlで
---      service_role向けにgrant select, insert, update on workoutsを提案済みだが、
---      実行状況が確認できていない（daily_conditionsについては別途Johnさんが
---      ライブクエリで確認済み・付与済みと確認したが、workoutsは未確認のまま）。
+-- その後、Johnさんがライブクエリでdaily_conditions・meal_log_food_items・
+-- workoutsの3テーブルとも既にservice_roleへ必要な権限（SELECT等）が付与済みで
+-- あることを確認した。このため、このファイルが提案していたGRANT文
+-- （grant select on meal_log_food_items to service_role;）は不要になった。
 --
--- 実行前の現状確認（単独Runで実行すること）：
-
-select table_name, grantee, privilege_type
-from information_schema.role_table_grants
-where table_schema = 'public'
-  and grantee = 'service_role'
-  and table_name in ('meal_log_food_items', 'workouts')
-order by table_name, privilege_type;
-
--- 上記の結果、meal_log_food_itemsにSELECTが無ければ以下を実行。
--- （workoutsにSELECTが無ければ、20260827000000_apple_health_workouts_DRAFT.sqlの
--- 該当行を別途実行すること。このファイルでは対象を絞り込むため重複して含めない。）
-
-grant select on meal_log_food_items to service_role;
-
--- 実行後の確認（0件だった行が追加されているか）
-select table_name, grantee, privilege_type
-from information_schema.role_table_grants
-where table_schema = 'public'
-  and grantee = 'service_role'
-  and table_name in ('meal_log_food_items', 'workouts')
-order by table_name, privilege_type;
+-- 【meal_sizesについて（追加調査、2026年8月29日）】
+-- api/generate-daily-comments.tsのデータ取得コードを全件洗い出したところ
+-- （.from('...')呼び出し全件：daily_conditions・training_logs・
+-- training_log_exercises・training_sets・soccer_logs・workouts・meal_logs・
+-- meal_log_food_items）、meal_sizesへの参照は無いことを確認した。
+-- buildDailySummaryText（src/utils/dailyCommentHelpers.ts）はmeal_log_food_items
+-- の確定スナップショット列（サイズ倍率適用後の値）を直接合算する設計のため、
+-- サイズ倍率マスタであるmeal_sizes自体を参照する経路が無い。したがって
+-- meal_sizesへのservice_role GRANTも不要と判断した。
+--
+-- 【結論】api/generate-daily-comments.tsのために新たに実行すべきGRANT文は
+-- 無い。このファイルは実行不要（未実行のまま運用終了）。
