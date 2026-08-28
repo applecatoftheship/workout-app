@@ -79,10 +79,19 @@ export function TrainingSummary({ trainingLogs, setTrainingLogs, selectedDate, o
 
   // selectedDateが変わるたび、その日の最新状態でメタ欄を作り直す
   // （TrainingLogForm.tsx時代のuseEffect(() => {...}, [selectedDate])を踏襲）。
+  // 依存配列にdayLog?.idも追加（2026年8月28日のバグ修正）：selectedDateのみに
+  // 依存していると、ページ再読み込み直後（fetchTrainingLogsの完了前にこの
+  // コンポーネントがマウントされ、trainingLogsが空配列のままdayLog=undefinedで
+  // meta欄が初期化されるケース）で、後からtrainingLogsが届いてもmeta欄が
+  // 再同期されず、保存済みのメモ等が空欄のまま表示され続ける不具合があった。
+  // dayLog?.idはtraining_logsの行が「存在しない→存在する」に変わる瞬間
+  // （初回フェッチ完了時・新規作成時）にのみ変化し、同じ日に種目を追加・削除
+  // しても値は変わらないため、その操作でmeta欄（入力中のメモ等）が意図せず
+  // 巻き戻ることはない。
   useEffect(() => {
     setMeta(buildMetaState(trainingLogs.find((log) => log.date === selectedDate)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate])
+  }, [selectedDate, dayLog?.id])
 
   const handleSaveMeta = async () => {
     setIsSavingMeta(true)

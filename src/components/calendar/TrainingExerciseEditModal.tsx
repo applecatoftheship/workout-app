@@ -397,10 +397,20 @@ export function TrainingExerciseEditModal({
 
       const refreshedDayLog = refreshed.find((log) => log.date === selectedDate)
       if (refreshedDayLog?.completed) {
-        completeScheduleForDate(selectedDate).catch((error) => {
+        // 2026年8月28日のバグ修正：ここをawaitせずにonClose()すると、
+        // MonthlyCalendar.tsx側の「RecordFormModalが閉じたタイミングでschedules
+        // を再取得する」仕組み（isRecordModalOpen遷移を監視するuseEffect）が、
+        // このDB更新の完了より先に発火してしまい、再取得結果が旧ステータス
+        // （scheduled）のままになる競合状態があった（保存直後の画面では「予定」の
+        // ままで、リロード後にだけ「完了」に切り替わって見える不具合）。
+        // completeScheduleForDateの完了を待ってからonClose()する順序に修正し、
+        // 呼び出し元の再取得が更新後の状態を正しく拾えるようにした。
+        try {
+          await completeScheduleForDate(selectedDate)
+        } catch (error) {
           console.error('Supabaseへの予定の完了連動に失敗しました', error)
           showToast('予定の完了連動に失敗しました', 'error')
-        })
+        }
       }
 
       showToast('トレーニング実績を保存しました', 'success')
