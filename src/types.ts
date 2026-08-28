@@ -231,6 +231,10 @@ export interface Profile {
   avatarValue?: string;
   firstDayOfWeek?: FirstDayOfWeek;
   accentColor?: AccentColorId;
+  // 設定画面拡張 Phase 2（2026年8月28日）：api/sync-apple-health.ts（service_role）
+  // のみが書き込むサーバー管理列。timestamptz文字列（ISO 8601）。クライアント側の
+  // upsertProfile（src/api/profiles.ts）は意図的にこの列を扱わない（詳細は同ファイル参照）。
+  appleHealthLastSyncedAt?: string;
   createdAt?: DateString;
   updatedAt?: DateString;
 }

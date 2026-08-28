@@ -148,3 +148,95 @@
 .toggle-switch--checked .toggle-switch__thumb {
   transform: translateX(18px);
 }
+
+/* 設定画面拡張Phase 2（2026年8月28日）：Apple Health連携ステータス案内 */
+.settings-guide {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+}
+
+.settings-guide__title {
+  margin: 0 0 8px;
+  font-weight: 600;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-primary);
+}
+
+.settings-guide__list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+/* 設定画面拡張Phase 2（2026年8月28日）：セキュリティ・アカウント（メール/パスワード変更） */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-form + .settings-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-form__label {
+  margin: 0;
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.settings-form__message {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body-sm);
+}
+
+.settings-form__message--success {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.settings-form__message--error {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}
+
+.settings-form__row {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-form__row .settings-form__input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-form__input {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  /* iOS Safariの16px未満input自動拡大対策（Login.cssと同じ既存パターン） */
+  font-size: 16px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+}
+
+.settings-form__input:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.settings-form__submit {
+  align-self: flex-start;
+}

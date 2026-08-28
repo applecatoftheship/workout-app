@@ -25,6 +25,14 @@ type AuthContextValue = {
   // 表示する。
   signUp: (email: string, password: string) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>
   signOut: () => Promise<void>
+  // 設定画面拡張 Phase 2（2026年8月28日）：メールアドレス・パスワード変更。
+  // supabase.auth.updateUser()はメールアドレス変更時、確認メール必須設定
+  // （enable_confirmations = true、[[project_account_login_closed]]参照）の下では
+  // 即座には反映されず、旧・新両アドレスに送られる確認リンクを踏むまでは
+  // メールアドレスが変わらない（Supabase Authの標準挙動）。呼び出し元
+  // （Settings.tsx）がその旨を案内文で表示する。
+  updateEmail: (newEmail: string) => Promise<{ error: string | null }>
+  updatePassword: (newPassword: string) => Promise<{ error: string | null }>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -109,8 +117,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  const updateEmail = async (newEmail: string): Promise<{ error: string | null }> => {
+    const { error } = await supabase.auth.updateUser({ email: newEmail })
+    return { error: error ? error.message : null }
+  }
+
+  const updatePassword = async (newPassword: string): Promise<{ error: string | null }> => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    return { error: error ? error.message : null }
+  }
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ session, user: session?.user ?? null, isLoading, signIn, signUp, signOut, updateEmail, updatePassword }}
+    >
       {children}
     </AuthContext.Provider>
   )

@@ -11,6 +11,7 @@ type ProfileRow = {
   avatar_value: string | null
   first_day_of_week: number | null
   accent_color: string | null
+  apple_health_last_synced_at: string | null
   created_at: string
   updated_at: string
 }
@@ -26,6 +27,7 @@ function rowToProfile(row: ProfileRow): Profile {
     avatarValue: row.avatar_value ?? undefined,
     firstDayOfWeek: (row.first_day_of_week as FirstDayOfWeek | null) ?? undefined,
     accentColor: (row.accent_color as AccentColorId | null) ?? undefined,
+    appleHealthLastSyncedAt: row.apple_health_last_synced_at ?? undefined,
     createdAt: row.created_at as DateString,
     updatedAt: row.updated_at as DateString,
   }
@@ -64,6 +66,12 @@ export type ProfileInput = {
 // 実装時、UserProfile.tsx側がfirstDayOfWeek/accentColorを渡さず保存すると
 // Settings.tsx側で設定した値が消えるバグを実装中に発見し、両呼び出し元を
 // 修正した）。
+// apple_health_last_synced_at（設定画面拡張Phase 2、2026年8月28日）は意図的に
+// ProfileInput・この関数のどちらにも含めていない。PostgRESTのupsertは渡した
+// カラムのみをDO UPDATE SETするため（api/sync-apple-health.tsのhandleSleepと
+// 同じ挙動）、ここで書かないことで、この画面（表示/週始まり/アクセントカラー等）
+// からの保存がapi/sync-apple-health.ts（service_role）側の更新を上書きしてしまう
+// 事故を構造的に防いでいる。
 export async function upsertProfile(input: ProfileInput): Promise<void> {
   const userId = await getCurrentUserId()
   const { error } = await supabase.from('profiles').upsert(

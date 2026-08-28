@@ -116,6 +116,23 @@ function validateWorkoutPayload(payload: Record<string, unknown>): asserts paylo
   }
 }
 
+// 設定画面拡張 Phase 2（2026年8月28日）：連携ステータス表示（Settings.tsx）用に、
+// sleep・workoutいずれかの保存が成功した直後にprofiles.apple_health_last_synced_at
+// を更新する。upsert（onConflict: user_id）にしているのは、まだprofilesに行が
+// 無いユーザー（プロフィール未保存のままApple Health連携だけ先に設定した場合）
+// でも記録できるようにするため。他の列は一切含めないため、既存のprofiles行
+// （表示名・週始まり設定等）を上書きしない（src/api/profiles.tsのupsertProfile
+// と同じPostgRESTのupsert挙動）。
+async function updateLastSyncedAt(supabase: SupabaseClient, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, apple_health_last_synced_at: new Date().toISOString() }, { onConflict: 'user_id' })
+
+  if (error) {
+    throw error
+  }
+}
+
 async function handleSleep(supabase: SupabaseClient, userId: string, payload: SleepPayload): Promise<{ synced: string }> {
   // 小数点第1位で丸める（指示書通り）。今回はsleep_hoursのみを対象とし、
   // HRV・安静時心拍数・就寝/起床時刻は指示書の通りスコープ外として無視する。
@@ -297,12 +314,14 @@ export default async function handler(
     if (payload.type === 'sleep') {
       validateSleepPayload(payload)
       const result = await handleSleep(supabase, syncUserId, payload)
+      await updateLastSyncedAt(supabase, syncUserId)
       res.status(200).json({ ok: true, type: 'sleep', ...result })
       return
     }
 
     validateWorkoutPayload(payload)
     const result = await handleWorkout(supabase, syncUserId, payload)
+    await updateLastSyncedAt(supabase, syncUserId)
     res.status(200).json({ ok: true, type: 'workout', ...result })
   } catch (error) {
     if (error instanceof ValidationError) {
