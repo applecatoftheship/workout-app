@@ -1,8 +1,12 @@
+/* ART DECO CLASSICテーマ（2026年8月28日、アプリ起動演出刷新）：
+   ミッドナイトブルー背景×ダンベル+心拍アイコン×ティール/コーラルのアクセント。
+   これらの色はこのスプラッシュ画面専用のブランドカラーであり、ライト/ダーク
+   テーマの切り替えに関わらず固定（--color-bg-base等の既存トークンは使わない）。 */
 .splash-screen {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background-color: var(--color-bg-base);
+  background-color: #0e1217;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,7 +19,188 @@
   pointer-events: none;
 }
 
-.splash-screen__logo {
+.splash-screen__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.splash-screen__visual {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.splash-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.splash-ring__track {
+  fill: none;
+  stroke: #2b3544;
+  stroke-width: 6;
+}
+
+.splash-ring__arc {
+  fill: none;
+  stroke: #4ecdc4;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  animation: splash-ring-draw 250ms ease-out 0ms forwards;
+}
+
+@keyframes splash-ring-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.splash-dumbbell {
+  position: relative;
   width: 96px;
-  height: 96px;
+  height: 41px;
+}
+
+.splash-dumbbell__plate {
+  fill: #e2e8f0;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.splash-dumbbell__plate--left {
+  animation: splash-plate-in-left 250ms ease-out 150ms forwards;
+}
+
+.splash-dumbbell__plate--right {
+  animation: splash-plate-in-right 250ms ease-out 150ms forwards;
+}
+
+@keyframes splash-plate-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes splash-plate-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.splash-dumbbell__pulse {
+  fill: none;
+  stroke: #ff6b6b;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  /* 描画（350〜600ms、一度きり）と、750ms以降の明滅ループ（1.4秒周期、
+     データ取得完了までisVisibleがtrueのまま続く限り継続）を別プロパティ
+     （stroke-dashoffset / opacity）に分けているため、互いに干渉しない。
+     isVisibleがfalseになるとsplash-screen自体がフェードアウトするため、
+     ループ自体を止める追加ロジックは不要。 */
+  animation:
+    splash-pulse-draw 250ms ease-out 350ms forwards,
+    splash-pulse-loop 1400ms ease-in-out 750ms infinite;
+}
+
+@keyframes splash-pulse-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes splash-pulse-loop {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.splash-title {
+  margin: 0;
+  color: #f5f7fa;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: splash-fade-up 150ms ease-out 500ms forwards;
+}
+
+.splash-subtitle {
+  margin: 0;
+  color: #4ecdc4;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: splash-fade-up 150ms ease-out 600ms forwards;
+}
+
+@keyframes splash-fade-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* prefers-reduced-motion: reduce（要件通り）：スライド・描画系のアニメーションを
+   すべて省略して最終状態に固定し、全体を200ms程度のシンプルなフェードインのみに
+   置き換える。 */
+@media (prefers-reduced-motion: reduce) {
+  .splash-ring__arc,
+  .splash-dumbbell__plate,
+  .splash-dumbbell__pulse,
+  .splash-title,
+  .splash-subtitle {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+
+  .splash-ring__arc {
+    transform: rotate(-90deg) !important;
+  }
+
+  .splash-screen__content {
+    animation: splash-reduced-fade-in 200ms ease-out forwards;
+  }
+}
+
+@keyframes splash-reduced-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

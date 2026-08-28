@@ -27,7 +27,14 @@ import { Signup } from './pages/Signup'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, Profile, TrainingLog } from './types'
 
-const SPLASH_MINIMUM_VISIBLE_MS = 500
+// アプリ起動演出刷新（ART DECO CLASSICテーマ、2026年8月28日）：SplashScreen.tsxの
+// CSSアニメーション一式（リング描画→ダンベルスライドイン→心拍ライン描画→
+// タイトル/サブタイトルのフェードイン）の再生完了が約750〜800msのため、
+// 500msから800msに変更した。Promise.allは元々「配列内の全Promiseの完了」＝
+// 「データ取得完了とこのタイマーのうち遅い方」を待つ構造のため、値の変更のみで
+// 「アニメーション再生完了とデータ取得完了の両方が終わった時点でフェードアウト」
+// という要件を満たす（Promise.all自体のロジック変更は不要）。
+const SPLASH_MINIMUM_VISIBLE_MS = 800
 
 const today = new Date()
 const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}` as DateString

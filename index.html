@@ -4,16 +4,22 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.svg" />
-    <!-- 設定画面拡張Phase 1（2026年8月28日）：iOSスプラッシュ画像。390×844(pt)・
-         3倍密度（実ピクセル1170×2532、iPhone 12/13/14の標準サイズ）の1サイズのみ
-         対応。画像ファイル本体（public/icons/splash/iphone-1170x2532.png）は
-         別途用意が必要（public/icons/splash/README.md参照）。ファイルが無い間は
-         iOSがこのlinkを無視し標準のスプラッシュにフォールバックするだけなので、
-         先にlinkタグだけ追加しても副作用は無い。 -->
+    <!-- アプリ起動演出刷新（ART DECO CLASSICテーマ、2026年8月28日）：iOSスプラッシュ画像。
+         390×844(pt)・3倍密度（実ピクセル1170×2532、iPhone 12/13/14の標準サイズ）と
+         428×926(pt)・3倍密度（実ピクセル1284×2778、iPhone 12/13/14 Pro Max・
+         14 Plusのサイズ）の2機種分に対応。画像ファイル本体
+         （public/icons/splash/iphone-*.png）が無い間はiOSがそのlinkを無視し
+         標準のスプラッシュにフォールバックするだけなので、先にlinkタグだけ
+         追加しても副作用は無い（Phase 1から踏襲）。 -->
     <link
       rel="apple-touch-startup-image"
       href="/icons/splash/iphone-1170x2532.png"
       media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="/icons/splash/iphone-1284x2778.png"
+      media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#111827" />
