@@ -1,6 +1,36 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
+import type { AuthError, Session, User } from '@supabase/supabase-js'
 import { supabase } from '../api/client'
+
+// サインアップ失敗時のエラーメッセージ日本語化（2026年8月28日）：Supabase Authの
+// signUp()はエラー時、error.messageに"User already registered"等の英語の生文言を
+// 返す。Login.tsx（メール/パスワード不一致は汎用文言）・Settings.tsx（メール/
+// パスワード変更失敗は汎用文言）は既にこの生文言をそのまま表示しない方針だが、
+// Signup.tsxだけがsignUpErrorをそのままerror.message経由で表示していた
+// （唯一の未対応箇所）。error.code（@supabase/auth-jsが定義する型付きエラーコード、
+// メッセージ文言の変更に影響されない安定した判定軸）を基にマッピングする。
+// 未知のcode・codeが無い場合（ネットワーク断等）は汎用メッセージにフォールバックする。
+function translateSignUpError(error: AuthError): string {
+  switch (error.code) {
+    case 'user_already_exists':
+    case 'email_exists':
+      return 'このメールアドレスは既に登録されています'
+    case 'email_address_invalid':
+      return 'メールアドレスの形式が正しくありません'
+    case 'weak_password':
+      return 'パスワードの強度が不十分です。別の文字列を組み合わせてください'
+    case 'over_email_send_rate_limit':
+      return '確認メールの送信回数が上限に達しました。しばらく時間をおいて再度お試しください'
+    case 'over_request_rate_limit':
+      return 'リクエストが集中しています。しばらく時間をおいて再度お試しください'
+    case 'signup_disabled':
+      return '現在、新規登録を受け付けていません'
+    case 'validation_failed':
+      return '入力内容に誤りがあります。確認してください'
+    default:
+      return 'アカウント作成に失敗しました。しばらくしてから再度お試しください'
+  }
+}
 
 // アカウント/ログイン機能 フェーズA（2026年8月25日）：セッション管理は
 // supabase-jsのGoTrueクライアントに委ねる（デフォルトでlocalStorageへの
@@ -108,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<{ error: string | null; needsEmailConfirmation: boolean }> => {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) {
-      return { error: error.message, needsEmailConfirmation: false }
+      return { error: translateSignUpError(error), needsEmailConfirmation: false }
     }
     return { error: null, needsEmailConfirmation: data.session === null }
   }
