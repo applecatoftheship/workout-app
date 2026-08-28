@@ -33,7 +33,14 @@ type RequestBody = {
   acwrStatus: ACWRResult['status'] | null
   sleepHours: number
   fatigueLevel: FatigueLevel
-  workoutSummary: string
+  // 2026年8月28日、食事データを含む1日全体の要約に拡張したためworkoutSummaryから
+  // dailySummaryへ改名（src/utils/dailyCommentHelpers.tsのbuildDailySummaryText参照）。
+  dailySummary: string
+  // 手動再生成ボタン（DailyReportModal.tsx、2026年8月28日）専用のフラグ。
+  // 本日分かつ既にai_commentが生成済みの場合、通常はLLM呼び出しをスキップして
+  // キャッシュをそのまま返すが、これがtrueのときのみキャッシュを無視して
+  // 再生成する。未指定時はfalse相当（既存の自動生成時の呼び出しには影響しない）。
+  forceRegenerate?: boolean
 }
 
 class ValidationError extends Error {}
@@ -57,8 +64,11 @@ function validateBody(payload: Record<string, unknown>): asserts payload is Requ
   if (typeof payload.fatigueLevel !== 'number' || !FATIGUE_LEVELS.includes(payload.fatigueLevel)) {
     throw new ValidationError('fatigueLevel must be a number between 1 and 5')
   }
-  if (typeof payload.workoutSummary !== 'string') {
-    throw new ValidationError('workoutSummary must be a string')
+  if (typeof payload.dailySummary !== 'string') {
+    throw new ValidationError('dailySummary must be a string')
+  }
+  if (payload.forceRegenerate !== undefined && typeof payload.forceRegenerate !== 'boolean') {
+    throw new ValidationError('forceRegenerate must be a boolean')
   }
 }
 
@@ -78,7 +88,7 @@ function buildPrompt(input: RequestBody): string {
     `ACWR（急性:慢性負荷比）: ${acwrText}`,
     `睡眠時間: ${input.sleepHours}時間`,
     `疲労度（1〜5、5が最も疲労）: ${input.fatigueLevel}`,
-    `今日の運動内容: ${input.workoutSummary}`,
+    `今日の運動・食事の記録: ${input.dailySummary}`,
   ].join('\n')
 }
 
@@ -206,8 +216,16 @@ export default async function handler(
 
   const todayJst = toJstDateKeyFromIso(new Date().toISOString())
 
-  // 過去日、または本日で既に生成済みの場合はLLM呼び出しなしでそのまま返す。
-  if (payload.date !== todayJst || existingComment) {
+  // 過去日は常にキャッシュ済みの値をそのまま返す（forceRegenerateが指定されて
+  // いてもLLM呼び出しは行わない。過去日のコメント再生成は今回のスコープ外）。
+  if (payload.date !== todayJst) {
+    res.status(200).json({ aiComment: existingComment })
+    return
+  }
+
+  // 本日分：手動再生成ボタン（DailyReportModal.tsx）由来のforceRegenerateが
+  // trueの場合のみ、既に生成済みでもキャッシュを無視してLLMを再度呼び出す。
+  if (existingComment && !payload.forceRegenerate) {
     res.status(200).json({ aiComment: existingComment })
     return
   }

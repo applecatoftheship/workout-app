@@ -15,7 +15,9 @@ export type GenerateDailyCommentInput = {
   acwrStatus: ACWRResult['status'] | null
   sleepHours: number
   fatigueLevel: FatigueLevel
-  workoutSummary: string
+  dailySummary: string
+  // 手動再生成ボタン（DailyReportModal.tsx）専用。未指定時はfalse相当。
+  forceRegenerate?: boolean
 }
 
 export type GenerateDailyCommentResult = {
