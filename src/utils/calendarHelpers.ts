@@ -1,6 +1,6 @@
-import type { DateString, DailyCondition, FirstDayOfWeek, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types'
-import type { ActivityType, CalendarCellItem } from '../types/calendar'
-import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from './acwrHelpers'
+import type { DateString, DailyCondition, FirstDayOfWeek, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types.js'
+import type { ActivityType, CalendarCellItem } from '../types/calendar.js'
+import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from './acwrHelpers.js'
 
 export const weekDays = ['日', '月', '火', '水', '木', '金', '土']
 
