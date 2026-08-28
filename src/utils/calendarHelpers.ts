@@ -79,7 +79,8 @@ export function extractTimeHHMMFromISO(iso: string): string {
 // 最初に見つかった1件の絵文字を使う。ステータスに応じたアイコン切り替え
 // （✅/⚠️等）はgetCalendarCellState側の責務に分離した。
 // 注意（2026年8月21日修正）：当初はscheduled行のみを対象としていたが、
-// completeScheduleForDate（TrainingLogForm.tsx）によりトレーニング実績保存時に
+// completeScheduleForDate（TrainingExerciseEditModal.tsx、旧TrainingLogForm.tsx）
+// によりトレーニング実績保存時に
 // 対応するtraining_schedules.statusがscheduled→completedへ自動変更されるため、
 // scheduled限定のままだとcompleted_planned判定時に対象の予定が見つからず、
 // 常にデフォルト🏋️にフォールバックしてしまい「完了予定でもカスタム絵文字を
@@ -176,6 +177,25 @@ export function getCalendarCellState(params: GetCellStateParams): CalendarCellIt
   return items
 }
 
+// トレーニング記録画面UI/UX刷新（種目カード＋編集モーダル分離、2026年8月28日）：
+// 種目カード（TrainingExerciseCard.tsx）の本文でも同じセット単位の要約表示を
+// 再利用するため、種目名を含まない部分だけを独立関数として切り出した。
+// formatTrainingLogItemの戻り値（AIコメント生成・日次レポートで参照される
+// フォーマット済み文字列）は変更しない。
+export function formatSetSummary(sets: TrainingLogExercise['sets']) {
+  if (sets.length === 0) {
+    return '記録なし'
+  }
+
+  return sets
+    .map((set) => {
+      const weightText = set.weight != null ? `${set.weight}kg` : '-'
+      const repsText = set.reps != null ? `${set.reps}回` : '-'
+      return `${weightText}×${repsText}`
+    })
+    .join(', ')
+}
+
 export function formatTrainingLogItem(exercise: TrainingLogExercise) {
   const name = exercise.exercise?.name ?? '不明な種目'
 
@@ -183,15 +203,7 @@ export function formatTrainingLogItem(exercise: TrainingLogExercise) {
     return `${name}（記録なし）`
   }
 
-  const setSummary = exercise.sets
-    .map((set) => {
-      const weightText = set.weight != null ? `${set.weight}kg` : '-'
-      const repsText = set.reps != null ? `${set.reps}回` : '-'
-      return `${weightText}×${repsText}`
-    })
-    .join(', ')
-
-  return `${name} ${exercise.sets.length}セット (${setSummary})`
+  return `${name} ${exercise.sets.length}セット (${formatSetSummary(exercise.sets)})`
 }
 
 export function formatConditionSummary(condition: DailyCondition) {

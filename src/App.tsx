@@ -261,19 +261,9 @@ function AppShell() {
         onClose={() => setIsRecordSheetOpen(false)}
         onSelect={(type) => {
           setIsRecordSheetOpen(false)
-          // 不具合対応（2026年8月26日）：ホーム画面の「＋」からトレーニングを
-          // 選んだ場合も、MonthlyCalendar側の「記録を追加」と同じく、当日に
-          // 既存のトレーニング実績があれば空フォームではなく既存の種目を
-          // 読み込んだ編集経路（trainingLogIndex指定）を再利用する。
-          if (type === 'training') {
-            const existingIndex = trainingLogs.findIndex((log) => log.date === todayString)
-            openRecordModal(
-              existingIndex >= 0
-                ? { type, date: todayString, trainingLogIndex: existingIndex }
-                : { type, date: todayString },
-            )
-            return
-          }
+          // 種目カード＋編集モーダル分離（2026年8月28日）：トレーニングは
+          // 常に新規種目の追加として開く（既存実績の有無を見て分岐する必要が
+          // なくなった。種目単位の編集はカレンダー画面の各カードから行う）。
           openRecordModal({ type, date: todayString })
         }}
       />

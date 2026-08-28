@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
-import { TrainingLogForm } from './calendar/TrainingLogForm'
+import { TrainingExerciseEditModal } from './calendar/TrainingExerciseEditModal'
 import { MealLogForm } from './calendar/MealLogForm'
 import { ConditionForm } from './calendar/ConditionForm'
 import { ScheduleForm } from './calendar/ScheduleForm'
@@ -17,7 +17,8 @@ export type RecordModalRequest = {
   requestId: number
   type: RecordType
   date: DateString
-  trainingLogIndex?: number
+  /** 未指定の場合は新規種目の追加（種目選択UIから開始する）。 */
+  trainingLogExerciseId?: string
   mealLogIndex?: number
   scheduleId?: string
   /** テンプレート管理UI（Settings.tsx）の「予定を作成」ボタンから開いた場合、
@@ -54,7 +55,6 @@ export function RecordFormModal({
   dailyConditions,
   setDailyConditions,
 }: RecordFormModalProps) {
-  const [isTrainingFormOpen, setIsTrainingFormOpen] = useState(true)
   const [isMealFormOpen, setIsMealFormOpen] = useState(true)
   const [isConditionFormOpen, setIsConditionFormOpen] = useState(true)
   const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(true)
@@ -70,7 +70,6 @@ export function RecordFormModal({
       return
     }
 
-    setIsTrainingFormOpen(true)
     setIsMealFormOpen(true)
     setIsConditionFormOpen(true)
     setIsScheduleFormOpen(true)
@@ -134,13 +133,6 @@ export function RecordFormModal({
   }, [request])
 
   useEffect(() => {
-    if (request?.type === 'training' && !isTrainingFormOpen) {
-      onClose()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTrainingFormOpen])
-
-  useEffect(() => {
     if (request?.type === 'meal' && !isMealFormOpen) {
       onClose()
     }
@@ -194,18 +186,16 @@ export function RecordFormModal({
 
         <div className="record-form-modal__body">
           {request.type === 'training' ? (
-            <TrainingLogForm
+            <TrainingExerciseEditModal
               key={formKey}
               trainingLogs={trainingLogs}
               setTrainingLogs={setTrainingLogs}
               mealLogs={mealLogs}
               dailyConditions={dailyConditions}
               selectedDate={request.date}
-              isFormOpen={isTrainingFormOpen}
-              setIsFormOpen={setIsTrainingFormOpen}
-              autoOpenToken={autoOpenToken}
-              autoOpenIndex={request.trainingLogIndex}
+              trainingLogExerciseId={request.trainingLogExerciseId}
               schedulesForMdCheck={modalSchedules}
+              onClose={onClose}
             />
           ) : null}
 

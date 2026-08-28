@@ -1,0 +1,116 @@
+/* トレーニング記録画面UI/UX刷新（種目カード＋編集モーダル分離、2026年8月28日）
+   TrainingExerciseCard・TrainingExerciseEditModal・TrainingSetCardで共有するスタイル。
+   calendar-detail__*の既存トークン運用（--color-bg-elevated等）を踏襲する。 */
+
+.training-day-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  margin-bottom: var(--space-sm);
+}
+
+.training-exercise-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.training-exercise-card {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+.training-exercise-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.training-exercise-card__name {
+  font-weight: 600;
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+}
+
+.training-exercise-card__summary {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
+.training-exercise-card__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* セット別詳細モードの色分けカード。意味的な区別ではなく視認性のための循環配色
+   のため、部位色（--color-bp-*）ではなくトーン系トークンを4色循環で使う。 */
+.training-set-card {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr auto;
+  align-items: end;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+
+.training-set-card__index {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  align-self: center;
+  color: var(--color-text-secondary);
+}
+
+.training-set-card--0 {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.training-set-card--1 {
+  background: var(--color-data-soft);
+  border-color: var(--color-data);
+}
+
+.training-set-card--2 {
+  background: var(--color-success-soft);
+  border-color: var(--color-success);
+}
+
+.training-set-card--3 {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning);
+}
+
+.training-exercise-modal__previous {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: var(--font-size-body-sm);
+}
+
+@media (max-width: 480px) {
+  .training-set-card {
+    grid-template-columns: auto 1fr 1fr;
+    row-gap: 6px;
+  }
+
+  .training-set-card__delete {
+    grid-column: 1 / -1;
+  }
+}

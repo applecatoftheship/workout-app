@@ -1,12 +1,30 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
-import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel, toJstDateKeyFromIso } from '../../utils/calendarHelpers'
+import {
+  formatConditionSummary,
+  getMealTypeLabel,
+  toJstDateKeyFromIso,
+  getCurrentTimeHHMM,
+  combineDateAndTimeToISO,
+  extractTimeHHMMFromISO,
+} from '../../utils/calendarHelpers'
+import { fetchTrainingLogs, upsertTrainingLogMeta } from '../../api/trainingLogs'
+import { TrainingExerciseCard } from './TrainingExerciseCard'
+import { useToast } from '../../hooks/useToast'
 
 /**
  * カレンダー構造変更・記録モーダル・トレーニング刷新 実装指示書 Phase C（2026年8月16日）
  * MonthlyCalendarを閲覧専用にするための、記録タイプごとの読み取り専用サマリー表示。
  * 入力フォーム本体（TrainingLogForm等）は RecordFormModal 内でのみ使用し、
  * ここでは保存・削除ロジックには一切触れず、表示専用のコンポーネントとする。
+ *
+ * 【例外（トレーニング記録画面UI/UX刷新、2026年8月28日）】種目カードの削除ボタン
+ * （TrainingExerciseCard.tsx）と、TrainingSummary内の日次メタ情報（完了/未完了・
+ * 終了時刻・メモ）の保存は、モーダルを介さず閲覧画面から直接操作できる設計へ
+ * 変更したため、この2箇所のみ上記の「表示専用」の原則から意図的に外れている
+ * （設計チーム承認済み）。ExercisePicker.tsxが既に採用している「leafコンポーネント
+ * 自身がconfirm+API呼び出しを完結させる」パターンを踏襲する。
  */
 
 const scheduleStatusLabel: Record<TrainingSchedule['status'], string> = {
@@ -26,41 +44,114 @@ const scheduleTypeLabel: Record<NonNullable<TrainingSchedule['scheduleType']>, s
   event: 'その他',
 }
 
-type TrainingSummaryProps = {
-  trainingLogs: TrainingLog[]
-  selectedDate: DateString
-  onAdd: () => void
-  onEdit: (index: number) => void
+type TrainingMetaState = {
+  completed: boolean
+  notes: string
+  endTime: string
 }
 
-export function TrainingSummary({ trainingLogs, selectedDate, onAdd, onEdit }: TrainingSummaryProps) {
-  const logs = trainingLogs.map((log, index) => ({ log, index })).filter(({ log }) => log.date === selectedDate)
+function buildMetaState(log: TrainingLog | undefined): TrainingMetaState {
+  return {
+    completed: log?.completed ?? true,
+    notes: log?.notes ?? '',
+    endTime: log?.endTime ? extractTimeHHMMFromISO(log.endTime) : '',
+  }
+}
+
+type TrainingSummaryProps = {
+  trainingLogs: TrainingLog[]
+  setTrainingLogs: Dispatch<SetStateAction<TrainingLog[]>>
+  selectedDate: DateString
+  /** 未指定（新規種目）で編集モーダルを開く。 */
+  onAddExercise: () => void
+  onEditExercise: (trainingLogExerciseId: string) => void
+}
+
+// 種目カード＋編集モーダル分離（2026年8月28日）：日次メタ情報（完了/未完了・
+// 終了時刻・メモ）は種目カード一覧の上に常時表示する小さな設定欄として独立させる
+// （設計チーム承認済み、実装方針提案の3-2）。種目の追加・削除とは別のtraining_logs
+// 本体のみを更新するupsertTrainingLogMetaを使うため、他の種目データには一切触れない。
+export function TrainingSummary({ trainingLogs, setTrainingLogs, selectedDate, onAddExercise, onEditExercise }: TrainingSummaryProps) {
+  const { showToast } = useToast()
+  const dayLog = trainingLogs.find((log) => log.date === selectedDate)
+  const [meta, setMeta] = useState<TrainingMetaState>(() => buildMetaState(dayLog))
+  const [isSavingMeta, setIsSavingMeta] = useState(false)
+
+  // selectedDateが変わるたび、その日の最新状態でメタ欄を作り直す
+  // （TrainingLogForm.tsx時代のuseEffect(() => {...}, [selectedDate])を踏襲）。
+  useEffect(() => {
+    setMeta(buildMetaState(trainingLogs.find((log) => log.date === selectedDate)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate])
+
+  const handleSaveMeta = async () => {
+    setIsSavingMeta(true)
+    try {
+      await upsertTrainingLogMeta(selectedDate, {
+        completed: meta.completed,
+        notes: meta.notes.trim() || undefined,
+        endTime: meta.endTime ? combineDateAndTimeToISO(selectedDate, meta.endTime || getCurrentTimeHHMM()) : undefined,
+      })
+      const refreshed = await fetchTrainingLogs()
+      setTrainingLogs(refreshed)
+      showToast('保存しました', 'success')
+    } catch (error) {
+      console.error('Supabaseへの日次メタ情報の保存に失敗しました', error)
+      showToast('保存に失敗しました。もう一度お試しください', 'error')
+    } finally {
+      setIsSavingMeta(false)
+    }
+  }
 
   return (
     <div className="calendar-detail__section">
       <div className="calendar-detail__section-header">
         <h4>トレーニング実績</h4>
-        <button type="button" className="calendar-detail__secondary-button" onClick={onAdd}>
-          記録を追加
+        <button type="button" className="calendar-detail__secondary-button" onClick={onAddExercise}>
+          種目を追加
         </button>
       </div>
-      {logs.length > 0 ? (
-        <div className="calendar-detail__log-list">
-          {logs.map(({ log, index }) => (
-            <div key={`${selectedDate}-${index}`} className="calendar-detail__log-item">
-              <div className="calendar-detail__log-head">
-                <span>{log.completed ? '完了' : '未完了'}</span>
-                <button type="button" className="calendar-detail__edit-button" onClick={() => onEdit(index)}>
-                  編集
-                </button>
-              </div>
-              <ul className="calendar-detail__exercise-list">
-                {log.exercises.map((exercise, exerciseIndex) => (
-                  <li key={`${selectedDate}-${index}-${exerciseIndex}`}>{formatTrainingLogItem(exercise)}</li>
-                ))}
-              </ul>
-              {log.notes ? <p className="calendar-detail__description">メモ: {log.notes}</p> : null}
-            </div>
+
+      <div className="training-day-meta">
+        <div className="calendar-detail__inline-fields">
+          <label className="calendar-detail__field">
+            <span>完了/未完了</span>
+            <select
+              value={meta.completed ? 'completed' : 'pending'}
+              onChange={(event) => setMeta((current) => ({ ...current, completed: event.target.value === 'completed' }))}
+            >
+              <option value="completed">完了</option>
+              <option value="pending">未完了</option>
+            </select>
+          </label>
+          <label className="calendar-detail__field">
+            <span>終了時刻（任意）</span>
+            <input type="time" value={meta.endTime} onChange={(event) => setMeta((current) => ({ ...current, endTime: event.target.value }))} />
+          </label>
+        </div>
+        <label className="calendar-detail__field">
+          <span>メモ</span>
+          <textarea
+            value={meta.notes}
+            onChange={(event) => setMeta((current) => ({ ...current, notes: event.target.value }))}
+            rows={2}
+            placeholder="今日の感想やポイント"
+          />
+        </label>
+        <button type="button" className="calendar-detail__secondary-button" onClick={handleSaveMeta} disabled={isSavingMeta}>
+          {isSavingMeta ? '保存中...' : '保存'}
+        </button>
+      </div>
+
+      {dayLog && dayLog.exercises.length > 0 ? (
+        <div className="training-exercise-grid">
+          {dayLog.exercises.map((exercise) => (
+            <TrainingExerciseCard
+              key={exercise.id}
+              exercise={exercise}
+              setTrainingLogs={setTrainingLogs}
+              onEdit={() => exercise.id && onEditExercise(exercise.id)}
+            />
           ))}
         </div>
       ) : (
