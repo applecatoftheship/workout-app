@@ -7,6 +7,7 @@ import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
 import { WeeklyACWRTrendCard } from '../components/WeeklyACWRTrendCard'
 import { WeeklyACWRDetailModal } from '../components/WeeklyACWRDetailModal'
 import { RecoveryWindowCard } from '../components/RecoveryWindowCard'
+import { CharacterStatusCard } from '../components/CharacterStatusCard'
 import { BellIcon, ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, TimerIcon, WeightIcon } from '../components/icons'
 import { RestTimerModal } from '../components/timer/RestTimerModal'
 import { NotificationModal } from '../components/NotificationModal'
@@ -16,9 +17,11 @@ import { fetchWorkouts } from '../api/workouts'
 import { fetchNotifications, markNotificationRead } from '../api/notifications'
 import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, toJstDateKeyFromIso, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
-import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, hasConsecutiveDangerDays } from '../utils/acwrHelpers'
+import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, hasConsecutiveDangerDays, hasConsecutiveOptimalDays } from '../utils/acwrHelpers'
 import { calculateDailyRecoveryResults, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../utils/recoveryHelpers'
 import { calculateAdjustedGoals, getMatchDayStatus } from '../utils/periodizationHelpers'
+import { calculateCurrentStreak } from '../utils/streakHelpers'
+import { useBadgeEvaluator } from '../hooks/useBadgeEvaluator'
 import { calculateMovingAverage, getTrendTone, toDateKey as toChartDateKey } from '../utils/chartHelpers'
 import type { MAPoint } from '../utils/chartHelpers'
 import type { Goals } from '../api/goals'
@@ -510,6 +513,34 @@ export function Dashboard({
   const sleepMA = useMemo(() => calculateMovingAverage(dailyConditions, 'date', 'sleepHours'), [dailyConditions])
   const fatigueMA = useMemo(() => calculateMovingAverage(dailyConditions, 'date', 'fatigue'), [dailyConditions])
 
+  // 設定画面拡張 Phase 4（ゲーミフィケーション、2026年8月28日）：ストリーク表示・
+  // バッジ判定はいずれも「常に本日を終端とした状態」を示す指標のため、
+  // ACWRGaugeCard等と同じくselectedDateKeyの影響を受けずtodayString/today基準の
+  // まま固定する。streakHelpers.calculateCurrentStreak（既存、変更なし）を再利用。
+  // soccerLogsはacwrSoccerLogs（直近28日分、ACWR計算用に既に取得済み）をそのまま
+  // 流用する——streak_30バッジ（30日連続）の判定では、対象日がsoccerLogsのみに
+  // 記録がある日かつ29〜30日前だった場合に限り、実際より最大2日ほど短く算出される
+  // 可能性がある既知の制限がある（badge判定のためだけに全期間soccerLogsを別途
+  // 問い合わせることを避けるためのトレードオフ、詳細はPR説明に記載）。
+  const currentStreak = useMemo(
+    () => calculateCurrentStreak(trainingLogs, acwrSoccerLogs, mealLogs, dailyConditions, today),
+    [trainingLogs, acwrSoccerLogs, mealLogs, dailyConditions, today],
+  )
+  const hasAnyRecord =
+    trainingLogs.length > 0 || acwrSoccerLogs.length > 0 || mealLogs.length > 0 || dailyConditions.length > 0
+  const todaySleepMovingAverageHours = sleepMA.length > 0 ? sleepMA[sleepMA.length - 1].movingAvg : null
+  const isOptimalZoneStreak = useMemo(
+    () => hasConsecutiveOptimalDays(trainingLogs, acwrSoccerLogs, dailyConditions, todayString, 7, acwrWorkouts),
+    [trainingLogs, acwrSoccerLogs, dailyConditions, todayString, acwrWorkouts],
+  )
+
+  useBadgeEvaluator({
+    hasAnyRecord,
+    currentStreak,
+    sleepMovingAverageHours: todaySleepMovingAverageHours,
+    isOptimalZoneStreak,
+  })
+
   // ホーム日付選択（A-3）：「今日」表示中は既存どおり最新の記録日（必ずしも
   // todayStringと一致しない）にフォールバックする。過去日を選択した場合は
   // 「既存ルール踏襲」の指示に従い、その日にちょうど記録があるときだけ表示し、
@@ -689,6 +720,11 @@ export function Dashboard({
             </button>
           </div>
         ) : null}
+        {currentStreak > 0 ? (
+          <p className="dashboard-streak-badge">
+            <span aria-hidden="true">🔥</span> {currentStreak}日連続
+          </p>
+        ) : null}
       </div>
 
       <section className="panel-card calorie-card">
@@ -738,6 +774,12 @@ export function Dashboard({
           </span>
         </div>
       </section>
+
+      <CharacterStatusCard
+        acwrStatus={acwrResult?.status ?? null}
+        fatigue={todayCondition?.fatigue}
+        sleepHours={todayCondition?.sleepHours}
+      />
 
       {recoveryResults.map((result) => (
         <RecoveryWindowCard

@@ -1,0 +1,38 @@
+.character-status-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.character-status-card__emoji {
+  flex-shrink: 0;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.character-status-card__message {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.character-status-card--peak {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.character-status-card--good {
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
+}
+
+.character-status-card--fatigued {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+.character-status-card--caution {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}

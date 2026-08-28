@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, getACWRInsight, hasConsecutiveDangerDays } from '../acwrHelpers'
+import {
+  calculateACWR,
+  calculateDailyACWRSeries,
+  daysUntilACWRAvailable,
+  getACWRInsight,
+  hasConsecutiveDangerDays,
+  hasConsecutiveOptimalDays,
+} from '../acwrHelpers'
 import { toDateKey } from '../chartHelpers'
 import type { DailyCondition, DateString, TrainingLog, Workout } from '../../types'
 
@@ -250,6 +257,31 @@ describe('hasConsecutiveDangerDays', () => {
 
   it('consecutiveDays省略時は既定値3で判定する', () => {
     expect(hasConsecutiveDangerDays(dangerLogs, [], [], TODAY_KEY)).toBe(true)
+  })
+})
+
+describe('hasConsecutiveOptimalDays', () => {
+  // 14日間、同一負荷（スコア50固定）：ACWR=1（🟢sweet_spot）が直近7日連続で続く状態。
+  const constantLoadLogs = Array.from({ length: 14 }, (_, i) => trainingLogWithVolume(i, 5000))
+
+  it('直近7日連続でACWR適正（sweet_spot）ならtrue', () => {
+    expect(hasConsecutiveOptimalDays(constantLoadLogs, [], [], TODAY_KEY, 7)).toBe(true)
+  })
+
+  it('consecutiveDays省略時は既定値7で判定する', () => {
+    expect(hasConsecutiveOptimalDays(constantLoadLogs, [], [], TODAY_KEY)).toBe(true)
+  })
+
+  it('危険状態（danger）が続く期間はfalse', () => {
+    const highDays = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 10000))
+    const lowDays = Array.from({ length: 21 }, (_, i) => trainingLogWithVolume(7 + i, 1000))
+    const dangerLogs = [...highDays, ...lowDays]
+    expect(hasConsecutiveOptimalDays(dangerLogs, [], [], TODAY_KEY, 3)).toBe(false)
+  })
+
+  it('判定できない日（データ不足）が含まれる場合は安全側でfalse', () => {
+    const shortLogs = [trainingLogWithVolume(0, 5000)]
+    expect(hasConsecutiveOptimalDays(shortLogs, [], [], TODAY_KEY, 3)).toBe(false)
   })
 })
 

@@ -305,6 +305,49 @@ export function hasConsecutiveDangerDays(
   return true
 }
 
+/**
+ * 設定画面拡張 Phase 4（ゲーミフィケーション、2026年8月28日、バッジ「コンディショニング
+ * プロ」判定用）：直近consecutiveDays日（既定7日）が連続してACWR「適正」
+ * （🟢sweet_spot）状態だったかを判定する。hasConsecutiveDangerDaysと対になる関数で、
+ * 判定ロジック（calculateACWR・determineACWRStatusを日ごとに再利用し、DBキャッシュ
+ * せず動的計算する既存方針）を共有するが、対象ステータスが逆（sweet_spot固定）の
+ * ため、hasConsecutiveDangerDaysのstatus引数化ではなく独立した関数として追加した
+ * （既存呼び出し元・Dashboard.tsxのshowDeloadWarningの呼び出しシグネチャを変更
+ * しないための判断）。判定できない日（データ不足でnullが返る日）が1日でもあれば
+ * 連続とはみなさずfalseを返す（安全側の判断、hasConsecutiveDangerDaysと同じ）。
+ */
+export function hasConsecutiveOptimalDays(
+  trainingLogs: TrainingLog[],
+  soccerLogs: SoccerLog[],
+  dailyConditions: DailyCondition[],
+  todayDate: DateString,
+  consecutiveDays = 7,
+  workouts: Workout[] = [],
+): boolean {
+  const conditionByDate = new Map(dailyConditions.map((condition) => [condition.date, condition]))
+  const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
+
+  for (let offset = 0; offset < consecutiveDays; offset += 1) {
+    const date = toDateKey(new Date(todayTime - offset * 86_400_000))
+    const condition = conditionByDate.get(date)
+    const result = calculateACWR(
+      trainingLogs,
+      soccerLogs,
+      date,
+      condition?.muscleSorenessLevel,
+      condition?.muscleSorenessLocation,
+      workouts,
+      dailyConditions,
+    )
+
+    if (result?.status !== 'sweet_spot') {
+      return false
+    }
+  }
+
+  return true
+}
+
 /** データ蓄積があと何日で7日分に達するか（表示用）。7日分以上ある場合は0。 */
 export function daysUntilACWRAvailable(trainingLogs: TrainingLog[], soccerLogs: SoccerLog[], todayDate: DateString): number {
   const earliestDate = findEarliestDate(trainingLogs, soccerLogs)

@@ -79,6 +79,18 @@
   color: var(--color-text-primary);
 }
 
+/* ゲーミフィケーション（設定画面拡張Phase 4、2026年8月28日）：ヘッダー内の
+   動的ストリーク表示（🔥N日連続）。streak=0の間は非表示（Dashboard.tsx側）。 */
+.dashboard-streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0 0;
+  font-size: var(--font-size-body-sm);
+  font-weight: 700;
+  color: var(--color-accent-text);
+}
+
 .panel-card__title {
   margin: 0 0 10px;
   font-size: var(--font-size-title);

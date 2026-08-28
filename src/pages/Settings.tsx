@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import './Settings.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { TrainingTemplateManager } from '../components/TrainingTemplateManager'
+import { BadgeGallery } from '../components/BadgeGallery'
 import type { RecordModalRequest } from '../components/RecordFormModal'
 import type { Goals } from '../api/goals'
-import type { AccentColorId, DailyCondition, DateString, FirstDayOfWeek, Profile, TrainingLog } from '../types'
+import type { AccentColorId, DailyCondition, DateString, FirstDayOfWeek, MealLog, Profile, TrainingLog } from '../types'
 import type { Theme } from '../hooks/useTheme'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import { useToast } from '../hooks/useToast'
@@ -47,6 +48,7 @@ type SettingsProps = {
   goals: Goals
   setGoals: React.Dispatch<React.SetStateAction<Goals>>
   trainingLogs: TrainingLog[]
+  mealLogs: MealLog[]
   dailyConditions: DailyCondition[]
   today: Date
   todayString: DateString
@@ -61,6 +63,7 @@ export function Settings({
   goals,
   setGoals,
   trainingLogs,
+  mealLogs,
   dailyConditions,
   today,
   todayString,
@@ -229,6 +232,14 @@ export function Settings({
       <GoalPanel goals={goals} setGoals={setGoals} trainingLogs={trainingLogs} dailyConditions={dailyConditions} today={today} />
 
       <TrainingTemplateManager todayString={todayString} openRecordModal={openRecordModal} />
+
+      <BadgeGallery
+        trainingLogs={trainingLogs}
+        mealLogs={mealLogs}
+        dailyConditions={dailyConditions}
+        today={today}
+        todayString={todayString}
+      />
 
       <section className="panel-card">
         <h3 className="settings-section__title">表示</h3>

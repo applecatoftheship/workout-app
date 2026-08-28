@@ -232,6 +232,7 @@ function AppShell() {
                 goals={goals}
                 setGoals={setGoals}
                 trainingLogs={trainingLogs}
+                mealLogs={mealLogs}
                 dailyConditions={dailyConditions}
                 today={today}
                 todayString={todayString}

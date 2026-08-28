@@ -1,0 +1,50 @@
+.badge-gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+}
+
+.badge-gallery__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.badge-gallery__icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.badge-gallery__name {
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+}
+
+.badge-gallery__description {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  line-height: 1.35;
+}
+
+.badge-gallery__item--unlocked {
+  background: var(--color-accent-soft);
+}
+
+.badge-gallery__item--unlocked .badge-gallery__name {
+  color: var(--color-accent-text);
+}
+
+.badge-gallery__item--locked {
+  background: var(--color-bg-elevated);
+  opacity: 0.6;
+}
+
+.badge-gallery__item--locked .badge-gallery__icon,
+.badge-gallery__item--locked .badge-gallery__name {
+  filter: grayscale(1);
+}

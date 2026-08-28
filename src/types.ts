@@ -256,3 +256,13 @@ export interface AppNotification extends BaseRecord {
   message: string;
   isRead: boolean;
 }
+
+// 設定画面拡張 Phase 4（ゲーミフィケーション、2026年8月28日）：user_badgesテーブルに
+// 対応する型。badgeIdはsrc/constants/badges.tsのBadgeIdと対応する（DB側はtext列で
+// マスタテーブル化していないため、ここではstringのまま持つ。呼び出し側で
+// BADGE_DEFINITIONS[badge.badgeId as BadgeId]のように解決する）。
+export interface UserBadge extends BaseRecord {
+  userId: string;
+  badgeId: string;
+  unlockedAt: string;
+}
