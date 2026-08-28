@@ -4,6 +4,7 @@
   ],
   "crons": [
     { "path": "/api/send-reminder", "schedule": "0 12 * * *" },
-    { "path": "/api/send-weekly-report", "schedule": "0 22 * * 0" }
+    { "path": "/api/send-weekly-report", "schedule": "0 22 * * 0" },
+    { "path": "/api/generate-daily-comments", "schedule": "0 20 * * *" }
   ]
 }

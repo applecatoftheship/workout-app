@@ -5,8 +5,8 @@ import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../../utils/acwrH
 import { deleteDailyConditionRemote, fetchDailyConditions, fetchRecentWeight, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
-import { useDailyAiComment } from '../../hooks/useDailyAiComment'
 import { AiCommentCard } from '../AiCommentCard'
+import { AI_COMMENT_PENDING_TEXT } from '../../utils/dailyCommentHelpers'
 
 const MUSCLE_LOCATIONS: MuscleLocation[] = ['none', 'calf_l', 'calf_r', 'hamstring', 'quad', 'groin', 'other']
 const SORENESS_LEVELS: SorenessLevel[] = ['none', 'mild', 'severe']
@@ -100,12 +100,15 @@ export function ConditionForm({
     [dailyConditions, selectedDate],
   )
 
-  const { isGenerating: isGeneratingAiComment } = useDailyAiComment({
-    condition: selectedCondition,
-    selectedDate,
-    dailyConditions,
-    setDailyConditions,
-  })
+  // AIコメント生成タイミング見直し（2026年8月29日）：この画面での自動生成トリガーは
+  // 廃止した（api/generate-daily-comments.ts、cronによる前日分の自動生成に移管）。
+  // このためuseDailyAiComment（手動再生成用フック）はもう使わず、「今日」を
+  // 選択しているかどうかだけをプレースホルダー表示の判定に使う。
+  const isTodaySelected = useMemo(() => {
+    const now = new Date()
+    const todayKey = toDateKey(now.getFullYear(), now.getMonth() + 1, now.getDate())
+    return selectedDate === todayKey
+  }, [selectedDate])
 
   useEffect(() => {
     setIsConditionFormOpen(false)
@@ -273,7 +276,11 @@ export function ConditionForm({
             </button>
           </div>
           {selectedCondition.notes ? <p className="calendar-detail__description">メモ: {selectedCondition.notes}</p> : null}
-          <AiCommentCard comment={selectedCondition.aiComment} isGenerating={isGeneratingAiComment} />
+          <AiCommentCard
+            comment={selectedCondition.aiComment}
+            isGenerating={false}
+            placeholderText={isTodaySelected ? AI_COMMENT_PENDING_TEXT : undefined}
+          />
         </div>
       ) : isConditionFormOpen ? (
         <div className="calendar-detail__form">

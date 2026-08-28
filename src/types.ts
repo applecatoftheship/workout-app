@@ -136,8 +136,11 @@ export interface DailyCondition extends BaseRecord {
   notes?: string;
   muscleSorenessLocation?: MuscleLocation;
   muscleSorenessLevel?: SorenessLevel;
-  /** AIコンディショニングアドバイザー（設定画面拡張Phase 3、2026年8月28日）。
-   * 当日分のみapi/generate-daily-comment.ts経由で生成・保存される。 */
+  /** AIコンディショニングアドバイザー（設定画面拡張Phase 3、2026年8月28日。
+   * 2026年8月29日、生成タイミング見直し）。通常はapi/generate-daily-comments.ts
+   * （cron、毎日05:00 JSTに前日分を自動生成）で生成・保存される。手動再生成
+   * ボタン（api/generate-daily-comment.ts、forceRegenerate指定時）は日付を
+   * 問わず任意の日で動作する（cron失敗時のフォールバック手段）。 */
   aiComment?: string;
 }
 

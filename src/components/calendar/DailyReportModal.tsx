@@ -1,9 +1,10 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { calculateDailyRecoveryResults, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../../utils/recoveryHelpers'
-import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel, toJstDateKeyFromIso } from '../../utils/calendarHelpers'
+import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel, toDateKey, toJstDateKeyFromIso } from '../../utils/calendarHelpers'
 import { RecoveryWindowCard } from '../RecoveryWindowCard'
 import { AiCommentCard } from '../AiCommentCard'
 import { useDailyAiComment } from '../../hooks/useDailyAiComment'
+import { AI_COMMENT_PENDING_TEXT } from '../../utils/dailyCommentHelpers'
 import { CloseIcon } from '../icons'
 import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
 import './DailyReportModal.css'
@@ -93,6 +94,13 @@ export function DailyReportModal({
   // 過去日を見ている場合はcompleted/missedが、当日進行中ならactiveが正しく
   // 算出される（Dashboard.tsxでの使われ方と同じ）。
   const now = new Date()
+
+  // AIコメント生成タイミング見直し（2026年8月29日）：「今日」を選択している場合は、
+  // まだai_commentが無くても「生成できませんでした」ではなく、cronが翌朝に
+  // 生成する旨の案内文言（AI_COMMENT_PENDING_TEXT）を表示する。
+  const todayKey = toDateKey(now.getFullYear(), now.getMonth() + 1, now.getDate())
+  const isTodaySelected = selectedDate === todayKey
+
   const recoveryResults = calculateDailyRecoveryResults(
     trainingLogs,
     soccerLogs,
@@ -173,6 +181,7 @@ export function DailyReportModal({
                   comment={condition.aiComment}
                   isGenerating={isGeneratingAiComment}
                   onRegenerate={canRegenerateAiComment ? regenerateAiComment : undefined}
+                  placeholderText={isTodaySelected ? AI_COMMENT_PENDING_TEXT : undefined}
                 />
               </div>
             ) : (

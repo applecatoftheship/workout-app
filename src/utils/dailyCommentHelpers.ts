@@ -1,6 +1,13 @@
 import type { DateString, MealLog, SoccerLog, TrainingLog, Workout } from '../types'
 import { formatTrainingLogItem, toJstDateKeyFromIso } from './calendarHelpers'
 
+// AIコメント生成タイミング見直し（2026年8月29日）：自動生成トリガー廃止に伴い、
+// 「本日分はまだ生成されていない（cronが翌日05:00 JSTに実行するため）」を案内する
+// プレースホルダー文言。ConditionForm.tsx・DailyReportModal.tsxの両方で表示文言を
+// 統一するため、ここに定数として集約する（AiCommentCard.tsxのplaceholderText prop
+// へ渡す形で使う）。
+export const AI_COMMENT_PENDING_TEXT = 'AIコメントは翌日の朝に生成されます'
+
 // AIコンディショニングアドバイザー（設定画面拡張Phase 3、2026年8月28日。
 // 食事データの追加により2026年8月28日にbuildWorkoutSummaryTextから改名・拡張）：
 // api/generate-daily-comment.tsへ渡すdailySummary（LLMプロンプト用の

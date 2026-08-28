@@ -1161,6 +1161,52 @@ Vercelの静的ホスティングが該当パスのファイルを持たずオ�
 設定画面（`Settings.tsx`）の手動切替ボタン自体・ライトモードへの切替機能は
 変更していない。
 
+## 2026年8月29日：AIコメント生成タイミングの見直し
+
+AIコンディショニングアドバイザー機能（設定画面拡張Phase 3、2026年8月28日新設）は
+当初「その日の体調記録画面（`ConditionForm.tsx`）を開いた時点」で自動生成していたが、
+これだと記録が出揃う前（トレーニング・食事等が未入力の段階）で生成され内容が薄く
+なる問題があった。このため自動生成トリガーを撤去し、記録が出揃っているはずの
+「翌日」に自動生成する方式に変更した。
+
+- **`api/generate-daily-comments.ts`（複数形、新規cron）**：`vercel.json`に
+  1日1回（毎日05:00 JST = `"0 20 * * *"`、John承認済み）のcronを追加し、
+  「前日」分をユーザーごとに自動生成する。対象ユーザーは
+  `api/send-reminder.ts`等の`push_subscriptions`ベース抽出とは異なり、
+  `daily_conditions`から`log_date = 前日 かつ ai_comment IS NULL`の行を直接
+  抽出する方式にした（プッシュ通知未設定ユーザーも取りこぼさないため、かつ
+  重複生成防止を1クエリで兼ねるため）。per-userデータ取得ロジックは
+  `send-reminder.ts`・`send-weekly-report.ts`の前例（意図的な重複実装）を踏襲。
+- **`api/_lib/dailyCommentGeneration.ts`（新規）**：Gemini呼び出し本体
+  （プロンプト生成・API呼び出し・フォールバック文言）を`api/generate-daily-comment.ts`
+  から切り出し、新cronと共有した。`process.env.GEMINI_API_KEY`を参照するNode専用
+  コードのため`src/utils/`には置けず（`tsconfig.app.json`はNode型を含まないブラウザ
+  向け設定のため）、Vercelがルーティング対象から除外するアンダースコア始まりの
+  `api/_lib/`に配置した。
+- **`api/generate-daily-comment.ts`（既存、手動再生成用に用途変更）**：調査の結果、
+  旧実装は`forceRegenerate`を指定しても「本日以外は常にキャッシュのみ返す」ガードが
+  あり、過去日の手動再生成が実質機能していなかったことが判明した。cronによる
+  自動生成が失敗した場合の唯一のフォールバック手段となるよう、日付を問わず
+  `forceRegenerate:true`ならLLM呼び出しを行うようガードを撤廃した。
+- **`src/hooks/useDailyAiComment.ts`**：「本日・未生成なら自動でLLM呼び出しを
+  トリガーする」useEffectを削除。`canRegenerate`の`isToday`制限も撤廃し、任意の
+  日付で手動再生成できるようにした（慢性負荷ウィンドウの起点も「今日」基準から
+  「regenerate対象のselectedDate」基準に修正）。
+- **`ConditionForm.tsx`・`DailyReportModal.tsx`・`AiCommentCard.tsx`**：
+  「今日」を選択している場合、`AiCommentCard`に新設の`placeholderText`prop
+  （`AI_COMMENT_PENDING_TEXT`、`src/utils/dailyCommentHelpers.ts`）で
+  「AIコメントは翌日の朝に生成されます」を表示するよう両画面を統一した。
+  `ConditionForm.tsx`は再生成ボタンなし（従来通り）、`DailyReportModal.tsx`は
+  案内文言と再生成ボタンを併記する。
+
+**未実行のSQL（実行状況要確認）**：新cronが必要とする`meal_log_food_items`への
+service_role SELECT権限は、調査の結果付与されていないことが判明した
+（`supabase/migrations/20260829020000_generate_daily_comments_cron_grants_DRAFT.sql`、
+未実行）。あわせて`workouts`テーブルへのservice_role権限
+（`20260827000000_apple_health_workouts_DRAFT.sql`）も実行状況が未確認のまま。
+`daily_conditions`へのservice_role INSERT/SELECT/UPDATEはJohnさんがライブクエリで
+付与済みと確認済み。
+
 ## 既知の技術的負債
 
 改修時に遭遇したら、勝手に直さず報告すること。
