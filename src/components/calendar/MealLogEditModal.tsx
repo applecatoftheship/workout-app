@@ -8,7 +8,7 @@ import {
 } from '../../api/mealLogs'
 import type { MealLogInput } from '../../api/mealLogs'
 import { createFoodItem, fetchFoodItems } from '../../api/foodItems'
-import { fetchDishesWithDetails, fetchMealSizes } from '../../api/dishes'
+import { deleteDish, fetchDishesWithDetails, fetchMealSizes } from '../../api/dishes'
 import { getCurrentTimeHHMM, combineDateAndTimeToISO, extractTimeHHMMFromISO } from '../../utils/calendarHelpers'
 import { findMostSimilarName } from '../../utils/nameMatching'
 import { GenreFoodPicker } from './GenreFoodPicker'
@@ -116,6 +116,7 @@ export function MealLogEditModal({ mealLogs, setMealLogs, selectedDate, mealLogI
   const [selectedDishId, setSelectedDishId] = useState('')
   const [selectedMealSizeId, setSelectedMealSizeId] = useState('')
   const [isDishModalOpen, setIsDishModalOpen] = useState(false)
+  const [isDeletingDish, setIsDeletingDish] = useState(false)
   const [newFood, setNewFood] = useState<NewFoodForm>(createEmptyNewFoodForm())
   const [duplicateFoodSuggestion, setDuplicateFoodSuggestion] = useState<{ name: string } | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -247,6 +248,29 @@ export function MealLogEditModal({ mealLogs, setMealLogs, selectedDate, mealLogI
       })
     setItems((current) => [...current, ...newItems])
     setSelectedDishId('')
+  }
+
+  const handleDeleteDish = async () => {
+    if (!selectedDish?.id) {
+      return
+    }
+    const confirmed = await confirm(`「${selectedDish.name}」を削除しますか？この操作は取り消せません`)
+    if (!confirmed) {
+      return
+    }
+
+    setIsDeletingDish(true)
+    try {
+      await deleteDish(selectedDish.id)
+      setSelectedDishId('')
+      loadDishes()
+      showToast('料理を削除しました', 'success')
+    } catch (error) {
+      console.error('Supabaseからの料理削除に失敗しました', error)
+      showToast('削除に失敗しました。もう一度お試しください', 'error')
+    } finally {
+      setIsDeletingDish(false)
+    }
   }
 
   const handleNewFoodFieldChange = (field: keyof NewFoodForm, value: string) => {
@@ -477,14 +501,24 @@ export function MealLogEditModal({ mealLogs, setMealLogs, selectedDate, mealLogI
         <>
           <div className="calendar-detail__field calendar-detail__field--full">
             <span>登録済みの料理</span>
-            <select value={selectedDishId} onChange={(event) => setSelectedDishId(event.target.value)}>
-              <option value="">選択してください</option>
-              {dishes.map((dish) => (
-                <option key={dish.id} value={dish.id}>
-                  {dish.name} ({Math.round(dish.totalCalories)}kcal)
-                </option>
-              ))}
-            </select>
+            <div className="calendar-detail__select-with-action">
+              <select value={selectedDishId} onChange={(event) => setSelectedDishId(event.target.value)}>
+                <option value="">選択してください</option>
+                {dishes.map((dish) => (
+                  <option key={dish.id} value={dish.id}>
+                    {dish.name} ({Math.round(dish.totalCalories)}kcal)
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="calendar-detail__delete-button"
+                onClick={handleDeleteDish}
+                disabled={!selectedDishId || isDeletingDish}
+              >
+                {isDeletingDish ? '削除中...' : '削除'}
+              </button>
+            </div>
           </div>
 
           {mealSizes.length > 0 ? (
