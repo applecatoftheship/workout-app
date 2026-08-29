@@ -1,5 +1,6 @@
 import { getCurrentUserId, supabase } from './client'
 import type { AccentColorId, AvatarType, DateString, FirstDayOfWeek, Profile } from '../types'
+import { DEFAULT_ACCENT_COLOR } from '../utils/accentColor'
 
 type ProfileRow = {
   user_id: string
@@ -84,7 +85,7 @@ export async function upsertProfile(input: ProfileInput): Promise<void> {
       avatar_type: input.avatarType ?? null,
       avatar_value: input.avatarValue ?? null,
       first_day_of_week: input.firstDayOfWeek ?? 1,
-      accent_color: input.accentColor ?? 'orange',
+      accent_color: input.accentColor ?? DEFAULT_ACCENT_COLOR,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },

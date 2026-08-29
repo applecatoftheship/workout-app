@@ -5,6 +5,7 @@ import './UserProfile.css'
 import '../components/calendar/CalendarForms.css'
 import { ChevronLeftIcon } from '../components/icons'
 import { AvatarCropModal } from '../components/AvatarCropModal'
+import { TrackRing } from '../components/TrackRing'
 import { fetchProfile, upsertProfile, uploadAvatarFile } from '../api/profiles'
 import { fetchRecentWeight, upsertWeightOnly } from '../api/dailyConditions'
 import { useToast } from '../hooks/useToast'
@@ -159,13 +160,15 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
       </div>
 
       <section className="panel-card user-profile__avatar-section">
-        <div className="user-profile__avatar-preview">
-          {avatarType === 'upload' && avatarValue ? (
-            <img src={avatarValue} alt="" className="user-profile__avatar-image" />
-          ) : (
-            <span>{avatarValue ?? '👤'}</span>
-          )}
-        </div>
+        <TrackRing value={100} size={100} strokeWidth={4} className="user-profile__avatar-ring">
+          <div className="user-profile__avatar-preview">
+            {avatarType === 'upload' && avatarValue ? (
+              <img src={avatarValue} alt="" className="user-profile__avatar-image" />
+            ) : (
+              <span>{avatarValue ?? '👤'}</span>
+            )}
+          </div>
+        </TrackRing>
 
         <label className="btn-secondary user-profile__upload-button">
           {isUploadingAvatar ? 'アップロード中...' : '写真をアップロード'}

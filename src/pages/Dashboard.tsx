@@ -4,6 +4,8 @@ import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import './Dashboard.css'
 import { GoalPanel } from '../components/GoalPanel'
 import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
+import { TrackRing } from '../components/TrackRing'
+import { EcgDivider } from '../components/EcgDivider'
 import { WeeklyACWRTrendCard } from '../components/WeeklyACWRTrendCard'
 import { WeeklyACWRDetailModal } from '../components/WeeklyACWRDetailModal'
 import { RecoveryWindowCard } from '../components/RecoveryWindowCard'
@@ -722,7 +724,10 @@ export function Dashboard({
         ) : null}
         {currentStreak > 0 ? (
           <p className="dashboard-streak-badge">
-            <span aria-hidden="true">🔥</span> {currentStreak}日連続
+            <TrackRing value={Math.min(100, (currentStreak / 7) * 100)} size={28} strokeWidth={3}>
+              <span aria-hidden="true">🔥</span>
+            </TrackRing>
+            <span className="reveal-fade">{currentStreak}日連続</span>
           </p>
         ) : null}
       </div>
@@ -732,6 +737,7 @@ export function Dashboard({
           <h2 className="panel-card__title">{calorieCardTitle}</h2>
           {mdBadgeLabel ? <span className="md-badge">{mdBadgeLabel}</span> : null}
         </div>
+        <EcgDivider />
         <div className="calorie-ring">
           <RadialBarChart
             width={180}
@@ -746,9 +752,9 @@ export function Dashboard({
             endAngle={-270}
           >
             <PolarAngleAxis type="number" domain={[0, 100]} tick={false} axisLine={false} />
-            <RadialBar background={{ fill: 'var(--color-border)' }} dataKey="value" cornerRadius={20} />
+            <RadialBar background={{ fill: 'var(--color-ring-track)' }} dataKey="value" cornerRadius={20} />
           </RadialBarChart>
-          <div className="calorie-ring__center">
+          <div className="calorie-ring__center reveal-fade">
             <span className="calorie-ring__value metric-value">{todayMealTotals.calories}</span>
             <span className="calorie-ring__goal">/ {periodizationTarget.calorieTarget} kcal</span>
           </div>

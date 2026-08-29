@@ -9,16 +9,22 @@ import type { AccentColorId } from '../types'
 // 仕様書のデフォルト値'teal'は既存アプリの現在のプライマリカラー（オレンジ、
 // tokens.cssの--color-accent: #E85D2C）と大きく異なるため、指示書の「既存の配色に
 // 近い値をデフォルトにしてほしい」に従いデフォルトを'orange'に変更した（判断理由）。
-export const ACCENT_COLOR_IDS: AccentColorId[] = ['orange', 'teal', 'blue', 'purple']
+//
+// スプラッシュ画面とのUI統一 v6（2026年8月28〜29日、John承認）：新規プリセット
+// 'artdeco'（コーラル、スプラッシュ画面の心拍ラインと同じ#FF6B6B系）を追加し、
+// これを新しいデフォルトに変更した（John「選択機能は残す」の指示により、既存の
+// orange/teal/blue/purpleは削除せずそのまま選択肢に残す）。
+export const ACCENT_COLOR_IDS: AccentColorId[] = ['artdeco', 'orange', 'teal', 'blue', 'purple']
 
 export const ACCENT_COLOR_LABELS: Record<AccentColorId, string> = {
+  artdeco: 'コーラル',
   orange: 'オレンジ',
   teal: 'ティール',
   blue: 'ブルー',
   purple: 'パープル',
 }
 
-export const DEFAULT_ACCENT_COLOR: AccentColorId = 'orange'
+export const DEFAULT_ACCENT_COLOR: AccentColorId = 'artdeco'
 
 type AccentColorTokens = {
   accent: string
@@ -31,7 +37,13 @@ type AccentColorTokens = {
 // 既存ACCENT_PRESETS（無効化されていたスウォッチ）で使われていた#2F6FEDを踏襲。
 // purpleはtokens.cssの--color-ma-sleep（#8B5CF6）を踏襲。soft/textは各accentの
 // 既存ペア（orange/tealのライト/ダーク差分）と同様の明度関係になるよう新規に定めた。
+// artdecoはスプラッシュ画面（SplashScreen.css）の心拍ライン色#FF6B6Bをそのまま
+// 踏襲し、soft/textはデザインキャンバスv6で承認された値をそのまま使用。
 const ACCENT_COLOR_TOKENS: Record<AccentColorId, { light: AccentColorTokens; dark: AccentColorTokens }> = {
+  artdeco: {
+    light: { accent: '#E0524A', accentSoft: '#FCE4E1', accentText: '#A13228' },
+    dark: { accent: '#FF6B6B', accentSoft: '#3D2323', accentText: '#FFAFAF' },
+  },
   orange: {
     light: { accent: '#E85D2C', accentSoft: '#FBE2D3', accentText: '#A8391A' },
     dark: { accent: '#FF7A33', accentSoft: '#3A2417', accentText: '#FFB088' },

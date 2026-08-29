@@ -71,3 +71,59 @@ select {
   width: 100%;
   min-height: 100vh;
 }
+
+/*
+ * スプラッシュ画面とのUI統一 v6（2026年8月28〜29日、John承認）：ボタンの
+ * タップ・ホバー演出をアプリ全体に統一適用する（既存の.btn-primary等の個別
+ * ボタンクラスを書き換えるのではなく、buttonタグ全体へのグローバルルールとして
+ * 追加することで、根幹構造・既存クラスを変更せずに済ませる判断）。光彩
+ * （box-shadow/blur）ではなくtransform（タップ時scale）とfilter（ホバー時
+ * brightness）のみを使う（John「リングは光彩じゃない方がよい」を踏まえ、
+ * ボタン演出も同方針で統一）。
+ */
+button:not(:disabled) {
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+button:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+
+button:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+/*
+ * 数値のふわっとした遅延表示（2026年8月28〜29日、v6）：TrackRing（進捗リング）と
+ * 組み合わせる数値表示に付与するユーティリティクラス。リングの一度きりの
+ * フィルアニメーション（TrackRing.css、約0.9秒）が収まりかけた頃に、少し遅れて
+ * opacity+translateYでふわっと現れる。
+ */
+@keyframes reveal-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal-fade {
+  animation: reveal-fade-in 0.35s ease-out 0.85s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled) {
+    transition: none;
+  }
+
+  button:not(:disabled):active {
+    transform: none;
+  }
+
+  .reveal-fade {
+    animation: none;
+  }
+}

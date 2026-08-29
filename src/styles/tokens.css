@@ -11,6 +11,15 @@
  *
  * Phase 2（2026年8月15日）で --color-nav-bg を追加。BottomNav.tsxの
  * 半透明＋backdrop-filter背景に使用（指示書2-1）。
+ *
+ * スプラッシュ画面とのUI統一 v6（2026年8月28〜29日、John承認）：新規
+ * --color-ring-track（進捗リング部品の背景トラック）を追加。ダークモードの
+ * bg-base/bg-surface/text-primary/--color-dataをスプラッシュ画面
+ * （SplashScreen.css）の実測配色（#0E1217/#181D23/#E2E8F0/#4ECDC4）に
+ * 合わせて調整した。ライトモードのbg/text/dataは変更なし。アクセントカラーの
+ * 新規プリセット"artdeco"（コーラル）はsrc/utils/accentColor.tsで定義（この
+ * ファイルの--color-accent自体は変更せず、accentColor.tsのapplyAccentColorが
+ * インラインstyleで上書きする既存方式を踏襲）。
  */
 :root {
   /* Light（デフォルト） */
@@ -18,6 +27,7 @@
   --color-bg-surface: #FFFFFF;
   --color-bg-elevated: #FFFFFF;
   --color-border: #E7E5DF;
+  --color-ring-track: #DCE0E6;
   --color-text-primary: #1B1D1F;
   --color-text-secondary: #6B6F76;
   --color-text-muted: #9CA0A6;
@@ -64,17 +74,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-bg-base: #0B0E11;
-    --color-bg-surface: #14181D;
+    --color-bg-base: #0E1217;
+    --color-bg-surface: #181D23;
     --color-bg-elevated: #1D2229;
     --color-border: #262B32;
-    --color-text-primary: #F2F1ED;
+    --color-ring-track: #2B3544;
+    --color-text-primary: #E2E8F0;
     --color-text-secondary: #9B9FA6;
     --color-text-muted: #6B7078;
     --color-accent: #FF7A33;
     --color-accent-soft: #3A2417;
     --color-accent-text: #FFB088;
-    --color-data: #35C9C0;
+    --color-data: #4ECDC4;
     --color-data-soft: #12302E;
     --color-success: #4CAF6D;
     --color-success-soft: #14301F;
@@ -91,17 +102,18 @@
 }
 
 [data-theme="dark"] {
-  --color-bg-base: #0B0E11;
-  --color-bg-surface: #14181D;
+  --color-bg-base: #0E1217;
+  --color-bg-surface: #181D23;
   --color-bg-elevated: #1D2229;
   --color-border: #262B32;
-  --color-text-primary: #F2F1ED;
+  --color-ring-track: #2B3544;
+  --color-text-primary: #E2E8F0;
   --color-text-secondary: #9B9FA6;
   --color-text-muted: #6B7078;
   --color-accent: #FF7A33;
   --color-accent-soft: #3A2417;
   --color-accent-text: #FFB088;
-  --color-data: #35C9C0;
+  --color-data: #4ECDC4;
   --color-data-soft: #12302E;
   --color-success: #4CAF6D;
   --color-success-soft: #14301F;

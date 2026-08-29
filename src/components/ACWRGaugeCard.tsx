@@ -1,6 +1,8 @@
 import './ACWRGaugeCard.css'
 import type { ACWRResult, MuscleLocation, SorenessLevel } from '../types'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../utils/acwrHelpers'
+import { TrackRing } from './TrackRing'
+import { EcgDivider } from './EcgDivider'
 
 type ACWRGaugeCardProps = {
   result: ACWRResult | null
@@ -16,6 +18,15 @@ const STATUS_META: Record<ACWRResult['status'], { emoji: string; label: string; 
   warning: { emoji: '🟡', label: '注意', tone: 'warning' },
   danger: { emoji: '🔴', label: '警戒', tone: 'danger' },
   unload: { emoji: '🔵', label: '低下', tone: 'data' },
+}
+
+// スプラッシュ画面とのUI統一 v6（2026年8月28〜29日）：TrackRingの弧の色を
+// 既存のacwr-badge--{tone}と同じトーンに合わせるためのCSS変数名マッピング。
+const STATUS_RING_COLOR_VAR: Record<string, string> = {
+  good: '--color-success',
+  warning: '--color-warning',
+  danger: '--color-danger',
+  data: '--color-data',
 }
 
 export function ACWRGaugeCard({ result, daysUntilAvailable, sorenessLocation, sorenessLevel, showDeloadWarning }: ACWRGaugeCardProps) {
@@ -42,8 +53,12 @@ export function ACWRGaugeCard({ result, daysUntilAvailable, sorenessLocation, so
         </span>
       </div>
 
+      <EcgDivider />
+
       <div className="acwr-card__score">
-        <span className="acwr-card__score-value metric-value">{result.acwr.toFixed(2)}</span>
+        <TrackRing value={Math.min(100, (result.acwr / 2) * 100)} size={72} strokeWidth={7} colorVar={STATUS_RING_COLOR_VAR[meta.tone]}>
+          <span className="acwr-card__score-value metric-value reveal-fade">{result.acwr.toFixed(2)}</span>
+        </TrackRing>
         <span className="acwr-card__score-label">急性:慢性負荷比</span>
       </div>
 

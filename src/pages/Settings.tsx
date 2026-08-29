@@ -17,6 +17,7 @@ import { ACCENT_COLOR_IDS, ACCENT_COLOR_LABELS, DEFAULT_ACCENT_COLOR } from '../
 import { formatSyncedAt } from '../utils/dateFormatHelpers'
 
 const ACCENT_SWATCH_COLORS: Record<AccentColorId, string> = {
+  artdeco: '#E0524A',
   orange: '#E85D2C',
   teal: '#1D9C93',
   blue: '#2F6FED',

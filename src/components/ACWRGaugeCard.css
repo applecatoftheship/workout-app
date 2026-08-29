@@ -43,12 +43,12 @@
 
 .acwr-card__score {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-sm);
 }
 
 .acwr-card__score-value {
-  font-size: var(--font-size-metric-lg);
+  font-size: var(--font-size-metric);
   font-weight: 700;
   color: var(--color-text-primary);
 }
