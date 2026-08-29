@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { TrainingExerciseEditModal } from './calendar/TrainingExerciseEditModal'
-import { MealLogForm } from './calendar/MealLogForm'
+import { MealLogEditModal } from './calendar/MealLogEditModal'
 import { ConditionForm } from './calendar/ConditionForm'
 import { ScheduleForm } from './calendar/ScheduleForm'
 import { SoccerLogForm } from './calendar/SoccerLogForm'
@@ -19,7 +19,8 @@ export type RecordModalRequest = {
   date: DateString
   /** 未指定の場合は新規種目の追加（種目選択UIから開始する）。 */
   trainingLogExerciseId?: string
-  mealLogIndex?: number
+  /** 未指定の場合は新規食事エントリの追加。 */
+  mealLogId?: string
   scheduleId?: string
   /** テンプレート管理UI（Settings.tsx）の「予定を作成」ボタンから開いた場合、
    * 新規予定フォームにこのテンプレートを事前選択する（2026年8月18日追加）。 */
@@ -55,7 +56,6 @@ export function RecordFormModal({
   dailyConditions,
   setDailyConditions,
 }: RecordFormModalProps) {
-  const [isMealFormOpen, setIsMealFormOpen] = useState(true)
   const [isConditionFormOpen, setIsConditionFormOpen] = useState(true)
   const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(true)
   const [isSoccerFormOpen, setIsSoccerFormOpen] = useState(true)
@@ -70,7 +70,6 @@ export function RecordFormModal({
       return
     }
 
-    setIsMealFormOpen(true)
     setIsConditionFormOpen(true)
     setIsScheduleFormOpen(true)
     setIsSoccerFormOpen(true)
@@ -133,13 +132,6 @@ export function RecordFormModal({
   }, [request])
 
   useEffect(() => {
-    if (request?.type === 'meal' && !isMealFormOpen) {
-      onClose()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMealFormOpen])
-
-  useEffect(() => {
     if (request?.type === 'condition' && !isConditionFormOpen) {
       onClose()
     }
@@ -200,16 +192,13 @@ export function RecordFormModal({
           ) : null}
 
           {request.type === 'meal' ? (
-            <MealLogForm
+            <MealLogEditModal
               key={formKey}
               mealLogs={mealLogs}
               setMealLogs={setMealLogs}
               selectedDate={request.date}
-              isMealFormOpen={isMealFormOpen}
-              setIsMealFormOpen={setIsMealFormOpen}
-              setIsFormOpen={() => {}}
-              autoOpenToken={autoOpenToken}
-              autoOpenIndex={request.mealLogIndex}
+              mealLogId={request.mealLogId}
+              onClose={onClose}
             />
           ) : null}
 

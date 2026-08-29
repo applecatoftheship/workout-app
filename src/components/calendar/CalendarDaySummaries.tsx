@@ -4,6 +4,7 @@ import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, Train
 import {
   formatConditionSummary,
   getMealTypeLabel,
+  groupMealLogsByType,
   toJstDateKeyFromIso,
   getCurrentTimeHHMM,
   combineDateAndTimeToISO,
@@ -11,6 +12,7 @@ import {
 } from '../../utils/calendarHelpers'
 import { fetchTrainingLogs, upsertTrainingLogMeta } from '../../api/trainingLogs'
 import { TrainingExerciseCard } from './TrainingExerciseCard'
+import { MealLogCard } from './MealLogCard'
 import { useToast } from '../../hooks/useToast'
 
 /**
@@ -256,20 +258,33 @@ export function ConditionSummary({ dailyConditions, selectedDate, onAdd, onEdit 
 
 type MealSummaryProps = {
   mealLogs: MealLog[]
+  setMealLogs: Dispatch<SetStateAction<MealLog[]>>
   selectedDate: DateString
   onAdd: () => void
-  onEdit: (index: number) => void
+  /** 未指定（新規エントリ）でも編集モーダルを開けるが、MealSummary自身は
+   * 常に既存エントリのmealLogIdを渡す（新規追加はonAdd経由のみ）。 */
+  onEdit: (mealLogId: string) => void
 }
 
-export function MealSummary({ mealLogs, selectedDate, onAdd, onEdit }: MealSummaryProps) {
-  const logs = mealLogs.map((mealLog, index) => ({ mealLog, index })).filter(({ mealLog }) => mealLog.date === selectedDate)
-  const totals = logs.reduce(
-    (acc, { mealLog }) => ({
-      calories: acc.calories + mealLog.calories,
-      protein: acc.protein + mealLog.protein,
-      fat: acc.fat + mealLog.fat,
-      carbohydrates: acc.carbohydrates + mealLog.carbohydrates,
-    }),
+// 食事記録画面UI/UX刷新（meal_logエントリカード＋編集モーダル分離、2026年8月29日）：
+// 閲覧と編集を完全分離し、meal_logエントリごとにMealLogCardを表示する
+// （閲覧専用、編集/削除はカード自身が担う。TrainingSummaryと同じ設計）。
+// 食事タイミング（朝食/昼食/夕食/間食/その他）ごとにグルーピングして見出しを
+// 立てる（groupMealLogsByType、表示側のみの変更。meal_type自体はDB上の
+// 中間テーブルではなく各meal_log行が持つ属性のため、スキーマは無変更）。
+export function MealSummary({ mealLogs, setMealLogs, selectedDate, onAdd, onEdit }: MealSummaryProps) {
+  const groups = groupMealLogsByType(mealLogs, selectedDate)
+  const totals = groups.reduce(
+    (acc, group) =>
+      group.logs.reduce(
+        (inner, mealLog) => ({
+          calories: inner.calories + mealLog.calories,
+          protein: inner.protein + mealLog.protein,
+          fat: inner.fat + mealLog.fat,
+          carbohydrates: inner.carbohydrates + mealLog.carbohydrates,
+        }),
+        acc,
+      ),
     { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
   )
 
@@ -281,28 +296,26 @@ export function MealSummary({ mealLogs, selectedDate, onAdd, onEdit }: MealSumma
           食事・PFCを記録
         </button>
       </div>
-      {logs.length > 0 ? (
+      {groups.length > 0 ? (
         <>
           <div className="calendar-detail__meal-totals">
             合計: {totals.calories}kcal / P{totals.protein}g F{totals.fat}g C{totals.carbohydrates}g
           </div>
-          <div className="calendar-detail__log-list">
-            {logs.map(({ mealLog, index }) => (
-              <div key={`${selectedDate}-meal-${index}`} className="calendar-detail__meal-item">
-                <div className="calendar-detail__meal-head">
-                  <span>{getMealTypeLabel(mealLog.mealType)}</span>
-                  <button type="button" className="calendar-detail__edit-button" onClick={() => onEdit(index)}>
-                    編集
-                  </button>
-                </div>
-                <div className="calendar-detail__meal-row">内容: {mealLog.foods.join('・')}</div>
-                <div className="calendar-detail__meal-row">
-                  カロリー: {mealLog.calories}kcal / P{mealLog.protein}g F{mealLog.fat}g C{mealLog.carbohydrates}g
-                </div>
-                {mealLog.notes ? <p className="calendar-detail__description">メモ: {mealLog.notes}</p> : null}
+          {groups.map((group) => (
+            <div key={group.mealType} className="meal-type-group">
+              <h5 className="meal-type-group__header">{getMealTypeLabel(group.mealType)}</h5>
+              <div className="meal-log-grid">
+                {group.logs.map((mealLog) => (
+                  <MealLogCard
+                    key={mealLog.id}
+                    mealLog={mealLog}
+                    setMealLogs={setMealLogs}
+                    onEdit={() => mealLog.id && onEdit(mealLog.id)}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </>
       ) : (
         <p className="calendar-detail__empty">🍽️ まだ食事記録がありません</p>

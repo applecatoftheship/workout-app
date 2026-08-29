@@ -469,9 +469,10 @@ export function MonthlyCalendar({
           {activeDetailTab === 'meal' ? (
             <MealSummary
               mealLogs={mealLogs}
+              setMealLogs={setMealLogs}
               selectedDate={selectedDate}
               onAdd={() => openRecordModal({ type: 'meal', date: selectedDate })}
-              onEdit={(index) => openRecordModal({ type: 'meal', date: selectedDate, mealLogIndex: index })}
+              onEdit={(mealLogId) => openRecordModal({ type: 'meal', date: selectedDate, mealLogId })}
             />
           ) : null}
 

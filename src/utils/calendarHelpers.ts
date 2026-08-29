@@ -1,4 +1,4 @@
-import type { DateString, DailyCondition, FirstDayOfWeek, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types.js'
+import type { DateString, DailyCondition, FirstDayOfWeek, MealLog, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types.js'
 import type { ActivityType, CalendarCellItem } from '../types/calendar.js'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from './acwrHelpers.js'
 
@@ -54,7 +54,7 @@ export function formatMonthLabel(date: Date) {
 
 // リカバリー窓機能（スプリント4 Phase 1、2026年8月21日）：meal_time/end_time
 // （input type="time"用のHH:MM文字列 ⇔ timestamptz用のISO文字列）の相互変換。
-// MealLogForm・TrainingLogForm・SoccerLogFormの3フォームで共通利用する。
+// MealLogEditModal・TrainingExerciseEditModal・SoccerLogFormの3フォームで共通利用する。
 
 export function getCurrentTimeHHMM(): string {
   const now = new Date()
@@ -233,4 +233,32 @@ export function getMealTypeLabel(mealType: MealType) {
     default:
       return 'その他'
   }
+}
+
+// 食事記録画面UI/UX刷新（meal_logエントリカード＋編集モーダル分離、2026年8月29日）：
+// MealSummary（CalendarDaySummaries.tsx）の食事タイミング別グルーピング表示用。
+// meal_logsは1日複数行が前提（同一mealTypeの複数件も許容）で、meal_type自体は
+// 中間テーブルではなく各行が持つ属性のため、グルーピングは表示側のみで行う
+// （DBスキーマは無変更）。記録が0件のタイミングは見出しごと表示しない。
+export const MEAL_TYPE_ORDER: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack', 'other']
+
+export function groupMealLogsByType(
+  mealLogs: MealLog[],
+  selectedDate: DateString,
+): { mealType: MealType; logs: MealLog[] }[] {
+  const dayLogs = mealLogs.filter((log) => log.date === selectedDate)
+
+  return MEAL_TYPE_ORDER.map((mealType) => ({
+    mealType,
+    // mealTime未設定のエントリはソート末尾に回す（Number.POSITIVE_INFINITYで比較）。
+    // Array.prototype.sortは安定ソートのため、mealTime同士が同値・共に未設定の場合は
+    // 元の配列順（fetchMealLogsのlog_date昇順取得順）を維持する。
+    logs: dayLogs
+      .filter((log) => log.mealType === mealType)
+      .sort((a, b) => {
+        const aTime = a.mealTime ? new Date(a.mealTime).getTime() : Number.POSITIVE_INFINITY
+        const bTime = b.mealTime ? new Date(b.mealTime).getTime() : Number.POSITIVE_INFINITY
+        return aTime - bTime
+      }),
+  })).filter((group) => group.logs.length > 0)
 }

@@ -148,6 +148,67 @@ export async function deleteMealLogRemote(id: string): Promise<void> {
   }
 }
 
+export type LatestFoodItemRecord = {
+  amount: number
+  logDate: DateString
+}
+
+// 食事記録画面UI/UX刷新（2026年8月29日）：食材ごとの「前回の実測量」を入力欄の
+// プレースホルダーとして表示するための新規関数（読み取り専用）。
+// trainingLogs.tsのfetchLatestExerciseRecordと同じ二段階クエリのパターンを踏襲
+// （meal_log_food_itemsをfood_item_idで検索→該当meal_log_idを収集→meal_logsを
+// user_id・除外日付で絞り込み直近日付を特定→その日のamountを引く）。
+// excludeDateは編集中の日付自身を「前回」として自己参照しないための引数
+// （fetchLatestExerciseRecordの同名引数と同じ意図）。
+export async function fetchLatestFoodItemRecord(
+  foodItemId: string,
+  excludeDate?: DateString,
+): Promise<LatestFoodItemRecord | null> {
+  const userId = await getCurrentUserId()
+  const { data: linkRows, error: linkError } = await supabase
+    .from('meal_log_food_items')
+    .select('meal_log_id, amount')
+    .eq('food_item_id', foodItemId)
+
+  if (linkError) {
+    throw linkError
+  }
+
+  const links = linkRows as { meal_log_id: string; amount: number | null }[]
+  if (links.length === 0) {
+    return null
+  }
+
+  const mealLogIds = Array.from(new Set(links.map((link) => link.meal_log_id)))
+
+  let logQuery = supabase.from('meal_logs').select('id, log_date').eq('user_id', userId).in('id', mealLogIds)
+
+  if (excludeDate) {
+    logQuery = logQuery.neq('log_date', excludeDate)
+  }
+
+  const { data: logRows, error: logError } = await logQuery.order('log_date', { ascending: false }).limit(1)
+
+  if (logError) {
+    throw logError
+  }
+
+  const latestLog = (logRows as { id: string; log_date: string }[])[0]
+  if (!latestLog) {
+    return null
+  }
+
+  const latestLink = links.find((link) => link.meal_log_id === latestLog.id)
+  if (!latestLink || latestLink.amount == null) {
+    return null
+  }
+
+  return {
+    amount: latestLink.amount,
+    logDate: latestLog.log_date as DateString,
+  }
+}
+
 export async function fetchMealLogItems(mealLogId: string): Promise<MealLogFoodItem[]> {
   const { data, error } = await supabase.from('meal_log_food_items').select('*').eq('meal_log_id', mealLogId)
 

@@ -1,0 +1,81 @@
+/* 食事記録画面UI/UX刷新（meal_logエントリカード＋編集モーダル分離、2026年8月29日）
+   MealLogCard・MealFoodItemCard・MealSummaryの食事タイミング別グルーピング表示で
+   共有するスタイル。TrainingExercise.cssと同じくcalendar-detail__*の既存トークン
+   運用（--color-bg-elevated等）を踏襲する。 */
+
+.meal-type-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.meal-type-group__header {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.meal-log-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.meal-log-card {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+.meal-log-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.meal-log-card__time {
+  font-weight: 600;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-log-card__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.meal-log-card__foods {
+  margin: 0 0 4px;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+}
+
+.meal-log-card__totals {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-food-item-card {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+}
+
+.meal-food-item-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}

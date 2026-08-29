@@ -12,11 +12,12 @@ import {
   getMealTypeLabel,
   getOrderedWeekDayLabels,
   getScheduleIcon,
+  groupMealLogsByType,
   toDateKey,
   toJstDateKeyFromIso,
   weekDays,
 } from '../calendarHelpers'
-import type { DailyCondition, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../../types'
+import type { DailyCondition, MealLog, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../../types'
 
 describe('toDateKey', () => {
   it('year/month/dayをゼロ埋めしたYYYY-MM-DDにする', () => {
@@ -317,5 +318,63 @@ describe('getMealTypeLabel', () => {
     expect(getMealTypeLabel('dinner')).toBe('夕食')
     expect(getMealTypeLabel('snack')).toBe('間食')
     expect(getMealTypeLabel('other')).toBe('その他')
+  })
+})
+
+describe('groupMealLogsByType', () => {
+  const buildLog = (overrides: Partial<MealLog>): MealLog => ({
+    id: overrides.id ?? 'id',
+    date: '2026-08-29',
+    mealType: 'other',
+    foods: [],
+    calories: 0,
+    protein: 0,
+    fat: 0,
+    carbohydrates: 0,
+    ...overrides,
+  })
+
+  it('選択日以外の記録は除外する', () => {
+    const logs = [buildLog({ id: 'a', date: '2026-08-28', mealType: 'breakfast' }), buildLog({ id: 'b', mealType: 'lunch' })]
+    const groups = groupMealLogsByType(logs, '2026-08-29')
+    expect(groups).toHaveLength(1)
+    expect(groups[0].mealType).toBe('lunch')
+  })
+
+  it('記録が0件の食事タイミングは結果に含めない', () => {
+    const logs = [buildLog({ id: 'a', mealType: 'dinner' })]
+    const groups = groupMealLogsByType(logs, '2026-08-29')
+    expect(groups.map((group) => group.mealType)).toEqual(['dinner'])
+  })
+
+  it('朝食→昼食→夕食→間食→その他の順で並ぶ（記録の登録順に依存しない）', () => {
+    const logs = [
+      buildLog({ id: 'a', mealType: 'other' }),
+      buildLog({ id: 'b', mealType: 'snack' }),
+      buildLog({ id: 'c', mealType: 'dinner' }),
+      buildLog({ id: 'd', mealType: 'breakfast' }),
+      buildLog({ id: 'e', mealType: 'lunch' }),
+    ]
+    const groups = groupMealLogsByType(logs, '2026-08-29')
+    expect(groups.map((group) => group.mealType)).toEqual(['breakfast', 'lunch', 'dinner', 'snack', 'other'])
+  })
+
+  it('同一タイミング内はmealTime昇順でソートする', () => {
+    const logs = [
+      buildLog({ id: 'late', mealType: 'snack', mealTime: '2026-08-29T12:00:00.000Z' }),
+      buildLog({ id: 'early', mealType: 'snack', mealTime: '2026-08-29T03:00:00.000Z' }),
+    ]
+    const groups = groupMealLogsByType(logs, '2026-08-29')
+    expect(groups[0].logs.map((log) => log.id)).toEqual(['early', 'late'])
+  })
+
+  it('mealTime未設定のエントリは末尾に回り、互いの相対順は元の配列順を維持する', () => {
+    const logs = [
+      buildLog({ id: 'no-time-1', mealType: 'snack' }),
+      buildLog({ id: 'with-time', mealType: 'snack', mealTime: '2026-08-29T03:00:00.000Z' }),
+      buildLog({ id: 'no-time-2', mealType: 'snack' }),
+    ]
+    const groups = groupMealLogsByType(logs, '2026-08-29')
+    expect(groups[0].logs.map((log) => log.id)).toEqual(['with-time', 'no-time-1', 'no-time-2'])
   })
 })

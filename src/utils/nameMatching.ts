@@ -1,7 +1,7 @@
 // AI一括取り込み：類似名の確認ダイアログ機能（実装指示書v2、2026年8月19日新設）
 // 種目名・食材名のマッチング・類似度判定ロジックを、AI一括取り込み時のプレビュー
 // （BulkScheduleImportModal.tsx）とマスタ新規登録時の重複チェック
-// （ExerciseNameInput.tsx・MealLogForm.tsx）の両方から共通で呼び出すための汎用関数。
+// （ExerciseNameInput.tsx・MealLogEditModal.tsx）の両方から共通で呼び出すための汎用関数。
 // matchByNameWithFallback / stripTrailingParenthetical は、元は
 // BulkScheduleImportModal.tsxにローカル定義されていたもの（2026年8月18日追加）を
 // このファイルへ移設した（挙動は無変更）。
