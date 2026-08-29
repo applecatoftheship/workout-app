@@ -754,9 +754,9 @@ export function Dashboard({
             <PolarAngleAxis type="number" domain={[0, 100]} tick={false} axisLine={false} />
             <RadialBar background={{ fill: 'var(--color-ring-track)' }} dataKey="value" cornerRadius={20} />
           </RadialBarChart>
-          <div className="calorie-ring__center reveal-fade">
-            <span className="calorie-ring__value metric-value">{todayMealTotals.calories}</span>
-            <span className="calorie-ring__goal">/ {periodizationTarget.calorieTarget} kcal</span>
+          <div className="calorie-ring__center">
+            <span className="calorie-ring__value metric-value reveal-fade">{todayMealTotals.calories}</span>
+            <span className="calorie-ring__goal reveal-fade">/ {periodizationTarget.calorieTarget} kcal</span>
           </div>
         </div>
         {periodizationTarget.isAdjusted && goals.dailyCalorieGoal > 0 ? (
