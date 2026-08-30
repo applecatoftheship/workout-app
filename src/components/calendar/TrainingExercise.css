@@ -57,12 +57,26 @@
    のため、部位色（--color-bp-*）ではなくトーン系トークンを4色循環で使う。 */
 .training-set-card {
   display: grid;
-  grid-template-columns: auto 1fr 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: end;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
+}
+
+/* 2026年8月30日のバグ修正：グリッドアイテム自体もmin-width:autoが既定のため、
+   1fr側をminmax(0, 1fr)にしただけでは子のnumber inputの内在サイズ分だけ
+   トラックが押し広げられ、カード枠から入力欄がはみ出す不具合があった
+   （.calendar-detail__select-with-action selectで既に採用済みのmin-width:0
+   パターンをこちらにも適用）。 */
+.training-set-card .calendar-detail__field {
+  min-width: 0;
+}
+
+.training-set-card .calendar-detail__field input {
+  width: 100%;
+  min-width: 0;
 }
 
 .training-set-card__index {
@@ -106,7 +120,7 @@
 
 @media (max-width: 480px) {
   .training-set-card {
-    grid-template-columns: auto 1fr 1fr;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
     row-gap: 6px;
   }
 
