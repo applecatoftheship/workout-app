@@ -7,12 +7,12 @@ import {
   upsertMealLog,
 } from '../../api/mealLogs'
 import type { MealLogInput } from '../../api/mealLogs'
-import { createFoodItem, fetchFoodItems } from '../../api/foodItems'
+import { fetchFoodItems } from '../../api/foodItems'
 import { deleteDish, fetchDishesWithDetails, fetchMealSizes } from '../../api/dishes'
 import { getCurrentTimeHHMM, combineDateAndTimeToISO, extractTimeHHMMFromISO } from '../../utils/calendarHelpers'
-import { findMostSimilarName } from '../../utils/nameMatching'
 import { GenreFoodPicker } from './GenreFoodPicker'
 import { DishFormModal } from './DishFormModal'
+import { FoodItemFormModal } from './FoodItemFormModal'
 import { MealFoodItemCard } from './MealFoodItemCard'
 import type { MealFoodItemCardValue } from './MealFoodItemCard'
 import { useToast } from '../../hooks/useToast'
@@ -32,19 +32,15 @@ import './MealLogEntry.css'
 // 新規追加時の「料理から選択」タブ（1回のタップで複数食品を追加できるショートカット）
 // が担う形にした。「食材から選択」タブは1品ずつの「詳細入力」に相当する。
 // このためトレーニングのtrainingSetHelpers.tsに相当する専用モジュールは新設していない。
-
-const DEFAULT_FOOD_EMOJI = '🍽️'
-
-const QUICK_FOOD_EMOJIS: { emoji: string; label: string }[] = [
-  { emoji: '🍚', label: '主食' },
-  { emoji: '🥩', label: '肉' },
-  { emoji: '🥦', label: '野菜' },
-  { emoji: '🍞', label: 'パン' },
-  { emoji: '🍜', label: '麺' },
-  { emoji: '🍎', label: '果物' },
-  { emoji: '🥛', label: '乳製品' },
-  { emoji: '🍽️', label: 'その他' },
-]
+//
+// モーダル再構成（2026年8月30日）：長い1本の縦スクロールフォームだった構成を、
+// 「基本情報」「食品を追加」「追加済み食品明細＋合計」「メモ」の4ブロックに
+// 見出し付きカード（.calendar-detail__exercise-form）で視覚分離した。また、
+// 常時展開だった「新しい食材をここで登録」8項目のサブフォームは、
+// DishFormModal.tsxと同じパターンでFoodItemFormModal.tsx（別モーダル）へ
+// 分離した。着手前に本ファイルの既存ハンドラ・ボタンを棚卸しし（前回の刷新で
+// 「料理削除ボタン」を移植し忘れた事故の再発防止）、handleDeleteDish等
+// 食材登録サブフォーム以外の要素はすべてそのまま残していることを確認済み。
 
 let itemKeyCounter = 0
 function createItemKey() {
@@ -59,36 +55,9 @@ function resolveAmount(amount: string, foodItem: FoodItem | undefined): number {
   return amount.trim() === '' ? foodItem.servingAmount : Number(amount)
 }
 
-type NewFoodForm = {
-  name: string
-  servingAmount: string
-  servingUnit: string
-  calories: string
-  protein: string
-  fat: string
-  carbohydrates: string
-  category: string
-  emoji: string
-}
-
-const createEmptyNewFoodForm = (): NewFoodForm => ({
-  name: '',
-  servingAmount: '100',
-  servingUnit: 'g',
-  calories: '',
-  protein: '',
-  fat: '',
-  carbohydrates: '',
-  category: '',
-  emoji: '',
-})
-
 type FormErrors = {
   mealType?: string
   items?: string
-  newFoodName?: string
-  newFoodServingAmount?: string
-  newFoodCalories?: string
 }
 
 type MealLogEditModalProps = {
@@ -117,8 +86,7 @@ export function MealLogEditModal({ mealLogs, setMealLogs, selectedDate, mealLogI
   const [selectedMealSizeId, setSelectedMealSizeId] = useState('')
   const [isDishModalOpen, setIsDishModalOpen] = useState(false)
   const [isDeletingDish, setIsDeletingDish] = useState(false)
-  const [newFood, setNewFood] = useState<NewFoodForm>(createEmptyNewFoodForm())
-  const [duplicateFoodSuggestion, setDuplicateFoodSuggestion] = useState<{ name: string } | null>(null)
+  const [isFoodItemModalOpen, setIsFoodItemModalOpen] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -273,92 +241,6 @@ export function MealLogEditModal({ mealLogs, setMealLogs, selectedDate, mealLogI
     }
   }
 
-  const handleNewFoodFieldChange = (field: keyof NewFoodForm, value: string) => {
-    if (field === 'name') {
-      setDuplicateFoodSuggestion(null)
-    }
-    setNewFood((current) => ({ ...current, [field]: value }))
-  }
-
-  const performCreateFoodItem = async () => {
-    const name = newFood.name.trim()
-    const servingAmount = Number(newFood.servingAmount)
-    const servingUnit = newFood.servingUnit.trim()
-    const calories = Number(newFood.calories)
-    const protein = Number(newFood.protein)
-    const fat = Number(newFood.fat)
-    const carbohydrates = Number(newFood.carbohydrates)
-
-    try {
-      const created = await createFoodItem({
-        name,
-        servingAmount,
-        servingUnit,
-        calories,
-        protein,
-        fat,
-        carbohydrates,
-        category: newFood.category.trim() || undefined,
-        emoji: newFood.emoji.trim() || undefined,
-      })
-      setFoodItems((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)))
-      if (created.id) {
-        ensurePreviousAmountLoaded(created.id)
-        setItems((current) => [...current, { key: createItemKey(), foodItemId: created.id as string, amount: '' }])
-      }
-      setNewFood(createEmptyNewFoodForm())
-      setErrors((current) => ({ ...current, newFoodName: undefined, newFoodServingAmount: undefined, newFoodCalories: undefined }))
-      setDuplicateFoodSuggestion(null)
-      showToast('食材を登録しました', 'success')
-    } catch (error) {
-      console.error('Supabaseへの食材登録に失敗しました', error)
-      setErrors((current) => ({ ...current, newFoodName: '食材の登録に失敗しました' }))
-      showToast('食材の登録に失敗しました', 'error')
-    }
-  }
-
-  const handleAddNewFoodItem = async () => {
-    const name = newFood.name.trim()
-    const servingAmount = Number(newFood.servingAmount)
-    const servingUnit = newFood.servingUnit.trim()
-    const calories = Number(newFood.calories)
-    const protein = Number(newFood.protein)
-    const fat = Number(newFood.fat)
-    const carbohydrates = Number(newFood.carbohydrates)
-
-    if (!name) {
-      setErrors((current) => ({ ...current, newFoodName: '食材名は必須です' }))
-      return
-    }
-    if (!Number.isFinite(servingAmount) || servingAmount <= 0 || !servingUnit) {
-      setErrors((current) => ({ ...current, newFoodServingAmount: '基準量は0より大きい数値、単位は必須です' }))
-      return
-    }
-    if (![calories, protein, fat, carbohydrates].every((value) => Number.isFinite(value) && value >= 0)) {
-      setErrors((current) => ({ ...current, newFoodCalories: 'カロリー・PFCは0以上の数値で入力してください' }))
-      return
-    }
-
-    const similarMatch = findMostSimilarName(foodItems, name)
-    if (similarMatch) {
-      setDuplicateFoodSuggestion({ name: similarMatch.item.name })
-      return
-    }
-
-    await performCreateFoodItem()
-  }
-
-  const handleUseSimilarFoodItem = () => {
-    const similarMatch = findMostSimilarName(foodItems, newFood.name.trim())
-    if (!similarMatch || !similarMatch.item.id) {
-      return
-    }
-    setDuplicateFoodSuggestion(null)
-    ensurePreviousAmountLoaded(similarMatch.item.id)
-    setItems((current) => [...current, { key: createItemKey(), foodItemId: similarMatch.item.id as string, amount: '' }])
-    setNewFood(createEmptyNewFoodForm())
-  }
-
   const previewTotals = items.reduce(
     (totals, item) => {
       const foodItem = foodItems.find((candidate) => candidate.id === item.foodItemId)
@@ -460,244 +342,152 @@ export function MealLogEditModal({ mealLogs, setMealLogs, selectedDate, mealLogI
     <div className="calendar-detail__form">
       {summaryError ? <p className="calendar-detail__form-error">{summaryError}</p> : null}
 
-      <label className="calendar-detail__field">
-        <span>食事タイプ</span>
-        <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>
-          <option value="">選択してください</option>
-          <option value="breakfast">朝食</option>
-          <option value="lunch">昼食</option>
-          <option value="dinner">夕食</option>
-          <option value="snack">間食</option>
-          <option value="other">その他</option>
-        </select>
-        {errors.mealType ? <p className="calendar-detail__error">{errors.mealType}</p> : null}
-      </label>
+      <div className="calendar-detail__exercise-form">
+        <span>基本情報</span>
+        <label className="calendar-detail__field">
+          <span>食事タイプ</span>
+          <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>
+            <option value="">選択してください</option>
+            <option value="breakfast">朝食</option>
+            <option value="lunch">昼食</option>
+            <option value="dinner">夕食</option>
+            <option value="snack">間食</option>
+            <option value="other">その他</option>
+          </select>
+          {errors.mealType ? <p className="calendar-detail__error">{errors.mealType}</p> : null}
+        </label>
 
-      <label className="calendar-detail__field">
-        <span>食事時刻</span>
-        <input type="time" value={mealTime} onChange={(event) => setMealTime(event.target.value)} />
-      </label>
-
-      <div className="calendar-detail__tabs calendar-detail__tabs--segment">
-        <button
-          type="button"
-          className={`calendar-detail__tab ${inputMode === 'food' ? 'calendar-detail__tab--active' : ''}`}
-          onClick={() => setInputMode('food')}
-        >
-          食材から選択（詳細入力）
-        </button>
-        <button
-          type="button"
-          className={`calendar-detail__tab ${inputMode === 'dish' ? 'calendar-detail__tab--active' : ''}`}
-          onClick={() => setInputMode('dish')}
-        >
-          料理から選択（一括入力）
-        </button>
-      </div>
-
-      {inputMode === 'food' ? (
-        <GenreFoodPicker foodItems={foodItems} onSelect={addFoodSelection} onFoodItemDeleted={loadFoodItems} />
-      ) : (
-        <>
-          <div className="calendar-detail__field calendar-detail__field--full">
-            <span>登録済みの料理</span>
-            <div className="calendar-detail__select-with-action">
-              <select value={selectedDishId} onChange={(event) => setSelectedDishId(event.target.value)}>
-                <option value="">選択してください</option>
-                {dishes.map((dish) => (
-                  <option key={dish.id} value={dish.id}>
-                    {dish.name} ({Math.round(dish.totalCalories)}kcal)
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="calendar-detail__delete-button"
-                onClick={handleDeleteDish}
-                disabled={!selectedDishId || isDeletingDish}
-              >
-                {isDeletingDish ? '削除中...' : '削除'}
-              </button>
-            </div>
-          </div>
-
-          {mealSizes.length > 0 ? (
-            <div className="calendar-detail__field calendar-detail__field--full">
-              <span>サイズ</span>
-              <select value={selectedMealSizeId} onChange={(event) => setSelectedMealSizeId(event.target.value)}>
-                {mealSizes.map((size) => (
-                  <option key={size.id} value={size.id}>
-                    {size.name}（×{size.multiplier}）
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-
-          {selectedDish && dishPreviewTotals ? (
-            <div className="calendar-detail__meal-totals">
-              この内容で追加: {Math.round(dishPreviewTotals.calories)}kcal / P{Math.round(dishPreviewTotals.protein)}g F
-              {Math.round(dishPreviewTotals.fat)}g C{Math.round(dishPreviewTotals.carbohydrates)}g
-            </div>
-          ) : null}
-
-          <div className="calendar-detail__inline-fields">
-            <button type="button" className="calendar-detail__secondary-button" onClick={handleAddDishToSelections} disabled={!selectedDish}>
-              この内容で追加
-            </button>
-            <button type="button" className="calendar-detail__secondary-button" onClick={() => setIsDishModalOpen(true)}>
-              ＋新しい料理を作る
-            </button>
-          </div>
-        </>
-      )}
-
-      {items.length > 0 ? (
-        <div className="calendar-detail__log-list">
-          {items.map((item) => {
-            const foodItem = foodItems.find((candidate) => candidate.id === item.foodItemId)
-            const previous = previousAmounts[item.foodItemId]
-            const placeholder = previous != null ? String(previous) : foodItem ? String(foodItem.servingAmount) : ''
-            return (
-              <MealFoodItemCard
-                key={item.key}
-                value={item}
-                foodItem={foodItem}
-                placeholder={placeholder}
-                onAmountChange={(value) => handleAmountChange(item.key, value)}
-                onDelete={() => removeItem(item.key)}
-              />
-            )
-          })}
-        </div>
-      ) : null}
-      {errors.items ? <p className="calendar-detail__error">{errors.items}</p> : null}
-
-      <div className="calendar-detail__meal-totals">
-        合計（プレビュー）: {Math.round(previewTotals.calories)}kcal / P{Math.round(previewTotals.protein)}g F
-        {Math.round(previewTotals.fat)}g C{Math.round(previewTotals.carbohydrates)}g
+        <label className="calendar-detail__field">
+          <span>食事時刻</span>
+          <input type="time" value={mealTime} onChange={(event) => setMealTime(event.target.value)} />
+        </label>
       </div>
 
       <div className="calendar-detail__exercise-form">
-        <span>新しい食材をここで登録</span>
-        <label className="calendar-detail__field">
-          <span>食材名</span>
-          <input
-            type="text"
-            value={newFood.name}
-            onChange={(event) => handleNewFoodFieldChange('name', event.target.value)}
-            placeholder="例: ゆで卵"
-          />
-          {errors.newFoodName ? <p className="calendar-detail__error">{errors.newFoodName}</p> : null}
-        </label>
-        <label className="calendar-detail__field">
-          <span>絵文字（任意）</span>
-          <input
-            type="text"
-            value={newFood.emoji}
-            onChange={(event) => handleNewFoodFieldChange('emoji', event.target.value)}
-            maxLength={4}
-            placeholder={DEFAULT_FOOD_EMOJI}
-          />
-        </label>
-        <div className="calendar-detail__inline-fields">
-          {QUICK_FOOD_EMOJIS.map(({ emoji, label }) => (
-            <button
-              key={emoji}
-              type="button"
-              className="calendar-detail__secondary-button"
-              title={label}
-              onClick={() => handleNewFoodFieldChange('emoji', emoji)}
-            >
-              {emoji} {label}
-            </button>
-          ))}
+        <span>食品を追加</span>
+        <div className="calendar-detail__tabs calendar-detail__tabs--segment">
+          <button
+            type="button"
+            className={`calendar-detail__tab ${inputMode === 'food' ? 'calendar-detail__tab--active' : ''}`}
+            onClick={() => setInputMode('food')}
+          >
+            食材から選択（詳細入力）
+          </button>
+          <button
+            type="button"
+            className={`calendar-detail__tab ${inputMode === 'dish' ? 'calendar-detail__tab--active' : ''}`}
+            onClick={() => setInputMode('dish')}
+          >
+            料理から選択（一括入力）
+          </button>
         </div>
-        <label className="calendar-detail__field">
-          <span>カテゴリ（任意）</span>
-          <input
-            type="text"
-            value={newFood.category}
-            onChange={(event) => handleNewFoodFieldChange('category', event.target.value)}
-            placeholder="例: 主食 / 主菜 / 副菜 / 果物"
-          />
-        </label>
-        <div className="calendar-detail__inline-fields">
-          <label className="calendar-detail__field">
-            <span>基準量</span>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={newFood.servingAmount}
-              onChange={(event) => handleNewFoodFieldChange('servingAmount', event.target.value)}
-              placeholder="100"
-            />
-          </label>
-          <label className="calendar-detail__field">
-            <span>単位</span>
-            <input
-              type="text"
-              value={newFood.servingUnit}
-              onChange={(event) => handleNewFoodFieldChange('servingUnit', event.target.value)}
-              placeholder="g / 個 / 食分 など"
-            />
-          </label>
-        </div>
-        {errors.newFoodServingAmount ? <p className="calendar-detail__error">{errors.newFoodServingAmount}</p> : null}
-        <p className="calendar-detail__description">
-          下のカロリー・PFCは「基準量あたり」の値を入力してください（例: 卵1個なら基準量1・単位「個」）
-        </p>
-        <div className="calendar-detail__inline-fields">
-          <label className="calendar-detail__field">
-            <span>カロリー (kcal)</span>
-            <input type="number" min="0" value={newFood.calories} onChange={(event) => handleNewFoodFieldChange('calories', event.target.value)} />
-          </label>
-          <label className="calendar-detail__field">
-            <span>タンパク質 (g)</span>
-            <input type="number" min="0" value={newFood.protein} onChange={(event) => handleNewFoodFieldChange('protein', event.target.value)} />
-          </label>
-        </div>
-        <div className="calendar-detail__inline-fields">
-          <label className="calendar-detail__field">
-            <span>脂質 (g)</span>
-            <input type="number" min="0" value={newFood.fat} onChange={(event) => handleNewFoodFieldChange('fat', event.target.value)} />
-          </label>
-          <label className="calendar-detail__field">
-            <span>炭水化物 (g)</span>
-            <input
-              type="number"
-              min="0"
-              value={newFood.carbohydrates}
-              onChange={(event) => handleNewFoodFieldChange('carbohydrates', event.target.value)}
-            />
-          </label>
-        </div>
-        {errors.newFoodCalories ? <p className="calendar-detail__error">{errors.newFoodCalories}</p> : null}
 
-        {duplicateFoodSuggestion ? (
-          <div className="calendar-detail__warning">
-            「{newFood.name.trim()}」という類似の食材「{duplicateFoodSuggestion.name}」が既に存在します。それでも新規登録しますか？
+        {inputMode === 'food' ? (
+          <>
+            <GenreFoodPicker foodItems={foodItems} onSelect={addFoodSelection} onFoodItemDeleted={loadFoodItems} />
+            <button type="button" className="calendar-detail__secondary-button" onClick={() => setIsFoodItemModalOpen(true)}>
+              ＋新しい食材を登録
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="calendar-detail__field calendar-detail__field--full">
+              <span>登録済みの料理</span>
+              <div className="calendar-detail__select-with-action">
+                <select value={selectedDishId} onChange={(event) => setSelectedDishId(event.target.value)}>
+                  <option value="">選択してください</option>
+                  {dishes.map((dish) => (
+                    <option key={dish.id} value={dish.id}>
+                      {dish.name} ({Math.round(dish.totalCalories)}kcal)
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="calendar-detail__delete-button"
+                  onClick={handleDeleteDish}
+                  disabled={!selectedDishId || isDeletingDish}
+                >
+                  {isDeletingDish ? '削除中...' : '削除'}
+                </button>
+              </div>
+            </div>
+
+            {mealSizes.length > 0 ? (
+              <div className="calendar-detail__field calendar-detail__field--full">
+                <span>サイズ</span>
+                <select value={selectedMealSizeId} onChange={(event) => setSelectedMealSizeId(event.target.value)}>
+                  {mealSizes.map((size) => (
+                    <option key={size.id} value={size.id}>
+                      {size.name}（×{size.multiplier}）
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {selectedDish && dishPreviewTotals ? (
+              <div className="calendar-detail__meal-totals">
+                この内容で追加: {Math.round(dishPreviewTotals.calories)}kcal / P{Math.round(dishPreviewTotals.protein)}g F
+                {Math.round(dishPreviewTotals.fat)}g C{Math.round(dishPreviewTotals.carbohydrates)}g
+              </div>
+            ) : null}
+
             <div className="calendar-detail__inline-fields">
-              <button type="button" className="calendar-detail__secondary-button" onClick={performCreateFoodItem}>
-                はい（新規登録する）
+              <button type="button" className="calendar-detail__secondary-button" onClick={handleAddDishToSelections} disabled={!selectedDish}>
+                この内容で追加
               </button>
-              <button type="button" className="calendar-detail__secondary-button" onClick={handleUseSimilarFoodItem}>
-                いいえ（「{duplicateFoodSuggestion.name}」を使う）
+              <button type="button" className="calendar-detail__secondary-button" onClick={() => setIsDishModalOpen(true)}>
+                ＋新しい料理を作る
               </button>
             </div>
-          </div>
-        ) : (
-          <button type="button" className="calendar-detail__secondary-button" onClick={handleAddNewFoodItem}>
-            この食材を登録して追加
-          </button>
+          </>
         )}
       </div>
 
-      <label className="calendar-detail__field calendar-detail__field--full">
+      <div className="calendar-detail__exercise-form">
+        <span>追加済み食品明細</span>
+        {items.length > 0 ? (
+          <div className="calendar-detail__log-list">
+            {items.map((item) => {
+              const foodItem = foodItems.find((candidate) => candidate.id === item.foodItemId)
+              const previous = previousAmounts[item.foodItemId]
+              const placeholder = previous != null ? String(previous) : foodItem ? String(foodItem.servingAmount) : ''
+              return (
+                <MealFoodItemCard
+                  key={item.key}
+                  value={item}
+                  foodItem={foodItem}
+                  placeholder={placeholder}
+                  onAmountChange={(value) => handleAmountChange(item.key, value)}
+                  onDelete={() => removeItem(item.key)}
+                />
+              )
+            })}
+          </div>
+        ) : (
+          <p className="calendar-detail__empty">まだ食品が追加されていません</p>
+        )}
+        {errors.items ? <p className="calendar-detail__error">{errors.items}</p> : null}
+
+        <div className="calendar-detail__meal-totals">
+          合計（プレビュー）: {Math.round(previewTotals.calories)}kcal / P{Math.round(previewTotals.protein)}g F
+          {Math.round(previewTotals.fat)}g C{Math.round(previewTotals.carbohydrates)}g
+        </div>
+      </div>
+
+      <div className="calendar-detail__exercise-form">
         <span>メモ</span>
-        <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} placeholder="今日の気づきや食事コメント" />
-      </label>
+        <label className="calendar-detail__field calendar-detail__field--full">
+          <textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            rows={3}
+            placeholder="今日の気づきや食事コメント"
+            aria-label="メモ"
+          />
+        </label>
+      </div>
 
       <div className="calendar-detail__actions">
         <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving}>
@@ -717,6 +507,16 @@ export function MealLogEditModal({ mealLogs, setMealLogs, selectedDate, mealLogI
         }}
         foodItems={foodItems}
         onFoodItemDeleted={loadFoodItems}
+      />
+
+      <FoodItemFormModal
+        isOpen={isFoodItemModalOpen}
+        onClose={() => setIsFoodItemModalOpen(false)}
+        onSaved={() => {
+          loadFoodItems()
+          setIsFoodItemModalOpen(false)
+        }}
+        foodItems={foodItems}
       />
     </div>
   )

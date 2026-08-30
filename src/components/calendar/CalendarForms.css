@@ -165,6 +165,16 @@
   border: 1px solid var(--color-border);
 }
 
+/* 食事編集モーダルのセクション見出し（2026年8月30日、MealLogEditModal.tsxの
+   4ブロック分離で新設）。.calendar-detail__exercise-formの直下1階層目のspanのみ
+   対象にし、ネストしたcalendar-detail__field内のラベルspan（font-weight:500）
+   とは別に、見出しとして強調する。 */
+.calendar-detail__exercise-form > span:first-child {
+  font-weight: 600;
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+}
+
 .calendar-detail__field {
   display: flex;
   flex-direction: column;
