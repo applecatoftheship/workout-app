@@ -131,6 +131,7 @@ export function FoodItemFormModal({ isOpen, onClose, onSaved, foodItems }: FoodI
   }
 
   const handleSubmit = async () => {
+    setErrors({})
     const name = newFood.name.trim()
     const servingAmount = Number(newFood.servingAmount)
     const servingUnit = newFood.servingUnit.trim()
