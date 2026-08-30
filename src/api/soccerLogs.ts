@@ -45,7 +45,7 @@ export type SoccerLogInput = {
   maxSpeedKmh?: number
   caloriesBurned?: number
   notes?: string
-  // リカバリー窓機能（スプリント4 Phase 1）：この活動の終了時刻（ISO 8601、timestamptz）。
+  // この活動の終了時刻（ISO 8601、timestamptz。スプリント4 Phase 1追加）。
   // 未指定の場合はNULLのまま保存する。
   endTime?: string
 }

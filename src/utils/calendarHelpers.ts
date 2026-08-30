@@ -52,8 +52,8 @@ export function formatMonthLabel(date: Date) {
   }).format(date)
 }
 
-// リカバリー窓機能（スプリント4 Phase 1、2026年8月21日）：meal_time/end_time
-// （input type="time"用のHH:MM文字列 ⇔ timestamptz用のISO文字列）の相互変換。
+// meal_time/end_time（input type="time"用のHH:MM文字列 ⇔ timestamptz用の
+// ISO文字列）の相互変換（スプリント4 Phase 1、2026年8月21日追加）。
 // MealLogEditModal・TrainingExerciseEditModal・SoccerLogFormの3フォームで共通利用する。
 
 export function getCurrentTimeHHMM(): string {

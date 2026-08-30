@@ -56,8 +56,10 @@ export interface TrainingLog extends BaseRecord {
   exercises: TrainingLogExercise[];
   notes?: string;
   completed: boolean;
-  // リカバリー窓機能（スプリント4 Phase 1、2026年8月21日）：その日のトレーニング
-  // セッション全体の終了時刻。timestamptz文字列（ISO 8601）。既存行はNULL。
+  // その日のトレーニングセッション全体の終了時刻（スプリント4 Phase 1、
+  // 2026年8月21日追加。当時はリカバリー窓機能の判定に使っていたが、同機能は
+  // 2026年8月30日に削除済み。現在はTrainingSummaryの「終了時刻」表示・入力
+  // でのみ使用）。timestamptz文字列（ISO 8601）。既存行はNULL。
   endTime?: string;
 }
 
@@ -70,8 +72,10 @@ export interface MealLog extends BaseRecord {
   fat: number;
   carbohydrates: number;
   notes?: string;
-  // リカバリー窓機能（スプリント4 Phase 1、2026年8月21日）：この食事をとった時刻。
-  // timestamptz文字列（ISO 8601）。既存行はNULL。
+  // この食事をとった時刻（スプリント4 Phase 1、2026年8月21日追加。当時は
+  // リカバリー窓機能の判定に使っていたが、同機能は2026年8月30日に削除済み。
+  // 現在はMealLogCardでの時刻表示、MealSummaryの食事タイミング別グルーピング
+  // 内でのソートに使用）。timestamptz文字列（ISO 8601）。既存行はNULL。
   mealTime?: string;
 }
 
@@ -190,8 +194,10 @@ export interface SoccerLog extends BaseRecord {
   maxSpeedKmh?: number;
   caloriesBurned?: number;
   notes?: string;
-  // リカバリー窓機能（スプリント4 Phase 1、2026年8月21日）：この活動の終了時刻。
-  // timestamptz文字列（ISO 8601）。既存行はNULL。
+  // この活動の終了時刻（スプリント4 Phase 1、2026年8月21日追加。当時は
+  // リカバリー窓機能の判定に使っていたが、同機能は2026年8月30日に削除済み。
+  // 現在はSoccerLogFormの「終了時刻」表示・入力でのみ使用）。timestamptz
+  // 文字列（ISO 8601）。既存行はNULL。
   endTime?: string;
 }
 

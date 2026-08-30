@@ -394,8 +394,8 @@ export async function deleteTrainingLogExerciseRemote(id: string): Promise<void>
 // 既存行のcompleted/notes/end_timeには一切触れない（upsertを使うとON CONFLICT時に
 // これらの列を意図せず初期値へ巻き戻してしまうため、select→無ければinsertの
 // 順で実装している）。新規作成時のend_timeは、旧TrainingLogForm.tsxが
-// 「その日最初の保存時点の時刻」をデフォルトにしていた挙動（リカバリー窓機能が
-// 依存）を踏襲し、呼び出し時点の時刻をそのまま設定する。
+// 「その日最初の保存時点の時刻」をデフォルトにしていた挙動を踏襲し、
+// 呼び出し時点の時刻をそのまま設定する。
 export async function ensureTrainingLogForDate(date: DateString): Promise<string> {
   const userId = await getCurrentUserId()
   const { data: existingRows, error: selectError } = await supabase

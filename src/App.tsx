@@ -223,7 +223,6 @@ function AppShell() {
             element={
               <ProgressGraph
                 trainingLogs={trainingLogs}
-                mealLogs={mealLogs}
                 dailyConditions={dailyConditions}
                 targetWeight={goals.targetWeight}
                 targetSleepHours={goals.targetSleepHours}

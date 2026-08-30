@@ -17,7 +17,7 @@ export type MealLogInput = {
   mealType: MealType
   notes?: string
   items: MealLogFoodItemInput[]
-  // リカバリー窓機能（スプリント4 Phase 1）：この食事をとった時刻（ISO 8601、timestamptz）。
+  // この食事をとった時刻（ISO 8601、timestamptz。スプリント4 Phase 1追加）。
   // 未指定の場合はNULLのまま保存する。
   mealTime?: string
 }

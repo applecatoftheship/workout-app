@@ -138,12 +138,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.daily-report__recovery-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
 @media (max-width: 640px) {
   .daily-report-modal__overlay {
     padding: 0;

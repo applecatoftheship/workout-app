@@ -1,7 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { calculateDailyRecoveryResults, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../../utils/recoveryHelpers'
 import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel, toDateKey, toJstDateKeyFromIso } from '../../utils/calendarHelpers'
-import { RecoveryWindowCard } from '../RecoveryWindowCard'
 import { AiCommentCard } from '../AiCommentCard'
 import { useDailyAiComment } from '../../hooks/useDailyAiComment'
 import { AI_COMMENT_PENDING_TEXT } from '../../utils/dailyCommentHelpers'
@@ -89,10 +87,6 @@ export function DailyReportModal({
     { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
   )
 
-  // リカバリー窓：既存のcalculateDailyRecoveryResultsをそのまま流用し、新規の
-  // DBクエリ・独自ロジックは追加しない。nowには常に「現在時刻」を渡すため、
-  // 過去日を見ている場合はcompleted/missedが、当日進行中ならactiveが正しく
-  // 算出される（Dashboard.tsxでの使われ方と同じ）。
   const now = new Date()
 
   // AIコメント生成タイミング見直し（2026年8月29日）：「今日」を選択している場合は、
@@ -100,16 +94,6 @@ export function DailyReportModal({
   // 生成する旨の案内文言（AI_COMMENT_PENDING_TEXT）を表示する。
   const todayKey = toDateKey(now.getFullYear(), now.getMonth() + 1, now.getDate())
   const isTodaySelected = selectedDate === todayKey
-
-  const recoveryResults = calculateDailyRecoveryResults(
-    trainingLogs,
-    soccerLogs,
-    mealLogs,
-    selectedDate,
-    now,
-    DEFAULT_RECOVERY_WINDOW_CONFIG,
-    workouts,
-  )
 
   return (
     <div className="daily-report-modal__overlay" role="presentation" onClick={onClose}>
@@ -273,22 +257,6 @@ export function DailyReportModal({
               <p className="daily-report__empty">記録なし</p>
             )}
           </section>
-
-          {recoveryResults.length > 0 ? (
-            <section className="daily-report__section">
-              <h4>リカバリー窓</h4>
-              <div className="daily-report__recovery-list">
-                {recoveryResults.map((result) => (
-                  <RecoveryWindowCard
-                    key={`${result.sessionType}-${result.sessionEndTime}`}
-                    result={result}
-                    config={DEFAULT_RECOVERY_WINDOW_CONFIG}
-                    now={now}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
         </div>
       </div>
     </div>

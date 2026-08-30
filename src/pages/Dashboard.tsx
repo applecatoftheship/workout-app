@@ -8,7 +8,6 @@ import { TrackRing } from '../components/TrackRing'
 import { EcgDivider } from '../components/EcgDivider'
 import { WeeklyACWRTrendCard } from '../components/WeeklyACWRTrendCard'
 import { WeeklyACWRDetailModal } from '../components/WeeklyACWRDetailModal'
-import { RecoveryWindowCard } from '../components/RecoveryWindowCard'
 import { CharacterStatusCard } from '../components/CharacterStatusCard'
 import { BellIcon, ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, TimerIcon, WeightIcon } from '../components/icons'
 import { RestTimerModal } from '../components/timer/RestTimerModal'
@@ -20,7 +19,6 @@ import { fetchNotifications, markNotificationRead } from '../api/notifications'
 import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, toJstDateKeyFromIso, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
 import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, hasConsecutiveDangerDays, hasConsecutiveOptimalDays } from '../utils/acwrHelpers'
-import { calculateDailyRecoveryResults, DEFAULT_RECOVERY_WINDOW_CONFIG } from '../utils/recoveryHelpers'
 import { calculateAdjustedGoals, getMatchDayStatus } from '../utils/periodizationHelpers'
 import { calculateCurrentStreak } from '../utils/streakHelpers'
 import { useBadgeEvaluator } from '../hooks/useBadgeEvaluator'
@@ -261,12 +259,13 @@ export function Dashboard({
     }
   }, [acwrChronicStartKey, todayString])
 
-  // ACWR・リカバリー窓機能へのApple Health連携（2026年8月27日）：ACWRの慢性負荷
-  // 計算（28日）・recoveryResults（常にtodayString基準）の両方が必要とするため、
-  // acwrSoccerLogsと全く同じ「直近28日・常にtoday終端」の範囲でworkoutsを取得する
-  // （週間ストリップ用のweekWorkouts＝weekOffsetで変動する範囲とは別。前回実装した
-  // 単日のみのtodayWorkouts取得は、このacwrWorkouts（todayを含む上位互換の範囲）に
-  // 統合し廃止した）。
+  // ACWR機能へのApple Health連携（2026年8月27日）：ACWRの慢性負荷計算（28日）が
+  // 必要とするため、acwrSoccerLogsと全く同じ「直近28日・常にtoday終端」の範囲で
+  // workoutsを取得する（週間ストリップ用のweekWorkouts＝weekOffsetで変動する範囲
+  // とは別。前回実装した単日のみのtodayWorkouts取得は、このacwrWorkouts
+  // （todayを含む上位互換の範囲）に統合し廃止した。リカバリー窓機能でも同じ
+  // 範囲を使っていたが、同機能の削除（2026年8月30日）に伴いACWR専用の
+  // 取得理由のみが残っている）。
   const [acwrWorkouts, setAcwrWorkouts] = useState<Workout[]>([])
 
   useEffect(() => {
@@ -428,42 +427,6 @@ export function Dashboard({
     [trainingLogs, acwrSoccerLogs, todayString, acwrWorkouts, dailyConditions],
   )
   const [isWeeklyACWRDetailOpen, setIsWeeklyACWRDetailOpen] = useState(false)
-
-  // リカバリー窓機能（スプリント4 Phase 2、2026年8月21日）：ACWRGaugeCard同様、
-  // 日付選択（selectedDateKey）の対象外でtodayString基準のまま固定する
-  // （「当日のリカバリー状態カード」という実装指示書の定義に従う）。
-  // 残り時間表示はレストタイマーと同じくsetIntervalの単純デクリメントにせず、
-  // 「終了予定時刻 - 現在時刻」を都度再計算する方式にするため、現在時刻
-  // （recoveryNow）をstateとして持ち、それをcalculateDailyRecoveryResultsの
-  // 引数に渡すたびに再計算させる。
-  const [recoveryNow, setRecoveryNow] = useState(() => new Date())
-
-  const recoveryResults = useMemo(
-    () =>
-      calculateDailyRecoveryResults(
-        trainingLogs,
-        acwrSoccerLogs,
-        mealLogs,
-        todayString,
-        recoveryNow,
-        DEFAULT_RECOVERY_WINDOW_CONFIG,
-        acwrWorkouts,
-      ),
-    [trainingLogs, acwrSoccerLogs, mealLogs, todayString, recoveryNow, acwrWorkouts],
-  )
-
-  // activeなセッションが1つも無くなったら（missed/completedに確定した、または
-  // そもそも当日end_timeを持つセッションが無い）1秒ごとの再計算を止める
-  // （無駄な再レンダリングを防ぐ）。初回のrecoveryResultsは既にマウント時の
-  // recoveryNowで計算済みのため、このゲート判定に循環参照はない。
-  const hasActiveRecoverySession = recoveryResults.some((result) => result.status === 'active')
-  useEffect(() => {
-    if (!hasActiveRecoverySession) {
-      return
-    }
-    const intervalId = window.setInterval(() => setRecoveryNow(new Date()), 1000)
-    return () => window.clearInterval(intervalId)
-  }, [hasActiveRecoverySession])
 
   // ホーム日付選択（A-2）：カロリーリング・統計カードは週間ストリップで
   // 選んだ日付（selectedDateKey）基準に切り替わる。閲覧専用で、記録の追加・
@@ -786,15 +749,6 @@ export function Dashboard({
         fatigue={todayCondition?.fatigue}
         sleepHours={todayCondition?.sleepHours}
       />
-
-      {recoveryResults.map((result) => (
-        <RecoveryWindowCard
-          key={`${result.sessionType}-${result.sessionEndTime}`}
-          result={result}
-          config={DEFAULT_RECOVERY_WINDOW_CONFIG}
-          now={recoveryNow}
-        />
-      ))}
 
       <ACWRGaugeCard
         result={acwrResult}

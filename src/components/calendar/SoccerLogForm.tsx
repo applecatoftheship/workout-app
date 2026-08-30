@@ -28,7 +28,7 @@ type SoccerLogFormState = {
   maxSpeedKmh: string
   caloriesBurned: string
   notes: string
-  // リカバリー窓機能（スプリント4 Phase 1）：input type="time"用のHH:MM文字列。
+  // input type="time"用のHH:MM文字列（スプリント4 Phase 1追加）。
   // 空文字の場合は「保存」ボタン押下時の時刻をデフォルトとして使う（TrainingLogForm.tsxと同じ扱い）。
   endTime: string
 }
@@ -202,8 +202,8 @@ export function SoccerLogForm({
     setIsSaving(true)
     setFormSummaryError(null)
     try {
-      // リカバリー窓機能（スプリント4 Phase 1）：手動調整されていなければ「保存」ボタン
-      // 押下時（＝今この瞬間）の時刻をend_timeのデフォルトとする（TrainingLogForm.tsxと同じ扱い）。
+      // 手動調整されていなければ「保存」ボタン押下時（＝今この瞬間）の時刻を
+      // end_timeのデフォルトとする（スプリント4 Phase 1、TrainingLogForm.tsxと同じ扱い）。
       const endTimeHHMM = formState.endTime || getCurrentTimeHHMM()
 
       const saved = await createOrUpdateSoccerLog({

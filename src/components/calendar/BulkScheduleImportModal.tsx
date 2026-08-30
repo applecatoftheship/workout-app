@@ -54,7 +54,7 @@ const PROMPT_TEXT = `以下の内容を JSON 配列形式のみで出力して�
 ]`
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-// リカバリー窓機能（スプリント4 Phase 1）：meal_time/training.end_timeの抽出用。
+// meal_time/training.end_timeの抽出用（スプリント4 Phase 1追加）。
 // 取得できない/不正な場合は単にundefinedのまま許容する（既存の「未一致ならスキップ」方針を踏襲）。
 const TIME_PATTERN = /^\d{2}:\d{2}$/
 
@@ -107,7 +107,7 @@ type ParsedExercise = {
 type ParsedMeal = {
   typeLabel: string
   mealType: MealType
-  // リカバリー窓機能（スプリント4 Phase 1）：この食事をとった時刻（HH:MM）。
+  // この食事をとった時刻（HH:MM、スプリント4 Phase 1追加）。
   // AI出力に含まれない/不正な形式の場合はundefined。
   time?: string
   items: { name: string; amount: number; foodItemId: string | null; suggestedMatch: NameSuggestion }[]
@@ -123,8 +123,8 @@ type ParsedCondition = {
 type ParsedDayItem = {
   date: DateString
   schedule?: ParsedSchedule
-  // endTime：リカバリー窓機能（スプリント4 Phase 1）。そのトレーニングセッションの
-  // 終了時刻（HH:MM）。AI出力に含まれない/不正な形式の場合はundefined。
+  // endTime：そのトレーニングセッションの終了時刻（HH:MM、スプリント4 Phase 1追加）。
+  // AI出力に含まれない/不正な形式の場合はundefined。
   training?: { exercises: ParsedExercise[]; endTime?: string }
   meals?: ParsedMeal[]
   condition?: ParsedCondition
@@ -515,9 +515,9 @@ export function BulkScheduleImportModal({
           })),
         }))
 
-        // リカバリー窓機能（スプリント4 Phase 1）：AI出力にend_timeが含まれていれば
-        // 上書きし、含まれていなければ（未指定/不正形式）既存の値をそのまま維持する
-        // （マージ時にNULLで上書きして既存の入力値を消してしまわないため）。
+        // AI出力にend_timeが含まれていれば上書きし、含まれていなければ
+        // （未指定/不正形式）既存の値をそのまま維持する（マージ時にNULLで
+        // 上書きして既存の入力値を消してしまわないため。スプリント4 Phase 1由来）。
         const importedEndTime = item.training.endTime ? combineDateAndTimeToISO(item.date, item.training.endTime) : undefined
 
         const mergedLog: TrainingLog = existingLog
