@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { TrainingExerciseEditModal } from './calendar/TrainingExerciseEditModal'
-import { MealLogEditModal } from './calendar/MealLogEditModal'
+import { MealLogWizardModal } from './calendar/MealLogWizardModal'
 import { ConditionForm } from './calendar/ConditionForm'
 import { ScheduleForm } from './calendar/ScheduleForm'
 import { SoccerLogForm } from './calendar/SoccerLogForm'
@@ -192,7 +192,7 @@ export function RecordFormModal({
           ) : null}
 
           {request.type === 'meal' ? (
-            <MealLogEditModal
+            <MealLogWizardModal
               key={formKey}
               mealLogs={mealLogs}
               setMealLogs={setMealLogs}

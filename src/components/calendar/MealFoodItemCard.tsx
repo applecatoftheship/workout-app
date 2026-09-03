@@ -3,7 +3,7 @@ import type { FoodItem } from '../../types'
 // 食事記録画面UI/UX刷新（meal_logエントリカード＋編集モーダル分離、2026年8月29日）
 // 1食品明細分のカード。トレーニングのTrainingSetCard.tsxと異なり、食品は本質的に
 // 異種の集まりのため「一括/詳細モード」の対象ではなく、常にこのカードのリストとして
-// 表示する（詳細はMealLogEditModal.tsxのコメント参照）。
+// 表示する（詳細はMealLogWizardModal.tsxのコメント参照）。
 
 const DEFAULT_FOOD_EMOJI = '🍽️'
 

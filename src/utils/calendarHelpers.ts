@@ -54,7 +54,7 @@ export function formatMonthLabel(date: Date) {
 
 // meal_time/end_time（input type="time"用のHH:MM文字列 ⇔ timestamptz用の
 // ISO文字列）の相互変換（スプリント4 Phase 1、2026年8月21日追加）。
-// MealLogEditModal・TrainingExerciseEditModal・SoccerLogFormの3フォームで共通利用する。
+// MealLogWizardModal・TrainingExerciseEditModal・SoccerLogFormの3フォームで共通利用する。
 
 export function getCurrentTimeHHMM(): string {
   const now = new Date()

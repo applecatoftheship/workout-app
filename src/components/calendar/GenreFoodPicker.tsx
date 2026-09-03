@@ -7,6 +7,20 @@ import { useConfirm } from '../../hooks/useConfirm'
 const UNCATEGORIZED = 'uncategorized'
 const DEFAULT_FOOD_EMOJI = '🍽️'
 
+// 食材／料理の区分整理（2026年9月3日、John承認済み）：食材のジャンル選択から
+// 「料理・定食」区分を除外する定数ガード。料理は「料理から選択（一括入力）」側
+// （dishesテーブル）に一本化する方針のため、food_items.categoryにこの値が
+// 残っていてもジャンルチップとしては表示しない。表記ゆれ（区切り文字違い）にも
+// 対応するため、区切り文字と空白を除去して正規化してから比較する。
+// 既存データ（food_items）のcategory値そのものの移行は別途（本番DB変更のため
+// チャットでの承認後に実施）。
+const DISH_LIKE_CATEGORY_KEYS = new Set(['料理定食', '定食料理'])
+
+function isDishLikeCategory(category: string): boolean {
+  const normalized = category.replace(/[\s・･/／|｜、,]/g, '')
+  return DISH_LIKE_CATEGORY_KEYS.has(normalized)
+}
+
 type GenreFoodPickerProps = {
   foodItems: FoodItem[]
   onSelect: (foodItemId: string) => void
@@ -26,9 +40,14 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
 
   const foodCategories = useMemo(
     () =>
-      Array.from(new Set(foodItems.map((item) => item.category).filter((category): category is string => Boolean(category)))).sort(
-        (a, b) => a.localeCompare(b, 'ja'),
-      ),
+      Array.from(
+        new Set(
+          foodItems
+            .map((item) => item.category)
+            .filter((category): category is string => Boolean(category))
+            .filter((category) => !isDishLikeCategory(category)),
+        ),
+      ).sort((a, b) => a.localeCompare(b, 'ja')),
     [foodItems],
   )
 

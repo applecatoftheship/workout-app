@@ -79,3 +79,88 @@
   gap: 10px;
   margin-bottom: 6px;
 }
+
+/* 食事記録の3ステップ画面遷移化（2026年9月3日、MealLogWizardModal.tsx） */
+.meal-wizard__steps {
+  display: flex;
+  gap: 6px;
+  margin-bottom: var(--space-sm);
+}
+
+.meal-wizard__step {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.meal-wizard__step > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.meal-wizard__step--active {
+  border-color: var(--color-data);
+  background: var(--color-data-soft);
+  color: var(--color-data);
+  font-weight: 600;
+}
+
+.meal-wizard__step-num {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-wizard__nav {
+  display: flex;
+  gap: 6px;
+}
+
+.meal-wizard__nav > button {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.meal-wizard__added-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.meal-wizard__added-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-primary);
+}
+
+.meal-wizard__added-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meal-wizard__added-row > button {
+  flex-shrink: 0;
+}
