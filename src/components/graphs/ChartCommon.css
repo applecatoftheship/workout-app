@@ -268,6 +268,12 @@
   cursor: pointer;
 }
 
+/* 体重0kg表示バグ対応（2026年9月3日）：その日は体重未入力で、直近実測値を
+   引き継いで描画している点。実測点と区別するため薄く表示する。 */
+.progress-graph__dot--carried {
+  fill-opacity: 0.15;
+}
+
 .progress-graph__line--ma-weight {
   stroke: var(--color-ma-weight);
 }

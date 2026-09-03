@@ -309,6 +309,10 @@ describe('formatConditionSummary', () => {
     const condition: DailyCondition = { ...base, muscleSorenessLevel: 'severe', muscleSorenessLocation: 'calf_r' }
     expect(formatConditionSummary(condition)).toBe('70.4kg / 7.2時間 / 疲労度3/5 / 局所疲労: 右ふくらはぎ（強い張り（要注意））')
   })
+
+  it('体重未入力（weight=0）の日は「0.0kg」ではなく「体重未記録」と表示する', () => {
+    expect(formatConditionSummary({ ...base, weight: 0 })).toBe('体重未記録 / 7.2時間 / 疲労度3/5')
+  })
 })
 
 describe('getMealTypeLabel', () => {

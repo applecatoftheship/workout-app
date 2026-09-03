@@ -109,13 +109,21 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
       ? currentMonthConditions.reduce((sum, condition) => sum + condition.sleepHours, 0) / currentMonthConditions.length
       : null
 
-  const latestCondition = useMemo(() => {
-    return [...dailyConditions].sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
+  // 体重0kg表示バグ対応（2026年9月3日）：体調記録はあるが体重未入力の日
+  // （weight=0）を「現在の体重」として拾わないよう、weight>0の直近記録を採る。
+  const latestWeight = useMemo(() => {
+    let best: DailyCondition | null = null
+    for (const condition of dailyConditions) {
+      if (condition.weight > 0 && (best === null || condition.date > best.date)) {
+        best = condition
+      }
+    }
+    return best ? best.weight : null
   }, [dailyConditions])
-  const latestWeightText = latestCondition ? `${latestCondition.weight.toFixed(1)}kg` : '記録なし'
+  const latestWeightText = latestWeight != null ? `${latestWeight.toFixed(1)}kg` : '記録なし'
   const targetWeightText = `${goals.targetWeight.toFixed(1)}kg`
-  const weightDifferenceText = latestCondition
-    ? `${Math.abs(latestCondition.weight - goals.targetWeight).toFixed(1)}kg`
+  const weightDifferenceText = latestWeight != null
+    ? `${Math.abs(latestWeight - goals.targetWeight).toFixed(1)}kg`
     : '記録なし'
 
   const averageSleepText = averageSleepHours != null ? `${averageSleepHours.toFixed(1)}時間` : '記録なし'

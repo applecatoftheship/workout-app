@@ -157,6 +157,51 @@ export function calculateMovingAverage<T>(
   })
 }
 
+// 体重0kg表示バグ対応（2026年9月3日）：daily_conditions.weight は null 許容で、
+// 「体調は記録したが体重は未入力」の日や、AI日次コメント cron・Apple Health の
+// 睡眠のみ同期などが作った行は weight が 0 になる（rowToDailyCondition で null→0）。
+// トレンド表示ではその日を 0kg として描かず「その日以前で直近の実測体重」を
+// そのまま引き継ぐ。DB には架空の行を作らず、表示ロジック側でのみ補完する。
+export function resolveWeightOnOrBefore(
+  conditions: { date: string; weight: number }[],
+  dateKey: string,
+): number | null {
+  let best: { date: string; weight: number } | null = null
+  for (const condition of conditions) {
+    if (condition.weight > 0 && condition.date <= dateKey && (best === null || condition.date > best.date)) {
+      best = condition
+    }
+  }
+  return best ? best.weight : null
+}
+
+export type DisplayWeightPoint = { date: string; weight: number; isActual: boolean }
+
+// 指定期間の各体調記録日について、体重を「その日の実測値（>0）」または
+// 「その日以前の直近実測値の引き継ぎ」で解決した系列を返す。引き継ぐべき実測が
+// 一度も存在しない先頭の日（carried が null）は系列から除外する。
+export function buildDisplayWeightSeries(
+  sortedConditions: { date: string; weight: number }[],
+  periodStartKey: string,
+  periodEndKey: string,
+): DisplayWeightPoint[] {
+  const result: DisplayWeightPoint[] = []
+  for (const condition of sortedConditions) {
+    if (condition.date < periodStartKey || condition.date > periodEndKey) {
+      continue
+    }
+    if (condition.weight > 0) {
+      result.push({ date: condition.date, weight: condition.weight, isActual: true })
+      continue
+    }
+    const carried = resolveWeightOnOrBefore(sortedConditions, condition.date)
+    if (carried != null) {
+      result.push({ date: condition.date, weight: carried, isActual: false })
+    }
+  }
+  return result
+}
+
 /**
  * 指標ごとに「増加が良いか、減少が良いか」を一箇所で管理する設定。
  * 新しい指標を追加する場合はここに1行追加するだけでトレンドバッジの色分けに反映される。

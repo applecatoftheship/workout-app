@@ -12,6 +12,7 @@ import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
 import {
   buildDateList,
+  buildDisplayWeightSeries,
   calculateDenseMovingAverage,
   calculateMovingAverage,
   getPeriodGoalMultiplier,
@@ -130,6 +131,18 @@ export function ProgressGraph({
   const periodWeightMA = useMemo(
     () => weightMA.filter((point) => point.date >= periodStartKey && point.date <= periodEndKey),
     [weightMA, periodStartKey, periodEndKey],
+  )
+  // 体重0kg表示バグ対応（2026年9月3日）：体調記録はあるが体重未入力の日を
+  // 0kgで描かず「その日以前の直近実測体重」を引き継いだ系列にする。
+  // 引き継ぎ元は期間外も含む全履歴（sortedConditions）から解決する。
+  const periodWeightSeries = useMemo(
+    () =>
+      buildDisplayWeightSeries(
+        sortedConditions.map((condition) => ({ date: condition.date, weight: condition.weight })),
+        periodStartKey,
+        periodEndKey,
+      ),
+    [sortedConditions, periodStartKey, periodEndKey],
   )
   const periodSleepMA = useMemo(
     () => sleepMA.filter((point) => point.date >= periodStartKey && point.date <= periodEndKey),
@@ -338,7 +351,7 @@ export function ProgressGraph({
         ) : null}
         {selectedChart === 'weight' ? (
           <WeightChart
-            periodConditions={periodConditions}
+            periodWeightSeries={periodWeightSeries}
             periodWeightMA={periodWeightMA}
             targetWeight={targetWeight}
             periodEnd={end}

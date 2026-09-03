@@ -207,7 +207,12 @@ export function formatTrainingLogItem(exercise: TrainingLogExercise) {
 }
 
 export function formatConditionSummary(condition: DailyCondition) {
-  const base = `${condition.weight.toFixed(1)}kg / ${condition.sleepHours.toFixed(1)}時間 / 疲労度${condition.fatigue}/5`
+  // 体重0kg表示バグ対応（2026年9月3日）：その日に体重を入力していない
+  // （weight=0）場合は「0.0kg」ではなく「体重未記録」と表示する。この関数は
+  // 特定日の記録内容の要約のため、トレンド系（WeightChart等）のような直近値の
+  // 引き継ぎは行わず、未記録である事実をそのまま示す。
+  const weightText = condition.weight > 0 ? `${condition.weight.toFixed(1)}kg` : '体重未記録'
+  const base = `${weightText} / ${condition.sleepHours.toFixed(1)}時間 / 疲労度${condition.fatigue}/5`
 
   const level = condition.muscleSorenessLevel
   if (!level || level === 'none') {

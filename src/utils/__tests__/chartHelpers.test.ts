@@ -3,6 +3,7 @@ import {
   areaPathFor,
   buildAxisTicks,
   buildDateList,
+  buildDisplayWeightSeries,
   calculateDenseMovingAverage,
   calculateMovingAverage,
   computeScale,
@@ -15,6 +16,7 @@ import {
   MARGIN_LEFT,
   MARGIN_TOP,
   pointsFor,
+  resolveWeightOnOrBefore,
   shouldShowLabel,
   toDateKey,
   TREND_DIRECTION,
@@ -217,6 +219,65 @@ describe('calculateMovingAverage', () => {
     expect(last.date).toBe('2026-08-22')
     expect(last.actual).toBe(20)
     expect(last.movingAvg).toBe(15) // (10+20)/2、08-01は7日窓外
+  })
+})
+
+describe('resolveWeightOnOrBefore', () => {
+  const conditions = [
+    { date: '2026-08-01', weight: 70 },
+    { date: '2026-08-03', weight: 0 }, // 体重未入力の日
+    { date: '2026-08-05', weight: 69.5 },
+    { date: '2026-08-07', weight: 0 },
+  ]
+
+  it('対象日に実測があればその値を返す', () => {
+    expect(resolveWeightOnOrBefore(conditions, '2026-08-05')).toBe(69.5)
+  })
+
+  it('対象日に実測がなければ直近過去の実測値を引き継ぐ', () => {
+    expect(resolveWeightOnOrBefore(conditions, '2026-08-07')).toBe(69.5)
+    expect(resolveWeightOnOrBefore(conditions, '2026-08-03')).toBe(70)
+  })
+
+  it('対象日以降の実測は参照しない', () => {
+    expect(resolveWeightOnOrBefore(conditions, '2026-07-31')).toBeNull()
+  })
+
+  it('実測が1件もなければnull', () => {
+    expect(resolveWeightOnOrBefore([{ date: '2026-08-01', weight: 0 }], '2026-08-10')).toBeNull()
+  })
+})
+
+describe('buildDisplayWeightSeries', () => {
+  const conditions = [
+    { date: '2026-08-01', weight: 70 },
+    { date: '2026-08-02', weight: 0 }, // 体重未入力 → 08-01を引き継ぐ
+    { date: '2026-08-04', weight: 69 },
+    { date: '2026-08-06', weight: 0 }, // → 08-04を引き継ぐ
+  ]
+
+  it('期間内の各記録日を実測または直近引き継ぎで解決する', () => {
+    const result = buildDisplayWeightSeries(conditions, '2026-08-01', '2026-08-06')
+    expect(result).toEqual([
+      { date: '2026-08-01', weight: 70, isActual: true },
+      { date: '2026-08-02', weight: 70, isActual: false },
+      { date: '2026-08-04', weight: 69, isActual: true },
+      { date: '2026-08-06', weight: 69, isActual: false },
+    ])
+  })
+
+  it('引き継ぐ実測がまだ無い先頭の日は系列から除外する', () => {
+    const withLeadingGap = [
+      { date: '2026-08-01', weight: 0 },
+      { date: '2026-08-02', weight: 68 },
+    ]
+    const result = buildDisplayWeightSeries(withLeadingGap, '2026-08-01', '2026-08-02')
+    expect(result).toEqual([{ date: '2026-08-02', weight: 68, isActual: true }])
+  })
+
+  it('期間外の記録は引き継ぎ元として使うが系列には含めない', () => {
+    const result = buildDisplayWeightSeries(conditions, '2026-08-05', '2026-08-06')
+    expect(result).toEqual([{ date: '2026-08-06', weight: 69, isActual: false }])
   })
 })
 
