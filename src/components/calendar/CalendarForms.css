@@ -67,6 +67,16 @@
   margin-bottom: 6px;
 }
 
+/* トレーニング実績編集UIの画面遷移化（2026年9月3日）：見出し横に
+   「種目を追加」「記録を編集」の2ボタンを並べる。狭幅では折り返す。 */
+.calendar-detail__section-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+  justify-content: flex-end;
+}
+
 .calendar-detail__condition-actions {
   display: flex;
   gap: 6px;

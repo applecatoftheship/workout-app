@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { TrainingExerciseEditModal } from './calendar/TrainingExerciseEditModal'
+import { TrainingEditListFlow } from './calendar/TrainingEditListFlow'
 import { MealLogWizardModal } from './calendar/MealLogWizardModal'
 import { ConditionForm } from './calendar/ConditionForm'
 import { ScheduleForm } from './calendar/ScheduleForm'
@@ -19,6 +20,9 @@ export type RecordModalRequest = {
   date: DateString
   /** 未指定の場合は新規種目の追加（種目選択UIから開始する）。 */
   trainingLogExerciseId?: string
+  /** true の場合、その日の記録（種目）一覧 → 選択 → 編集、という画面遷移で開く
+   *  （トレーニング実績編集UIの画面遷移化、2026年9月3日）。 */
+  trainingEdit?: boolean
   /** 未指定の場合は新規食事エントリの追加。 */
   mealLogId?: string
   scheduleId?: string
@@ -157,6 +161,8 @@ export function RecordFormModal({
   }
 
   const formKey = request.requestId
+  const modalTitle =
+    request.type === 'training' && request.trainingEdit ? 'トレーニング記録を編集' : TITLES[request.type]
 
   return (
     <div className="record-form-modal__overlay" role="presentation" onClick={onClose}>
@@ -164,12 +170,12 @@ export function RecordFormModal({
         className="record-form-modal"
         role="dialog"
         aria-modal="true"
-        aria-label={TITLES[request.type]}
+        aria-label={modalTitle}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="record-form-modal__header">
           <h3>
-            {TITLES[request.type]}（{request.date}）
+            {modalTitle}（{request.date}）
           </h3>
           <button type="button" className="record-form-modal__close" onClick={onClose} aria-label="閉じる">
             <CloseIcon />
@@ -177,7 +183,20 @@ export function RecordFormModal({
         </div>
 
         <div className="record-form-modal__body">
-          {request.type === 'training' ? (
+          {request.type === 'training' && request.trainingEdit ? (
+            <TrainingEditListFlow
+              key={formKey}
+              trainingLogs={trainingLogs}
+              setTrainingLogs={setTrainingLogs}
+              mealLogs={mealLogs}
+              dailyConditions={dailyConditions}
+              selectedDate={request.date}
+              schedulesForMdCheck={modalSchedules}
+              onClose={onClose}
+            />
+          ) : null}
+
+          {request.type === 'training' && !request.trainingEdit ? (
             <TrainingExerciseEditModal
               key={formKey}
               trainingLogs={trainingLogs}

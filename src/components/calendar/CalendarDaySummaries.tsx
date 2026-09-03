@@ -64,16 +64,18 @@ type TrainingSummaryProps = {
   trainingLogs: TrainingLog[]
   setTrainingLogs: Dispatch<SetStateAction<TrainingLog[]>>
   selectedDate: DateString
-  /** 未指定（新規種目）で編集モーダルを開く。 */
+  /** 新規種目の追加モーダルを開く。 */
   onAddExercise: () => void
-  onEditExercise: (trainingLogExerciseId: string) => void
+  /** その日の記録一覧 → 選択 → 編集、という画面遷移を開く
+   *  （トレーニング実績編集UIの画面遷移化、2026年9月3日）。 */
+  onEditRecords: () => void
 }
 
 // 種目カード＋編集モーダル分離（2026年8月28日）：日次メタ情報（完了/未完了・
 // 終了時刻・メモ）は種目カード一覧の上に常時表示する小さな設定欄として独立させる
 // （設計チーム承認済み、実装方針提案の3-2）。種目の追加・削除とは別のtraining_logs
 // 本体のみを更新するupsertTrainingLogMetaを使うため、他の種目データには一切触れない。
-export function TrainingSummary({ trainingLogs, setTrainingLogs, selectedDate, onAddExercise, onEditExercise }: TrainingSummaryProps) {
+export function TrainingSummary({ trainingLogs, setTrainingLogs, selectedDate, onAddExercise, onEditRecords }: TrainingSummaryProps) {
   const { showToast } = useToast()
   const dayLog = trainingLogs.find((log) => log.date === selectedDate)
   const [meta, setMeta] = useState<TrainingMetaState>(() => buildMetaState(dayLog))
@@ -118,9 +120,16 @@ export function TrainingSummary({ trainingLogs, setTrainingLogs, selectedDate, o
     <div className="calendar-detail__section">
       <div className="calendar-detail__section-header">
         <h4>トレーニング実績</h4>
-        <button type="button" className="calendar-detail__secondary-button" onClick={onAddExercise}>
-          種目を追加
-        </button>
+        <div className="calendar-detail__section-header-actions">
+          <button type="button" className="calendar-detail__secondary-button" onClick={onAddExercise}>
+            種目を追加
+          </button>
+          {dayLog && dayLog.exercises.length > 0 ? (
+            <button type="button" className="calendar-detail__secondary-button" onClick={onEditRecords}>
+              記録を編集
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="training-day-meta">
@@ -157,12 +166,8 @@ export function TrainingSummary({ trainingLogs, setTrainingLogs, selectedDate, o
       {dayLog && dayLog.exercises.length > 0 ? (
         <div className="training-exercise-grid">
           {dayLog.exercises.map((exercise) => (
-            <TrainingExerciseCard
-              key={exercise.id}
-              exercise={exercise}
-              setTrainingLogs={setTrainingLogs}
-              onEdit={() => exercise.id && onEditExercise(exercise.id)}
-            />
+            // 表示専用（編集・削除は「記録を編集」の画面遷移側に集約、2026年9月3日）。
+            <TrainingExerciseCard key={exercise.id} exercise={exercise} setTrainingLogs={setTrainingLogs} />
           ))}
         </div>
       ) : (

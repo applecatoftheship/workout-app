@@ -10,12 +10,18 @@ import './TrainingExercise.css'
 // 閲覧画面：種目ごとにカード表示（種目名＋記録サマリーのみ、入力欄なし）。
 // 削除ボタンは、ExercisePicker.tsxが自身のconfirm+API呼び出しを内包している
 // 既存パターンを踏襲し、このカード自身で確認ダイアログ・削除・再フェッチまで
-// 完結させる（CalendarDaySummaries.tsx側は表示専用に留める）。
+// 完結させる。
+//
+// トレーニング実績編集UIの画面遷移化（2026年9月3日）：onEdit が undefined の場合は
+// 「編集」「削除」導線を出さず表示専用カードになる（TrainingSummary の閲覧サマリー
+// 用）。onEdit を渡すと編集＋削除ボタンを表示する（TrainingEditListFlow の
+// 「記録を編集」一覧用）。
 
 type TrainingExerciseCardProps = {
   exercise: TrainingLogExercise
   setTrainingLogs: Dispatch<SetStateAction<TrainingLog[]>>
-  onEdit: () => void
+  /** 未指定なら表示専用（編集・削除ボタンを出さない）。 */
+  onEdit?: () => void
 }
 
 export function TrainingExerciseCard({ exercise, setTrainingLogs, onEdit }: TrainingExerciseCardProps) {
@@ -48,14 +54,16 @@ export function TrainingExerciseCard({ exercise, setTrainingLogs, onEdit }: Trai
     <div className="training-exercise-card">
       <div className="training-exercise-card__head">
         <span className="training-exercise-card__name">{exerciseName}</span>
-        <div className="training-exercise-card__actions">
-          <button type="button" className="calendar-detail__edit-button" onClick={onEdit}>
-            編集
-          </button>
-          <button type="button" className="calendar-detail__delete-button" onClick={handleDelete}>
-            削除
-          </button>
-        </div>
+        {onEdit ? (
+          <div className="training-exercise-card__actions">
+            <button type="button" className="calendar-detail__edit-button" onClick={onEdit}>
+              編集
+            </button>
+            <button type="button" className="calendar-detail__delete-button" onClick={handleDelete}>
+              削除
+            </button>
+          </div>
+        ) : null}
       </div>
       <p className="training-exercise-card__summary">
         {exercise.sets.length > 0 ? `${exercise.sets.length}セット (${formatSetSummary(exercise.sets)})` : '記録なし'}

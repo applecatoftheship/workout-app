@@ -444,7 +444,7 @@ export function MonthlyCalendar({
               setTrainingLogs={setTrainingLogs}
               selectedDate={selectedDate}
               onAddExercise={() => openRecordModal({ type: 'training', date: selectedDate })}
-              onEditExercise={(trainingLogExerciseId) => openRecordModal({ type: 'training', date: selectedDate, trainingLogExerciseId })}
+              onEditRecords={() => openRecordModal({ type: 'training', date: selectedDate, trainingEdit: true })}
             />
           ) : null}
 
