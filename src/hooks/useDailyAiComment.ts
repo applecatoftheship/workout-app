@@ -8,30 +8,32 @@ import { fetchTrainingLogs } from '../api/trainingLogs'
 import { fetchSoccerLogs } from '../api/soccerLogs'
 import { fetchWorkouts } from '../api/workouts'
 import { fetchMealLogs } from '../api/mealLogs'
+import { fetchDailyConditions } from '../api/dailyConditions'
 import { generateDailyComment } from '../api/dailyComment'
 
 const CHRONIC_WINDOW_DAYS = 28
 
 // AIコンディショニングアドバイザー（設定画面拡張Phase 3、2026年8月28日。
-// 2026年8月29日、AIコメント生成タイミング見直しに伴い全面改訂）：
-// DailyReportModal.tsx（閲覧専用の日次レポート）とConditionForm.tsx（体調記録
-// フォーム）の両方から使う共通の手動再生成ロジック。
+// 2026年8月29日、AIコメント生成タイミング見直しに伴い全面改訂。
+// 2026年9月3日、体調記録なしでも生成できるよう改訂）：
+// DailyReportModal.tsx（閲覧専用の日次レポート）から使う手動生成ロジック。
 //
 // 【2026年8月29日の変更】従来ここにあった「本日・未生成なら自動でLLM呼び出しを
 // トリガーする」useEffectを廃止した。記録が出揃う前（トレーニング・食事等が
 // 未入力の段階）で生成されてしまう問題への対応。通常の自動生成は
-// api/generate-daily-comments.ts（cron、毎日05:00 JST、前日分を対象）が担うため、
-// このフックは「ユーザーが🔄ボタンを押したときだけ」api/generate-daily-comment.ts
-// を呼び出す。
+// api/generate-daily-comments.ts（cron、毎日05:00 JST、前日分を対象）が担う。
 //
-// 併せて、対象日をisToday（当日）に限定していた制限も撤廃した。cronによる
-// 前日分の自動生成が何らかの理由（Gemini APIエラー等）で失敗した場合、この
-// 手動再生成が唯一のフォールバック手段となるため、過去日でも動作する必要が
-// ある（2026年8月29日、当初「過去日を含め手動再生成できる」という想定運用と
-// 実装が食い違っていたことが判明したための修正）。慢性負荷ウィンドウ
-// （ACWR計算用の直近28日分の取得範囲）も、従来の「今日」基準から
-// 「regenerate対象のselectedDate」基準に変更した（過去日を再生成する際に
-// 正しい期間のデータを参照するため）。
+// 【2026年9月3日の変更】従来は「体調記録（daily_conditions行）が存在しないと
+// 生成ボタンを押せない」制約があったが、AI日次コメントは運動・食事の記録から
+// でも有用なため、conditionが無くても生成できるようにした。conditionの各値は
+// デフォルト（睡眠0h・疲労度3・局所疲労なし）で補う。サーバー側
+// （api/generate-daily-comment.ts）は onConflict:'user_id,log_date' の部分列
+// upsert のため、行が無ければ ai_comment だけを持つ行を新規作成する。この場合
+// ローカルstateには該当日の行が無いため、生成成功後に fetchDailyConditions で
+// 取り直す（行が既にあれば従来通り map で ai_comment のみ差し替える）。
+//
+// 慢性負荷ウィンドウ（ACWR計算用の直近28日分の取得範囲）は
+// regenerate対象のselectedDate基準（selectedDate - 27日 〜 selectedDate）。
 export function useDailyAiComment(params: {
   condition: DailyCondition | undefined
   selectedDate: DateString
@@ -51,10 +53,6 @@ export function useDailyAiComment(params: {
 
   const runGeneration = useCallback(
     async (force: boolean) => {
-      if (!condition) {
-        return
-      }
-
       setIsGenerating(true)
 
       // 慢性負荷ウィンドウはselectedDate基準（selectedDate - 27日 〜 selectedDate）。
@@ -62,6 +60,14 @@ export function useDailyAiComment(params: {
       const chronicStart = new Date(selectedDateObj)
       chronicStart.setDate(chronicStart.getDate() - (CHRONIC_WINDOW_DAYS - 1))
       const chronicStartKey = toDateKey(chronicStart.getFullYear(), chronicStart.getMonth() + 1, chronicStart.getDate())
+
+      // 体調記録が無い日でも生成できるようにするためのデフォルト値
+      // （src/api/dailyConditions.ts の rowToDailyCondition と同じ既定：
+      // 睡眠0h・疲労度3・局所疲労なし）。
+      const sleepHours = condition?.sleepHours ?? 0
+      const fatigueLevel = condition?.fatigue ?? 3
+      const sorenessLevel = condition?.muscleSorenessLevel ?? 'none'
+      const sorenessLocation = condition?.muscleSorenessLocation ?? 'none'
 
       try {
         const [trainingLogs, soccerLogs, workouts, mealLogs] = await Promise.all([
@@ -75,8 +81,8 @@ export function useDailyAiComment(params: {
           trainingLogs,
           soccerLogs,
           selectedDate,
-          condition.muscleSorenessLevel,
-          condition.muscleSorenessLocation,
+          sorenessLevel,
+          sorenessLocation,
           workouts,
           dailyConditions,
         )
@@ -86,8 +92,8 @@ export function useDailyAiComment(params: {
           date: selectedDate,
           acwr: acwrResult?.acwr ?? null,
           acwrStatus: acwrResult?.status ?? null,
-          sleepHours: condition.sleepHours,
-          fatigueLevel: condition.fatigue,
+          sleepHours,
+          fatigueLevel,
           dailySummary,
           forceRegenerate: force,
         })
@@ -96,9 +102,23 @@ export function useDailyAiComment(params: {
           return
         }
         if (aiComment) {
-          setDailyConditions((current) =>
-            current.map((item) => (item.date === selectedDate ? { ...item, aiComment } : item)),
-          )
+          const hasRowInState = dailyConditions.some((item) => item.date === selectedDate)
+          if (hasRowInState) {
+            setDailyConditions((current) =>
+              current.map((item) => (item.date === selectedDate ? { ...item, aiComment } : item)),
+            )
+          } else {
+            // サーバー側で ai_comment だけの行が新規作成されたケース。
+            // 正しいidを含む行を取り直す。
+            try {
+              const refreshed = await fetchDailyConditions()
+              if (isMountedRef.current) {
+                setDailyConditions(refreshed)
+              }
+            } catch (refetchError) {
+              console.error('AIコメント生成後の体調記録の再取得に失敗しました', refetchError)
+            }
+          }
         }
       } catch (error) {
         console.error('AIコンディショニングコメントの生成に失敗しました', error)
@@ -112,11 +132,11 @@ export function useDailyAiComment(params: {
   )
 
   const regenerate = useCallback(() => {
-    if (!condition || isGenerating) {
+    if (isGenerating) {
       return
     }
     runGeneration(true)
-  }, [condition, isGenerating, runGeneration])
+  }, [isGenerating, runGeneration])
 
-  return { isGenerating, canRegenerate: !!condition, regenerate }
+  return { isGenerating, canRegenerate: !isGenerating, regenerate }
 }

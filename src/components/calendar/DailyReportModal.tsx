@@ -66,11 +66,7 @@ export function DailyReportModal({
   // （log_dateのような単純な日付カラムでの比較はできない）。
   const dayWorkouts = workouts.filter((workout) => toJstDateKeyFromIso(workout.startTime) === selectedDate)
 
-  const {
-    isGenerating: isGeneratingAiComment,
-    canRegenerate: canRegenerateAiComment,
-    regenerate: regenerateAiComment,
-  } = useDailyAiComment({
+  const { isGenerating: isGeneratingAiComment, regenerate: regenerateAiComment } = useDailyAiComment({
     condition,
     selectedDate,
     dailyConditions,
@@ -161,16 +157,20 @@ export function DailyReportModal({
               <div className="daily-report__item">
                 <p>{formatConditionSummary(condition)}</p>
                 {condition.notes ? <p className="daily-report__note">メモ: {condition.notes}</p> : null}
-                <AiCommentCard
-                  comment={condition.aiComment}
-                  isGenerating={isGeneratingAiComment}
-                  onRegenerate={canRegenerateAiComment ? regenerateAiComment : undefined}
-                  placeholderText={isTodaySelected ? AI_COMMENT_PENDING_TEXT : undefined}
-                />
               </div>
             ) : (
               <p className="daily-report__empty">記録なし</p>
             )}
+            {/* AI日次コメント（2026年9月3日）：体調記録の有無に関わらず、
+                運動・食事の記録からその場で生成できるようにするため、
+                condition の外に出して常に表示する。今日を選択中でまだコメントが
+                無い場合は「翌朝生成される」案内＋手動生成ボタンを表示する。 */}
+            <AiCommentCard
+              comment={condition?.aiComment}
+              isGenerating={isGeneratingAiComment}
+              onRegenerate={regenerateAiComment}
+              placeholderText={isTodaySelected && !condition?.aiComment ? AI_COMMENT_PENDING_TEXT : undefined}
+            />
           </section>
 
           <section className="daily-report__section">
