@@ -69,40 +69,45 @@ export function WorkoutForm({ selectedDate, activityType, editingWorkout, onClos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingWorkout?.id])
 
-  // MET計算用の直近実測体重（weight>0 のみ。取れなければ既定値）。
-  // 体重の取得は非同期のため、取得完了時に既に時間が入力済みなら再計算する
-  // （新規入力時のみ。編集モードでは既存の距離・カロリーを尊重して上書きしない）。
+  // MET計算用の直近実測体重（weight>0 のみ。取れなければ既定値70kg）。
   useEffect(() => {
     fetchRecentWeight(selectedDate)
       .then((weight) => {
         if (weight != null && weight > 0) {
           setWeightKg(weight)
-          if (!editingWorkout && durationMin.trim() !== '') {
-            const auto = calculateCardioAutoValues(activityType, Number(durationMin), weight)
-            if (auto) {
-              setDistanceKm(String(auto.distanceKm))
-              setCalories(String(auto.calories))
-            }
-          }
         }
       })
       .catch((fetchError) => {
         console.error('Supabaseから直近体重の取得に失敗しました', fetchError)
       })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate])
 
-  const applyAutoCalc = (minutesValue: string) => {
-    const auto = calculateCardioAutoValues(activityType, Number(minutesValue), weightKg)
+  const applyAutoCalc = (minutesValue: string, weight: number) => {
+    const auto = calculateCardioAutoValues(activityType, Number(minutesValue), weight)
     if (auto) {
       setDistanceKm(String(auto.distanceKm))
       setCalories(String(auto.calories))
     }
   }
 
+  // 体重の取得は非同期。取得完了で weightKg が既定値から変わったとき、
+  // 新規入力で時間が既に入っていれば実体重で再計算する（編集モードでは
+  // 既存の距離・カロリー——Apple Watch の実測値等——を上書きしない）。
+  useEffect(() => {
+    if (isEditing || durationMin.trim() === '') {
+      return
+    }
+    applyAutoCalc(durationMin, weightKg)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weightKg])
+
+  // 時間（分）を変更したときの自動計算。編集モードでは既存の距離・カロリーを
+  // 尊重し、時間だけ変えても距離・カロリーは自動上書きしない（手修正可のまま）。
   const handleDurationChange = (value: string) => {
     setDurationMin(value)
-    applyAutoCalc(value)
+    if (!isEditing) {
+      applyAutoCalc(value, weightKg)
+    }
   }
 
   const handleSave = async () => {
@@ -157,8 +162,10 @@ export function WorkoutForm({ selectedDate, activityType, editingWorkout, onClos
     }
   }
 
+  // 呼び出し元（TrainingExerciseEditModal / WorkoutEditListFlow）が既に
+  // .calendar-detail__form の内側で描画するため、ここは Fragment にして二重ネストを避ける。
   return (
-    <div className="calendar-detail__form">
+    <>
       {error ? <p className="calendar-detail__form-error">{error}</p> : null}
 
       <div className="calendar-detail__exercise-form">
@@ -228,6 +235,6 @@ export function WorkoutForm({ selectedDate, activityType, editingWorkout, onClos
           キャンセル
         </button>
       </div>
-    </div>
+    </>
   )
 }
