@@ -254,11 +254,15 @@
   min-width: 0;
 }
 
-.calendar-detail__select-with-action .calendar-detail__delete-button {
+/* 料理選択の編集/削除ボタン（2026年9月3日、料理編集機能追加でボタンが増えた）。
+   select を縮めてボタンは縮めない。 */
+.calendar-detail__select-with-action .calendar-detail__delete-button,
+.calendar-detail__select-with-action .calendar-detail__secondary-button {
   flex-shrink: 0;
 }
 
-.calendar-detail__select-with-action .calendar-detail__delete-button:disabled {
+.calendar-detail__select-with-action .calendar-detail__delete-button:disabled,
+.calendar-detail__select-with-action .calendar-detail__secondary-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

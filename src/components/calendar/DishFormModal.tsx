@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { FoodItem } from '../../types'
-import { createDish } from '../../api/dishes'
+import { DISH_CATEGORIES } from '../../types'
+import type { DishCategory, DishWithDetails, FoodItem } from '../../types'
+import { createDish, updateDish } from '../../api/dishes'
 import { GenreFoodPicker } from './GenreFoodPicker'
 import { useToast } from '../../hooks/useToast'
 import './DishFormModal.css'
@@ -20,31 +21,67 @@ function createItemKey() {
   return `dish-item-${itemKeyCounter}`
 }
 
+// 料理マスタ大幅拡充（2026年9月3日）：
+// - カテゴリ選択欄（DISH_CATEGORIES の8分類）と絵文字入力を追加。
+// - editingDish を渡すと「料理を編集」モード（名前・カテゴリ・絵文字・構成食材を
+//   既存値で初期化 → updateDish）。未指定なら従来どおり新規作成（createDish）。
 type DishFormModalProps = {
   isOpen: boolean
   onClose: () => void
   onSaved: () => void
   foodItems: FoodItem[]
   onFoodItemDeleted: () => void
+  /** 指定すると編集モードで開く。 */
+  editingDish?: DishWithDetails | null
 }
 
-export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemDeleted }: DishFormModalProps) {
+export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemDeleted, editingDish }: DishFormModalProps) {
   const { showToast } = useToast()
   const [name, setName] = useState('')
+  const [category, setCategory] = useState<DishCategory | ''>('')
+  const [emoji, setEmoji] = useState('')
   const [items, setItems] = useState<DishItemForm[]>([])
   const [pickerResetKey, setPickerResetKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
+  const isEditing = editingDish != null
+
   useEffect(() => {
     if (!isOpen) {
       setName('')
+      setCategory('')
+      setEmoji('')
       setItems([])
       setError(null)
       setIsSaving(false)
       setPickerResetKey((key) => key + 1)
+      return
     }
-  }, [isOpen])
+    // 開いたタイミングで、編集対象があればその値で、なければ空で初期化する。
+    if (editingDish) {
+      setName(editingDish.name)
+      setCategory(editingDish.category ?? '')
+      setEmoji(editingDish.emoji ?? '')
+      setItems(
+        editingDish.items.map((item) => ({
+          key: createItemKey(),
+          foodItemId: item.foodItemId,
+          amount: String(item.amount),
+          unit: item.unit,
+        })),
+      )
+    } else {
+      setName('')
+      setCategory('')
+      setEmoji('')
+      setItems([])
+    }
+    setError(null)
+    setIsSaving(false)
+    setPickerResetKey((key) => key + 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editingDish?.id])
 
   if (!isOpen) {
     return null
@@ -97,6 +134,10 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
       setError('料理名は必須です')
       return
     }
+    if (!category) {
+      setError('カテゴリを選択してください')
+      return
+    }
     if (items.length === 0) {
       setError('少なくとも1つの食材を選択してください')
       return
@@ -111,21 +152,31 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
 
     setError(null)
     setIsSaving(true)
+    const dishInput = {
+      name: trimmedName,
+      category,
+      emoji: emoji.trim() || undefined,
+      items: items.map((item) => ({ foodItemId: item.foodItemId, amount: Number(item.amount), unit: item.unit.trim() })),
+    }
     try {
-      await createDish(
-        trimmedName,
-        items.map((item) => ({ foodItemId: item.foodItemId, amount: Number(item.amount), unit: item.unit.trim() })),
-      )
+      if (isEditing && editingDish?.id) {
+        await updateDish(editingDish.id, dishInput)
+        showToast('料理を更新しました', 'success')
+      } else {
+        await createDish(dishInput)
+        showToast('料理を登録しました', 'success')
+      }
       onSaved()
-      showToast('料理を登録しました', 'success')
     } catch (saveError) {
-      console.error('Supabaseへの料理登録に失敗しました', saveError)
-      setError('登録に失敗しました。もう一度お試しください')
-      showToast('料理の登録に失敗しました', 'error')
+      console.error('Supabaseへの料理保存に失敗しました', saveError)
+      setError('保存に失敗しました。もう一度お試しください')
+      showToast(isEditing ? '料理の更新に失敗しました' : '料理の登録に失敗しました', 'error')
     } finally {
       setIsSaving(false)
     }
   }
+
+  const heading = isEditing ? '料理を編集' : '新しい料理を作る'
 
   return (
     <div className="dish-form-modal__overlay" role="presentation" onClick={onClose}>
@@ -133,11 +184,11 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
         className="dish-form-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="新しい料理を作る"
+        aria-label={heading}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="dish-form-modal__header">
-          <h3>新しい料理を作る</h3>
+          <h3>{heading}</h3>
           <button type="button" className="dish-form-modal__close" onClick={onClose} aria-label="閉じる">
             ×
           </button>
@@ -150,6 +201,30 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
             <span>料理名</span>
             <input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="例: 親子丼" />
           </label>
+
+          <div className="calendar-detail__inline-fields">
+            <label className="calendar-detail__field">
+              <span>カテゴリ</span>
+              <select value={category} onChange={(event) => setCategory(event.target.value as DishCategory)}>
+                <option value="">選択してください</option>
+                {DISH_CATEGORIES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="calendar-detail__field">
+              <span>絵文字（任意）</span>
+              <input
+                type="text"
+                value={emoji}
+                onChange={(event) => setEmoji(event.target.value)}
+                maxLength={4}
+                placeholder={DEFAULT_FOOD_EMOJI}
+              />
+            </label>
+          </div>
 
           <GenreFoodPicker key={pickerResetKey} foodItems={foodItems} onSelect={addItem} onFoodItemDeleted={onFoodItemDeleted} />
 
@@ -198,7 +273,13 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
         <div className="dish-form-modal__footer">
           <div className="calendar-detail__actions">
             <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? '登録中...' : 'この料理を登録する'}
+              {isSaving
+                ? isEditing
+                  ? '更新中...'
+                  : '登録中...'
+                : isEditing
+                  ? 'この内容で更新する'
+                  : 'この料理を登録する'}
             </button>
             <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
               キャンセル

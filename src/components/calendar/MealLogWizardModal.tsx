@@ -17,7 +17,8 @@ import { MealFoodItemCard } from './MealFoodItemCard'
 import type { MealFoodItemCardValue } from './MealFoodItemCard'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
-import type { DateString, DishWithDetails, FoodItem, MealLog, MealSize, MealType } from '../../types'
+import { DISH_CATEGORIES } from '../../types'
+import type { DateString, DishCategory, DishWithDetails, FoodItem, MealLog, MealSize, MealType } from '../../types'
 import './MealLogEntry.css'
 
 // 食事記録画面の3ステップ画面遷移化（2026年9月3日、John承認済み）：
@@ -101,8 +102,10 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   const [dishes, setDishes] = useState<DishWithDetails[]>([])
   const [mealSizes, setMealSizes] = useState<MealSize[]>([])
   const [selectedDishId, setSelectedDishId] = useState('')
+  const [selectedDishCategory, setSelectedDishCategory] = useState<DishCategory | ''>('')
   const [selectedMealSizeId, setSelectedMealSizeId] = useState('')
   const [isDishModalOpen, setIsDishModalOpen] = useState(false)
+  const [editingDish, setEditingDish] = useState<DishWithDetails | null>(null)
   const [isDeletingDish, setIsDeletingDish] = useState(false)
   const [isFoodItemModalOpen, setIsFoodItemModalOpen] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -205,6 +208,10 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   const handleAmountChange = (key: string, value: string) => {
     setItems((current) => current.map((item) => (item.key === key ? { ...item, amount: value } : item)))
   }
+
+  // 料理マスタ大幅拡充（2026年9月3日）：122件運用のためカテゴリで絞り込む。
+  const categoryFilteredDishes =
+    selectedDishCategory === '' ? dishes : dishes.filter((dish) => dish.category === selectedDishCategory)
 
   const selectedDish = dishes.find((dish) => dish.id === selectedDishId)
   const selectedMealSize = mealSizes.find((size) => size.id === selectedMealSizeId)
@@ -468,16 +475,58 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
             ) : (
               <>
                 <div className="calendar-detail__field calendar-detail__field--full">
+                  <span>カテゴリで絞り込み</span>
+                  <div className="calendar-detail__category-filter">
+                    <button
+                      type="button"
+                      className={`calendar-detail__category-chip${
+                        selectedDishCategory === '' ? ' calendar-detail__category-chip--active' : ''
+                      }`}
+                      onClick={() => {
+                        setSelectedDishCategory('')
+                        setSelectedDishId('')
+                      }}
+                    >
+                      すべて
+                    </button>
+                    {DISH_CATEGORIES.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`calendar-detail__category-chip${
+                          selectedDishCategory === option ? ' calendar-detail__category-chip--active' : ''
+                        }`}
+                        onClick={() => {
+                          setSelectedDishCategory(option)
+                          setSelectedDishId('')
+                        }}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="calendar-detail__field calendar-detail__field--full">
                   <span>登録済みの料理</span>
                   <div className="calendar-detail__select-with-action">
                     <select value={selectedDishId} onChange={(event) => setSelectedDishId(event.target.value)}>
                       <option value="">選択してください</option>
-                      {dishes.map((dish) => (
+                      {categoryFilteredDishes.map((dish) => (
                         <option key={dish.id} value={dish.id}>
+                          {dish.emoji ? `${dish.emoji} ` : ''}
                           {dish.name} ({Math.round(dish.totalCalories)}kcal)
                         </option>
                       ))}
                     </select>
+                    <button
+                      type="button"
+                      className="calendar-detail__secondary-button"
+                      onClick={() => selectedDish && setEditingDish(selectedDish)}
+                      disabled={!selectedDishId}
+                    >
+                      編集
+                    </button>
                     <button
                       type="button"
                       className="calendar-detail__delete-button"
@@ -652,11 +701,23 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
       </div>
 
       <DishFormModal
-        isOpen={isDishModalOpen}
-        onClose={() => setIsDishModalOpen(false)}
+        isOpen={isDishModalOpen || editingDish != null}
+        editingDish={editingDish}
+        onClose={() => {
+          setIsDishModalOpen(false)
+          setEditingDish(null)
+        }}
         onSaved={() => {
+          const wasEditingId = editingDish?.id ?? null
           loadDishes()
           setIsDishModalOpen(false)
+          setEditingDish(null)
+          // 編集した料理はそのまま選択状態を維持する。カテゴリを変更していても
+          // 一覧に出るよう、絞り込みは「すべて」に戻す。
+          if (wasEditingId) {
+            setSelectedDishCategory('')
+            setSelectedDishId(wasEditingId)
+          }
         }}
         foodItems={foodItems}
         onFoodItemDeleted={loadFoodItems}

@@ -102,8 +102,25 @@ export interface MealLogFoodItem extends BaseRecord {
   carbohydrates: number;
 }
 
+// 料理マスタ大幅拡充（2026年9月3日）：122件投入に伴い、料理を分類する
+// カテゴリ（アプリ側でのenum的な扱い）と絵文字を追加。DBは dishes.category /
+// dishes.emoji（いずれも text、nullable）。
+export const DISH_CATEGORIES = [
+  '定食',
+  '丼もの',
+  '麺類',
+  '鍋物',
+  '洋食',
+  '中華',
+  '汁物・小鉢',
+  'パン・その他',
+] as const;
+export type DishCategory = (typeof DISH_CATEGORIES)[number];
+
 export interface Dish extends BaseRecord {
   name: string;
+  category?: DishCategory;
+  emoji?: string;
   userId?: string;
 }
 
