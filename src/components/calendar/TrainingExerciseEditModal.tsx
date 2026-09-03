@@ -20,6 +20,7 @@ import type { ComparableSet } from '../../utils/trainingSetHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
 import { ExercisePicker } from './ExercisePicker'
 import { TrainingSetCard } from './TrainingSetCard'
+import { WorkoutForm } from './WorkoutForm'
 import type { TrainingSetCardValue } from './TrainingSetCard'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
@@ -184,11 +185,18 @@ export function TrainingExerciseEditModal({
       })
   }, [selectedExerciseId, selectedDate])
 
+  const selectedExercise = masterExercises.find((candidate) => candidate.id === selectedExerciseId)
+
   const mdStatus = getMatchDayStatus(schedulesForMdCheck ?? [], selectedDate)
   const showLegDayMdWarning =
-    mdStatus != null &&
-    LEG_WARNING_MD_STATUSES.has(mdStatus) &&
-    masterExercises.find((candidate) => candidate.id === selectedExerciseId)?.bodyPart === '脚'
+    mdStatus != null && LEG_WARNING_MD_STATUSES.has(mdStatus) && selectedExercise?.bodyPart === '脚'
+
+  // 有酸素運動の時間ベース記録への移行（2026年9月3日）：新規追加で body_part が
+  // '有酸素' の種目を選んだ場合は、重量×回数フォームではなく WorkoutForm
+  // （時間→距離・カロリー自動計算、保存先は workouts テーブル）を表示する。
+  // 既存の training_log 実績の編集（!isNewExercise）は、旧データ移行が別途行われる
+  // までは従来フォームのまま扱う。
+  const isCardioNewEntry = isNewExercise && selectedExercise?.bodyPart === '有酸素'
 
   const handleExerciseChosen = (name: string, exerciseId: string | null) => {
     setSelectedExerciseName(name)
@@ -451,7 +459,11 @@ export function TrainingExerciseEditModal({
         <p className="training-exercise-card__name">{selectedExerciseName}</p>
       )}
 
-      {previousHintText ? (
+      {isCardioNewEntry ? (
+        <WorkoutForm activityType={selectedExerciseName} selectedDate={selectedDate} onClose={onClose} />
+      ) : null}
+
+      {!isCardioNewEntry && previousHintText ? (
         <div className="training-exercise-modal__previous">
           <span>{previousHintText}</span>
           <button type="button" className="calendar-detail__secondary-button" onClick={handleCopyPrevious}>
@@ -460,9 +472,11 @@ export function TrainingExerciseEditModal({
         </div>
       ) : null}
 
-      {showLegDayMdWarning ? <p className="calendar-detail__warning">{buildLegDayMdWarningMessage(mdStatus as string)}</p> : null}
+      {!isCardioNewEntry && showLegDayMdWarning ? (
+        <p className="calendar-detail__warning">{buildLegDayMdWarningMessage(mdStatus as string)}</p>
+      ) : null}
 
-      {mode === 'bulk' ? (
+      {isCardioNewEntry ? null : mode === 'bulk' ? (
         <>
           <button type="button" className="calendar-detail__secondary-button" onClick={switchToDetailed}>
             セット別詳細モードに切り替える
@@ -520,14 +534,16 @@ export function TrainingExerciseEditModal({
         </>
       )}
 
-      <div className="calendar-detail__actions">
-        <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving}>
-          {isSaving ? '保存中...' : '保存する'}
-        </button>
-        <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
-          キャンセル
-        </button>
-      </div>
+      {isCardioNewEntry ? null : (
+        <div className="calendar-detail__actions">
+          <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? '保存中...' : '保存する'}
+          </button>
+          <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
+            キャンセル
+          </button>
+        </div>
+      )}
     </div>
   )
 }

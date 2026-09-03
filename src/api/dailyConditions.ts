@@ -31,6 +31,13 @@ function rowToDailyCondition(row: DailyConditionRow): DailyCondition {
   }
 }
 
+// 体重0kg表示バグ対応の一環（2026年9月3日）：以前は weight > 0 フィルタが無く、
+// 体調記録はあるが体重未入力の日（rowToDailyCondition で null→0 になる行）を
+// 「直近の体重」として返してしまっていた。acwrHelpers.ts の
+// findRecentWeightOnOrBefore と同じく weight > 0 の行だけを対象にする。
+// （こちらは prefill ヒント用途もあるため 70kg デフォルトは付けず null を返す。
+//  MET計算など「必ず数値が要る」呼び出し側で DEFAULT_CARDIO_WEIGHT_KG に
+//  フォールバックする。）
 export async function fetchRecentWeight(beforeDate: DateString): Promise<number | null> {
   const userId = await getCurrentUserId()
   const { data, error } = await supabase
@@ -38,6 +45,7 @@ export async function fetchRecentWeight(beforeDate: DateString): Promise<number 
     .select('weight')
     .eq('user_id', userId)
     .lte('log_date', beforeDate)
+    .gt('weight', 0)
     .order('log_date', { ascending: false })
     .limit(1)
 

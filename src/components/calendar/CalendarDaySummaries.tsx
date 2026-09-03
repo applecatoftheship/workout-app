@@ -386,9 +386,13 @@ function formatJstTime(isoString: string): string {
 type WorkoutSummaryProps = {
   workouts: Workout[]
   selectedDate: DateString
+  /** その日のワークアウト一覧 → 選択 → 編集、という画面遷移を開く
+   *  （有酸素運動の時間ベース記録への移行、2026年9月3日）。新規記録は
+   *  「トレーニングを記録 → 種目を追加 → 有酸素種目」から行う。 */
+  onEditRecords: () => void
 }
 
-export function WorkoutSummary({ workouts, selectedDate }: WorkoutSummaryProps) {
+export function WorkoutSummary({ workouts, selectedDate, onEditRecords }: WorkoutSummaryProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const dayWorkouts = workouts.filter((workout) => toJstDateKeyFromIso(workout.startTime) === selectedDate)
 
@@ -396,6 +400,11 @@ export function WorkoutSummary({ workouts, selectedDate }: WorkoutSummaryProps) 
     <div className="calendar-detail__section">
       <div className="calendar-detail__section-header">
         <h4>ワークアウト</h4>
+        {dayWorkouts.length > 0 ? (
+          <button type="button" className="calendar-detail__secondary-button" onClick={onEditRecords}>
+            記録を編集
+          </button>
+        ) : null}
       </div>
       {dayWorkouts.length > 0 ? (
         <div className="calendar-detail__log-list">

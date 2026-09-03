@@ -254,6 +254,21 @@ export function MonthlyCalendar({
       })
   }
 
+  // 有酸素運動の時間ベース記録への移行（2026年9月3日）：新規記録（トレーニングの
+  // 種目選択経由）・編集・削除がモーダル内で行われるようになったため、schedules/
+  // soccerLogs と同様にモーダルを閉じたタイミングで再取得する。
+  const refetchWorkouts = () => {
+    if (!scheduleRangeStart || !scheduleRangeEnd) {
+      return
+    }
+
+    fetchWorkouts(scheduleRangeStart, scheduleRangeEnd)
+      .then((data) => setWorkouts(data))
+      .catch((error) => {
+        console.error('Supabaseからワークアウト記録の再取得に失敗しました', error)
+      })
+  }
+
   // RecordFormModal（Phase B/C、2026年8月16日）がtraining/meal/conditionは
   // AppShell側の共有state（props経由）を直接更新するため自動的に反映されるが、
   // schedules/soccerLogsはMonthlyCalendarが月範囲で個別に保持しているため、
@@ -263,6 +278,7 @@ export function MonthlyCalendar({
     if (wasRecordModalOpen && !isRecordModalOpen) {
       refetchSchedules()
       refetchSoccerLogs()
+      refetchWorkouts()
     }
     setWasRecordModalOpen(isRecordModalOpen)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -485,7 +501,13 @@ export function MonthlyCalendar({
             />
           ) : null}
 
-          {activeDetailTab === 'workout' ? <WorkoutSummary workouts={workouts} selectedDate={selectedDate} /> : null}
+          {activeDetailTab === 'workout' ? (
+            <WorkoutSummary
+              workouts={workouts}
+              selectedDate={selectedDate}
+              onEditRecords={() => openRecordModal({ type: 'workout', date: selectedDate })}
+            />
+          ) : null}
         </div>
       </div>
 

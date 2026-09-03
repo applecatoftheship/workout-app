@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { TrainingExerciseEditModal } from './calendar/TrainingExerciseEditModal'
 import { TrainingEditListFlow } from './calendar/TrainingEditListFlow'
+import { WorkoutEditListFlow } from './calendar/WorkoutEditListFlow'
 import { MealLogWizardModal } from './calendar/MealLogWizardModal'
 import { ConditionForm } from './calendar/ConditionForm'
 import { ScheduleForm } from './calendar/ScheduleForm'
@@ -9,9 +10,10 @@ import { SoccerLogForm } from './calendar/SoccerLogForm'
 import { CloseIcon } from './icons'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
+import { fetchWorkouts } from '../api/workouts'
 import { toDateKey } from '../utils/chartHelpers'
 import type { RecordType } from './RecordSheet'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule } from '../types'
+import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../types'
 import './RecordFormModal.css'
 
 export type RecordModalRequest = {
@@ -37,6 +39,7 @@ const TITLES: Record<RecordType, string> = {
   condition: '体調を記録',
   soccer: 'サッカーを記録',
   schedule: '予定を記録',
+  workout: 'ワークアウト記録を編集',
 }
 
 type RecordFormModalProps = {
@@ -67,6 +70,7 @@ export function RecordFormModal({
   const [autoOpenToken, setAutoOpenToken] = useState<number | undefined>(undefined)
   const [modalSchedules, setModalSchedules] = useState<TrainingSchedule[]>([])
   const [modalSoccerLogs, setModalSoccerLogs] = useState<SoccerLog[]>([])
+  const [modalWorkouts, setModalWorkouts] = useState<Workout[]>([])
   const [isLoadingSideData, setIsLoadingSideData] = useState(false)
 
   useEffect(() => {
@@ -125,6 +129,21 @@ export function RecordFormModal({
         .catch((error) => {
           console.error('Supabaseから試合日判定用の予定の取得に失敗しました', error)
           setModalSchedules([])
+        })
+        .finally(() => {
+          setIsLoadingSideData(false)
+          setAutoOpenToken(request.requestId)
+        })
+    } else if (request.type === 'workout') {
+      // ワークアウト記録の編集（一覧→選択→編集）用に、その日のワークアウトを取得。
+      setIsLoadingSideData(true)
+      fetchWorkouts(request.date, request.date)
+        .then((data) => {
+          setModalWorkouts(data)
+        })
+        .catch((error) => {
+          console.error('Supabaseからワークアウト記録の取得に失敗しました', error)
+          setModalWorkouts([])
         })
         .finally(() => {
           setIsLoadingSideData(false)
@@ -206,6 +225,16 @@ export function RecordFormModal({
               selectedDate={request.date}
               trainingLogExerciseId={request.trainingLogExerciseId}
               schedulesForMdCheck={modalSchedules}
+              onClose={onClose}
+            />
+          ) : null}
+
+          {request.type === 'workout' && !isLoadingSideData ? (
+            <WorkoutEditListFlow
+              key={formKey}
+              workouts={modalWorkouts}
+              setWorkouts={setModalWorkouts}
+              selectedDate={request.date}
               onClose={onClose}
             />
           ) : null}

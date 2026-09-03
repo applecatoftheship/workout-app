@@ -70,3 +70,66 @@ export async function fetchWorkouts(startDate: DateString, endDate: DateString):
 
   return (data as WorkoutRow[]).map(rowToWorkout)
 }
+
+// 有酸素運動の時間ベース記録（2026年9月3日）：手動作成分の書き込み。
+// external_id は Apple Health 由来のワークアウトのみが持つ（HKWorkout.uuid）ため
+// 手動作成分は null。is_primary は NOT NULL のため明示的に true を入れる
+// （Apple Health 同期分と手動分を区別する必要はなく、どちらも一覧・ACWR の対象）。
+export type WorkoutInput = {
+  activityType: string
+  /** 開始時刻（ISO 8601 / timestamptz）。 */
+  startTime: string
+  durationSeconds: number
+  /** 距離(m)・消費カロリー(kcal)。未算出時は null。 */
+  distanceMeters: number | null
+  activeCalories: number | null
+  notes?: string
+}
+
+function buildWorkoutRow(input: WorkoutInput, userId: string) {
+  const endTime = new Date(new Date(input.startTime).getTime() + input.durationSeconds * 1000).toISOString()
+  return {
+    user_id: userId,
+    activity_type: input.activityType,
+    start_time: input.startTime,
+    end_time: endTime,
+    duration_seconds: input.durationSeconds,
+    distance_meters: input.distanceMeters,
+    active_calories: input.activeCalories,
+    notes: input.notes ?? null,
+  }
+}
+
+export async function createWorkout(input: WorkoutInput): Promise<void> {
+  const userId = await getCurrentUserId()
+  const { error } = await supabase
+    .from('workouts')
+    .insert({ ...buildWorkoutRow(input, userId), external_id: null, is_primary: true })
+
+  if (error) {
+    throw error
+  }
+}
+
+export async function updateWorkout(id: string, input: WorkoutInput): Promise<void> {
+  const userId = await getCurrentUserId()
+  // is_primary / external_id は更新しない（同期由来のフラグを手動編集で壊さない）。
+  const { error } = await supabase
+    .from('workouts')
+    .update(buildWorkoutRow(input, userId))
+    .eq('id', id)
+    .eq('user_id', userId)
+
+  if (error) {
+    throw error
+  }
+}
+
+export async function deleteWorkout(id: string): Promise<void> {
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('workouts').delete().eq('id', id).eq('user_id', userId)
+
+  if (error) {
+    throw error
+  }
+}

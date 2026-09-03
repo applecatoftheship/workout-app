@@ -2,7 +2,9 @@ import type { ComponentType } from 'react'
 import './RecordSheet.css'
 import { ConditionIcon, DumbbellIcon, MealIcon, ScheduleIcon, SoccerIcon } from './icons'
 
-export type RecordType = 'training' | 'meal' | 'condition' | 'soccer' | 'schedule'
+// 'workout' は「＋記録」シートには出さず（新規の有酸素記録はトレーニングの
+// 種目選択から入る）、RecordFormModal 経由の「ワークアウト記録を編集」専用。
+export type RecordType = 'training' | 'meal' | 'condition' | 'soccer' | 'schedule' | 'workout'
 
 type RecordOption = {
   type: RecordType
