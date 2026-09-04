@@ -43,3 +43,40 @@ export function bulkFromSets(sets: ComparableSet[]): { setsCount: number; weight
 export function detailedSetsFromBulk(setsCount: number, weight: number | null, reps: number | null): ComparableSet[] {
   return Array.from({ length: Math.max(0, setsCount) }, () => ({ weight, reps }))
 }
+
+// トレーニング記録の「ゴースト入力」（前回値のワンタップ補完、2026年9月4日）：
+// 食事記録側の「前回実測量プレースホルダー」（src/api/mealLogs.ts fetchLatestFoodItemRecord
+// ＋ MealFoodItemCard の placeholder prop）と同じ体験をトレーニングに展開する。
+// 前回記録（同じ種目の最新記録、fetchLatestExerciseRecord）を、重量kg・回数入力欄の
+// placeholder として薄く表示する。
+//
+// - 新規に種目を追加する時のみ（isNewExercise=false ＝ 既存記録の編集時は null を返す）。
+//   編集時にゴースト値が混ざると誤上書きの原因になるため。
+// - 前回記録が無い種目は null。
+// - あくまで placeholder（表示）であり、ユーザーがワンタップ確定（既存の
+//   「前回の内容をコピー」ボタン）しない限り実際の値としては保存されない。
+export type GhostPlaceholders = {
+  bulk: { setsCount: string; weight: string; reps: string }
+  detailed: { reps: string; weight: string }[]
+}
+
+export function buildGhostPlaceholders(
+  previousSets: ComparableSet[] | null | undefined,
+  isNewExercise: boolean,
+): GhostPlaceholders | null {
+  if (!isNewExercise || !previousSets || previousSets.length === 0) {
+    return null
+  }
+  const { setsCount, weight, reps } = bulkFromSets(previousSets)
+  return {
+    bulk: {
+      setsCount: String(setsCount),
+      weight: weight != null ? String(weight) : '',
+      reps: reps != null ? String(reps) : '',
+    },
+    detailed: previousSets.map((set) => ({
+      reps: set.reps != null ? String(set.reps) : '',
+      weight: set.weight != null ? String(set.weight) : '',
+    })),
+  }
+}

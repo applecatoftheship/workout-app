@@ -15,17 +15,35 @@ type TrainingSetCardProps = {
   value: TrainingSetCardValue
   repsError?: string
   weightError?: string
+  /** 前回値のゴースト表示（新規追加時のみ、なければ undefined）。 */
+  repsPlaceholder?: string
+  weightPlaceholder?: string
   onChange: (field: 'reps' | 'weight', value: string) => void
   onDelete: () => void
 }
 
-export function TrainingSetCard({ index, value, repsError, weightError, onChange, onDelete }: TrainingSetCardProps) {
+export function TrainingSetCard({
+  index,
+  value,
+  repsError,
+  weightError,
+  repsPlaceholder,
+  weightPlaceholder,
+  onChange,
+  onDelete,
+}: TrainingSetCardProps) {
   return (
     <div className={`training-set-card training-set-card--${index % COLOR_VARIANTS}`}>
       <span className="training-set-card__index">{index + 1}</span>
       <label className="calendar-detail__field">
         <span>回数</span>
-        <input type="number" min="1" value={value.reps} onChange={(event) => onChange('reps', event.target.value)} />
+        <input
+          type="number"
+          min="1"
+          value={value.reps}
+          placeholder={repsPlaceholder || undefined}
+          onChange={(event) => onChange('reps', event.target.value)}
+        />
         {repsError ? <p className="calendar-detail__error">{repsError}</p> : null}
       </label>
       <label className="calendar-detail__field">
@@ -35,6 +53,7 @@ export function TrainingSetCard({ index, value, repsError, weightError, onChange
           min="0"
           step="0.1"
           value={value.weight}
+          placeholder={weightPlaceholder || undefined}
           onChange={(event) => onChange('weight', event.target.value)}
         />
         {weightError ? <p className="calendar-detail__error">{weightError}</p> : null}

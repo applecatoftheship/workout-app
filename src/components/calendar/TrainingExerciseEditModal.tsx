@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import {
   ensureTrainingLogForDate,
@@ -15,7 +15,7 @@ import { getMatchDayStatus } from '../../utils/periodizationHelpers'
 import { detectPersonalRecords } from '../../utils/prHelpers'
 import { calculateCurrentStreak, isStreakMilestone } from '../../utils/streakHelpers'
 import { toDateKey } from '../../utils/chartHelpers'
-import { bulkFromSets, detailedSetsFromBulk, isUniformSets } from '../../utils/trainingSetHelpers'
+import { bulkFromSets, buildGhostPlaceholders, detailedSetsFromBulk, isUniformSets } from '../../utils/trainingSetHelpers'
 import type { ComparableSet } from '../../utils/trainingSetHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
 import { ExercisePicker } from './ExercisePicker'
@@ -439,6 +439,18 @@ export function TrainingExerciseEditModal({
     previousHintText = `前回（${previousRecord.logDate}）: ${weight != null ? `${weight}kg` : '-'} × ${reps != null ? `${reps}回` : '-'} × ${setsCount}セット`
   }
 
+  // ゴースト入力（前回値プレースホルダー、2026年9月4日）：新規種目追加時のみ、
+  // 前回記録を重量・回数欄の placeholder として薄く表示する。ワンタップ確定は
+  // 既存の「前回の内容をコピー」ボタン（handleCopyPrevious）が担う。
+  const ghost = useMemo(
+    () =>
+      buildGhostPlaceholders(
+        previousRecord?.sets.map((set) => ({ weight: set.weight, reps: set.reps })) ?? null,
+        isNewExercise,
+      ),
+    [previousRecord, isNewExercise],
+  )
+
   return (
     <div className="calendar-detail__form">
       {summaryError ? <p className="calendar-detail__form-error">{summaryError}</p> : null}
@@ -484,12 +496,24 @@ export function TrainingExerciseEditModal({
           <div className="calendar-detail__inline-fields">
             <label className="calendar-detail__field">
               <span>セット数</span>
-              <input type="number" min="1" value={bulk.sets} onChange={(event) => handleBulkChange('sets', event.target.value)} />
+              <input
+                type="number"
+                min="1"
+                value={bulk.sets}
+                placeholder={ghost?.bulk.setsCount || undefined}
+                onChange={(event) => handleBulkChange('sets', event.target.value)}
+              />
               {errors.sets ? <p className="calendar-detail__error">{errors.sets}</p> : null}
             </label>
             <label className="calendar-detail__field">
               <span>回数</span>
-              <input type="number" min="1" value={bulk.reps} onChange={(event) => handleBulkChange('reps', event.target.value)} placeholder="8" />
+              <input
+                type="number"
+                min="1"
+                value={bulk.reps}
+                placeholder={ghost?.bulk.reps || '8'}
+                onChange={(event) => handleBulkChange('reps', event.target.value)}
+              />
               {errors.reps ? <p className="calendar-detail__error">{errors.reps}</p> : null}
             </label>
           </div>
@@ -500,8 +524,8 @@ export function TrainingExerciseEditModal({
               min="0"
               step="0.1"
               value={bulk.weight}
+              placeholder={ghost?.bulk.weight || '60'}
               onChange={(event) => handleBulkChange('weight', event.target.value)}
-              placeholder="60"
             />
             {errors.weight ? <p className="calendar-detail__error">{errors.weight}</p> : null}
           </label>
@@ -524,6 +548,8 @@ export function TrainingExerciseEditModal({
               value={set}
               repsError={errors.detailed?.[index]?.reps}
               weightError={errors.detailed?.[index]?.weight}
+              repsPlaceholder={ghost?.detailed[index]?.reps}
+              weightPlaceholder={ghost?.detailed[index]?.weight}
               onChange={(field, value) => handleDetailedChange(index, field, value)}
               onDelete={() => removeDetailedSet(index)}
             />
