@@ -114,7 +114,13 @@ export async function upsertWeightOnly(logDate: DateString, weight: number): Pro
 }
 
 export async function deleteDailyConditionRemote(id: string): Promise<void> {
-  const { error } = await supabase.from('daily_conditions').delete().eq('id', id)
+  // user_id ガード（2026年9月4日、技術的負債#5関連の棚卸し）：他の delete-by-id
+  // 関数（deleteTrainingLogRemote 等）と同じく、アプリのバグで別ユーザーの行を
+  // 誤って削除しないためのガード。RLS は全テーブル for all using (true) のままの
+  // ため、これはセキュリティ境界ではなく誤操作防止（真のマルチユーザー防御は
+  // Supabase Auth 導入時の RLS 再設計で別途対応）。
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('daily_conditions').delete().eq('id', id).eq('user_id', userId)
 
   if (error) {
     throw error

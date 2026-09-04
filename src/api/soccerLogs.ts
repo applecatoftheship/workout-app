@@ -99,7 +99,10 @@ export async function createOrUpdateSoccerLog(input: SoccerLogInput): Promise<So
 }
 
 export async function deleteSoccerLog(id: string): Promise<void> {
-  const { error } = await supabase.from('soccer_logs').delete().eq('id', id)
+  // user_id ガード（2026年9月4日、技術的負債#5関連）：他の delete-by-id 関数と
+  // 同じく誤操作防止（セキュリティ境界ではない。詳細は deleteDailyConditionRemote 参照）。
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('soccer_logs').delete().eq('id', id).eq('user_id', userId)
 
   if (error) {
     throw error

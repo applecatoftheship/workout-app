@@ -117,7 +117,10 @@ export async function updateSchedule(id: string, updates: Partial<TrainingSchedu
 }
 
 export async function deleteSchedule(id: string): Promise<void> {
-  const { error } = await supabase.from('training_schedules').delete().eq('id', id)
+  // user_id ガード（2026年9月4日、技術的負債#5関連）：他の delete-by-id 関数と
+  // 同じく誤操作防止（セキュリティ境界ではない。詳細は deleteDailyConditionRemote 参照）。
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('training_schedules').delete().eq('id', id).eq('user_id', userId)
 
   if (error) {
     throw error
@@ -159,7 +162,13 @@ export async function completeScheduleForDate(date: string, templateId?: string)
 
   const target = (templateId ? candidates.find((row) => row.template_id === templateId) : undefined) ?? candidates[0]
 
-  const { error: updateError } = await supabase.from('training_schedules').update({ status: 'completed' }).eq('id', target.id)
+  // user_id ガード（2026年9月4日、技術的負債#5関連）：target は上の select で
+  // user_id 一致済みだが、他の update-by-id と同じく明示ガードを付ける（誤操作防止）。
+  const { error: updateError } = await supabase
+    .from('training_schedules')
+    .update({ status: 'completed' })
+    .eq('id', target.id)
+    .eq('user_id', userId)
 
   if (updateError) {
     throw updateError
