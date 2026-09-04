@@ -207,22 +207,28 @@ export function TrainingExerciseEditModal({
       return
     }
     let cancelled = false
+    // 一括モードの初期値決定（取得結果が確定してから）。判定は resolveInitialBulk
+    // に集約（前回記録なし＝3/10、前回記録あり＝空のままゴースト表示、
+    // 手入力済み・編集時＝変更しない）。
+    const applyInitialBulk = (hasPreviousRecord: boolean) => {
+      setBulk((current) => resolveInitialBulk(hasPreviousRecord, isNewExercise, current, bulkTouchedRef.current) ?? current)
+    }
     fetchLatestExerciseRecord(selectedExerciseId, selectedDate)
       .then((record) => {
         if (cancelled) {
           return
         }
         setPreviousRecord(record)
-        // 一括モードの初期値決定（取得結果が確定してから）。判定は resolveInitialBulk
-        // に集約（前回記録なし＝3/10、前回記録あり＝空のままゴースト表示、
-        // 手入力済み・編集時＝変更しない）。
-        setBulk((current) => resolveInitialBulk(!!record, isNewExercise, current, bulkTouchedRef.current) ?? current)
+        applyInitialBulk(!!record)
       })
       .catch((error) => {
         if (cancelled) {
           return
         }
         console.error('Supabaseから前回の記録の取得に失敗しました', error)
+        // 取得失敗時も「前回記録なし」として扱い、汎用既定値 3/10 を入れる
+        // （変更前は useState 初期値が常に 3/10 だったため、その耐障害性を維持する）。
+        applyInitialBulk(false)
       })
     return () => {
       cancelled = true
