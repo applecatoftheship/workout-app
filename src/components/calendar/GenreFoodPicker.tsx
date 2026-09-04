@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FoodItem } from '../../types'
 import { deleteFoodItem } from '../../api/foodItems'
+import { isUncategorizedFoodCategory, UNCATEGORIZED_CHIP_LABEL } from '../../utils/foodCategoryHelpers'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 
@@ -38,6 +39,9 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
   // ジャンル選択の状態には影響しない独立した機能として実装している。
   const [searchQuery, setSearchQuery] = useState('')
 
+  // 「その他・未分類」系（null/空を含む表記ゆれ）は下部のハードコードチップに
+  // 統合するため、DB由来のチップ一覧からは除外する（重複チップ表示の修正、
+  // 2026年9月4日）。
   const foodCategories = useMemo(
     () =>
       Array.from(
@@ -45,7 +49,7 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
           foodItems
             .map((item) => item.category)
             .filter((category): category is string => Boolean(category))
-            .filter((category) => !isDishLikeCategory(category)),
+            .filter((category) => !isDishLikeCategory(category) && !isUncategorizedFoodCategory(category)),
         ),
       ).sort((a, b) => a.localeCompare(b, 'ja')),
     [foodItems],
@@ -64,7 +68,8 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
       return []
     }
     if (selectedCategory === UNCATEGORIZED) {
-      return foodItems.filter((item) => !item.category)
+      // category が null/空、または「その他・未分類」系の実値の食材をすべて含める。
+      return foodItems.filter((item) => isUncategorizedFoodCategory(item.category))
     }
     return foodItems.filter((item) => item.category === selectedCategory)
   }, [foodItems, selectedCategory])
@@ -153,7 +158,7 @@ export function GenreFoodPicker({ foodItems, onSelect, onFoodItemDeleted }: Genr
             }`}
             onClick={() => handleSelectCategory(UNCATEGORIZED)}
           >
-            その他 / 未分類
+            {UNCATEGORIZED_CHIP_LABEL}
           </button>
         </div>
       </div>
