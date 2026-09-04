@@ -21,6 +21,7 @@ import {
   detailedSetsFromBulk,
   isUniformSets,
   resolveInitialBulk,
+  shouldResetBulkForExercise,
 } from '../../utils/trainingSetHelpers'
 import type { ComparableSet } from '../../utils/trainingSetHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
@@ -137,6 +138,13 @@ export function TrainingExerciseEditModal({
   // 現在選択中の種目について、ユーザーが一括モードの欄を手入力したか
   // （手入力済みなら前回記録の取得完了後も 3/10 を上書きしない）。
   const bulkTouchedRef = useRef(false)
+  // 直近で「一括モードの入力をリセットした種目ID」。ExerciseNameInput は
+  // 打鍵ごとに onChange(name, matched?.id ?? null) を呼ぶため、単純に
+  // selectedExerciseId と比較すると「打鍵中に一時的に id=null になり、名前を
+  // 打ち直して同じ id に戻った」ケースでリセットが走り、入力済みの
+  // セット数・回数・重量が消えてしまう。実際に別の種目が確定したときだけ
+  // リセットするため、selectedExerciseId とは別にこの ref で判定する。
+  const lastResetExerciseIdRef = useRef<string | null>(null)
 
   const isNewExercise = trainingLogExerciseId === undefined
 
@@ -252,10 +260,14 @@ export function TrainingExerciseEditModal({
     setSelectedExerciseName(name)
     setSelectedExerciseId(exerciseId)
     setErrors((current) => ({ ...current, name: undefined }))
-    // 種目を選び直したら一括モードの入力状態をリセットする。空に戻し、
-    // 新しい種目の前回記録の取得結果を待ってから初期値（空 or 3/10）を決める。
-    bulkTouchedRef.current = false
-    setBulk({ sets: '', reps: '', weight: '' })
+    // 実際に別の種目が確定したときだけ一括モードの入力状態をリセットする。
+    // 打鍵中に id=null になる／同じ種目名を打ち直して同じ id に戻る場合は
+    // リセットしない（入力済みの値を保持する）。
+    if (shouldResetBulkForExercise(exerciseId, lastResetExerciseIdRef.current)) {
+      lastResetExerciseIdRef.current = exerciseId
+      bulkTouchedRef.current = false
+      setBulk({ sets: '', reps: '', weight: '' })
+    }
   }
 
   const handleExerciseCreated = (exercise: ExerciseDefinition) => {

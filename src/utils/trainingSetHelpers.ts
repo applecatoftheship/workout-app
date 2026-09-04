@@ -105,3 +105,18 @@ export function resolveInitialBulk(
     weight: currentBulk.weight,
   }
 }
+
+// 種目選択が変わったとき、一括モードの入力（セット数・回数・重量）を
+// リセットすべきか（2026年9月4日、647ee0b のデータ消失バグ修正）。
+// ExerciseNameInput は種目名の打鍵ごとに onChange(name, matched?.id ?? null) を
+// 呼ぶため、単純に「前の選択 id と違えばリセット」にすると、打鍵中に一時的に
+// id=null になり打ち直して同じ id に戻ったケースで入力値が消える。
+//   - exerciseId が null（打鍵中で種目未確定）       → false（入力を保持）
+//   - 直近でリセットした種目と同じ id               → false（保持。打ち直して同じ種目に戻った）
+//   - それ以外（実際に別の種目が確定した）          → true（リセット）
+export function shouldResetBulkForExercise(
+  exerciseId: string | null,
+  lastResetExerciseId: string | null,
+): boolean {
+  return exerciseId != null && exerciseId !== lastResetExerciseId
+}

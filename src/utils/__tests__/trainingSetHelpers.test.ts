@@ -5,6 +5,7 @@ import {
   detailedSetsFromBulk,
   isUniformSets,
   resolveInitialBulk,
+  shouldResetBulkForExercise,
 } from '../trainingSetHelpers'
 
 describe('isUniformSets', () => {
@@ -190,5 +191,33 @@ describe('resolveInitialBulk（一括モードの初期値：前回記録あり/
       reps: '10',
       weight: '50',
     })
+  })
+})
+
+describe('shouldResetBulkForExercise（種目切替時に一括モード入力をリセットするか）', () => {
+  it('種目名を打鍵中で id が null：リセットしない（入力値を保持）', () => {
+    expect(shouldResetBulkForExercise(null, 'ex-A')).toBe(false)
+    expect(shouldResetBulkForExercise(null, null)).toBe(false)
+  })
+
+  it('直近でリセットした種目と同じ id：リセットしない（打ち直して同じ種目に戻った）', () => {
+    expect(shouldResetBulkForExercise('ex-A', 'ex-A')).toBe(false)
+  })
+
+  it('別の種目が確定した：リセットする', () => {
+    expect(shouldResetBulkForExercise('ex-B', 'ex-A')).toBe(true)
+  })
+
+  it('最初の種目選択（直近リセットが無い状態）：リセットする', () => {
+    expect(shouldResetBulkForExercise('ex-A', null)).toBe(true)
+  })
+
+  it('再現シナリオ：種目確定 → 誤字を打って id=null → 打ち直して同じ id に戻る、の一連で入力を保持', () => {
+    // 1. ベンチプレス(ex-A)を選択 → リセット（lastReset は ex-A に）
+    expect(shouldResetBulkForExercise('ex-A', null)).toBe(true)
+    // 2. 名前欄を打鍵して一時的に未一致（id=null） → 保持
+    expect(shouldResetBulkForExercise(null, 'ex-A')).toBe(false)
+    // 3. 打ち直して "ベンチプレス" に戻る（id=ex-A） → 保持（lastReset と同一）
+    expect(shouldResetBulkForExercise('ex-A', 'ex-A')).toBe(false)
   })
 })
