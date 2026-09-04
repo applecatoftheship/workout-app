@@ -24,6 +24,9 @@
 //     "end_time"?: string, "duration_seconds"?: number,
 //     "distance_meters"?: number, "active_calories"?: number,
 //     "avg_heart_rate"?: number }
+//   { "type": "metrics", "date": string(YYYY-MM-DD, JST暦日),
+//     "resting_heart_rate"?: number, "hrv_ms"?: number, "steps"?: number,
+//     "active_energy_kcal"?: number, "weight_kg"?: number }
 //
 // 【2026年8月27日改修】Apple純正Shortcutsの制約上、ワークアウトは当面
 // type・distance_meters・start_timeの3項目のみが送られてくる運用に変更された。
@@ -34,8 +37,25 @@
 // あわせて、apple_workout_id（external_id）が無い場合の重複防止キーとして
 // (user_id, start_time)の完全一致を代替に使うようhandleWorkoutを変更した
 // （詳細は同関数内のコメント参照）。
+//
+// 【2026年9月4日追加：type:"metrics"】毎朝07:00に前日分をまとめて送る新しい
+// オートメーション用。安静時心拍数・HRV・歩数・アクティブエネルギーは新設の
+// health_metrics テーブルへ、体重（weight_kg）だけは既存のdaily_conditions.weight
+// へ保存する（自動計測値をdaily_conditionsに混ぜるとstreakHelpers.collectLogDates
+// が毎日を「記録した日」とみなしstreakバッジが無条件達成になってしまうため
+// 分離。設計判断の詳細はsrc/utils/healthMetricsHelpers.tsのコメント参照）。
+// sleep/workoutと異なりdateはISO8601タイムスタンプではなくJST暦日文字列
+// （YYYY-MM-DD）をそのまま受け取る（送信元のオートメーションが「前日分」を
+// 暦日単位で確定させて送ってくるため、toJstDateKeyによるタイムスタンプ→暦日
+// 変換が不要）。
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  buildHealthMetricsRow,
+  buildWeightUpsertRow,
+  validateMetricsPayloadShape,
+} from '../src/utils/healthMetricsHelpers.js'
+import type { MetricsPayload } from '../src/utils/healthMetricsHelpers.js'
 
 type SleepPayload = {
   type: 'sleep'
@@ -55,7 +75,7 @@ type WorkoutPayload = {
   avg_heart_rate?: number
 }
 
-type SyncPayload = SleepPayload | WorkoutPayload
+type SyncPayload = SleepPayload | WorkoutPayload | MetricsPayload
 
 class ValidationError extends Error {}
 
@@ -116,6 +136,16 @@ function validateWorkoutPayload(payload: Record<string, unknown>): asserts paylo
   }
 }
 
+// バリデーション本体（date必須・数値項目の妥当性・1項目以上必須）は
+// src/utils/healthMetricsHelpers.ts の validateMetricsPayloadShape（純粋関数）に
+// 切り出してある。ここではエラーメッセージがあれば ValidationError に変換するだけ。
+function validateMetricsPayload(payload: Record<string, unknown>): asserts payload is MetricsPayload {
+  const error = validateMetricsPayloadShape(payload)
+  if (error) {
+    throw new ValidationError(error)
+  }
+}
+
 // 設定画面拡張 Phase 2（2026年8月28日）：連携ステータス表示（Settings.tsx）用に、
 // sleep・workoutいずれかの保存が成功した直後にprofiles.apple_health_last_synced_at
 // を更新する。upsert（onConflict: user_id）にしているのは、まだprofilesに行が
@@ -151,6 +181,49 @@ async function handleSleep(supabase: SupabaseClient, userId: string, payload: Sl
   }
 
   return { synced: logDate }
+}
+
+// type:"metrics"（2026年9月4日追加）：安静時心拍数・HRV・歩数・アクティブエネルギーは
+// health_metrics へ、体重（weight_kg）は既存のdaily_conditions.weightへ、それぞれ
+// 部分列upsertで保存する。行の組み立て（「送られてきた項目だけを含める」ロジック）は
+// src/utils/healthMetricsHelpers.ts の純粋関数（buildHealthMetricsRow /
+// buildWeightUpsertRow）に切り出してあり、ここではその結果をSupabaseへ投げるだけ。
+// validateMetricsPayloadShapeが「5項目のうち最低1つは存在する」ことを保証しているため、
+// savedMetrics・savedWeightの少なくとも一方は必ずtrueになる。
+async function handleMetrics(
+  supabase: SupabaseClient,
+  userId: string,
+  payload: MetricsPayload,
+): Promise<{ savedMetrics: boolean; savedWeight: boolean }> {
+  const logDate = payload.date
+  const now = new Date().toISOString()
+
+  const metricsRow = buildHealthMetricsRow(payload, userId, logDate, now)
+  let savedMetrics = false
+  if (metricsRow) {
+    const { error } = await supabase.from('health_metrics').upsert(metricsRow, { onConflict: 'user_id,log_date' })
+    if (error) {
+      throw error
+    }
+    savedMetrics = true
+  }
+
+  // onConflict対象の(user_id, log_date)以外のカラムを含めないことで、既存の
+  // 手入力データ（sleep_hours・fatigue・notes等）を上書きしない（handleSleepと同じ
+  // 部分列upsertパターン）。
+  const weightRow = buildWeightUpsertRow(payload, userId, logDate)
+  let savedWeight = false
+  if (weightRow) {
+    const { error } = await supabase
+      .from('daily_conditions')
+      .upsert(weightRow, { onConflict: 'user_id,log_date' })
+    if (error) {
+      throw error
+    }
+    savedWeight = true
+  }
+
+  return { savedMetrics, savedWeight }
 }
 
 type WorkoutRow = { id: string; notes: string | null }
@@ -303,8 +376,8 @@ export default async function handler(
     return
   }
 
-  if (!payload || (payload.type !== 'sleep' && payload.type !== 'workout')) {
-    res.status(400).json({ error: 'invalid payload: type must be "sleep" or "workout"' })
+  if (!payload || (payload.type !== 'sleep' && payload.type !== 'workout' && payload.type !== 'metrics')) {
+    res.status(400).json({ error: 'invalid payload: type must be "sleep", "workout", or "metrics"' })
     return
   }
 
@@ -316,6 +389,14 @@ export default async function handler(
       const result = await handleSleep(supabase, syncUserId, payload)
       await updateLastSyncedAt(supabase, syncUserId)
       res.status(200).json({ ok: true, type: 'sleep', ...result })
+      return
+    }
+
+    if (payload.type === 'metrics') {
+      validateMetricsPayload(payload)
+      const result = await handleMetrics(supabase, syncUserId, payload)
+      await updateLastSyncedAt(supabase, syncUserId)
+      res.status(200).json({ ok: true, type: 'metrics', synced: payload.date, ...result })
       return
     }
 
