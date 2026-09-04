@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { DISH_CATEGORIES } from '../../types'
 import type { DishCategory, DishWithDetails, FoodItem } from '../../types'
 import { createDish, updateDish } from '../../api/dishes'
+import { formatDishAmountLabel, resolveDishItemUnit } from '../../utils/dishHelpers'
 import { GenreFoodPicker } from './GenreFoodPicker'
 import { useToast } from '../../hooks/useToast'
 import './DishFormModal.css'
@@ -12,7 +13,11 @@ type DishItemForm = {
   key: string
   foodItemId: string
   amount: string
-  unit: string
+  // 料理レシピの単位不一致・再発防止（2026年9月4日）：unit はユーザーが編集できず、
+  // 表示・保存時に常に「選択した食材の serving_unit」へ解決する
+  // （resolveDishItemUnit）。ここに持つ値は、食材が見つからない場合の
+  // フォールバック（新規は食材の serving_unit、編集は既存 dish_food_items.unit）。
+  fallbackUnit: string
 }
 
 let itemKeyCounter = 0
@@ -68,7 +73,7 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
           key: createItemKey(),
           foodItemId: item.foodItemId,
           amount: String(item.amount),
-          unit: item.unit,
+          fallbackUnit: item.unit,
         })),
       )
     } else {
@@ -94,7 +99,7 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
     }
     setItems((current) => [
       ...current,
-      { key: createItemKey(), foodItemId, amount: String(foodItem.servingAmount), unit: foodItem.servingUnit },
+      { key: createItemKey(), foodItemId, amount: String(foodItem.servingAmount), fallbackUnit: foodItem.servingUnit },
     ])
   }
 
@@ -106,9 +111,13 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
     setItems((current) => current.map((item) => (item.key === key ? { ...item, amount: value } : item)))
   }
 
-  const handleUnitChange = (key: string, value: string) => {
-    setItems((current) => current.map((item) => (item.key === key ? { ...item, unit: value } : item)))
-  }
+  // 選択した食材の serving_unit へ単位を固定する。食材が見つからない場合のみ
+  // fallbackUnit（新規は食材の serving_unit、編集は既存 dish_food_items.unit）を使う。
+  const unitForItem = (item: DishItemForm): string =>
+    resolveDishItemUnit(
+      foodItems.find((food) => food.id === item.foodItemId),
+      item.fallbackUnit,
+    )
 
   const previewTotals = items.reduce(
     (totals, item) => {
@@ -144,8 +153,8 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
     }
     for (const item of items) {
       const amountValue = Number(item.amount)
-      if (!Number.isFinite(amountValue) || amountValue <= 0 || !item.unit.trim()) {
-        setError('量は0より大きい数値、単位は必須です')
+      if (!Number.isFinite(amountValue) || amountValue <= 0) {
+        setError('量は0より大きい数値で入力してください')
         return
       }
     }
@@ -156,7 +165,12 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
       name: trimmedName,
       category,
       emoji: emoji.trim() || undefined,
-      items: items.map((item) => ({ foodItemId: item.foodItemId, amount: Number(item.amount), unit: item.unit.trim() })),
+      // 単位は選択した食材の serving_unit に固定（ユーザーは編集不可）。
+      items: items.map((item) => ({
+        foodItemId: item.foodItemId,
+        amount: Number(item.amount),
+        unit: unitForItem(item),
+      })),
     }
     try {
       if (isEditing && editingDish?.id) {
@@ -232,6 +246,7 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
             <div className="calendar-detail__log-list">
               {items.map((item) => {
                 const foodItem = foodItems.find((food) => food.id === item.foodItemId)
+                const unit = unitForItem(item)
                 return (
                   <div key={item.key} className="calendar-detail__meal-item">
                     <div className="calendar-detail__meal-head">
@@ -244,7 +259,7 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
                     </div>
                     <div className="calendar-detail__inline-fields">
                       <label className="calendar-detail__field">
-                        <span>量</span>
+                        <span>{formatDishAmountLabel(unit)}</span>
                         <input
                           type="number"
                           min="0.1"
@@ -253,10 +268,12 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
                           onChange={(event) => handleAmountChange(item.key, event.target.value)}
                         />
                       </label>
-                      <label className="calendar-detail__field">
+                      <div className="calendar-detail__field">
                         <span>単位</span>
-                        <input type="text" value={item.unit} onChange={(event) => handleUnitChange(item.key, event.target.value)} />
-                      </label>
+                        {/* 料理レシピの単位不一致・再発防止（2026年9月4日）：単位は
+                            食材の基準単位（serving_unit）に固定。ユーザーは編集不可。 */}
+                        <input type="text" value={unit} readOnly disabled aria-label="単位（食材の基準単位に固定）" />
+                      </div>
                     </div>
                   </div>
                 )
