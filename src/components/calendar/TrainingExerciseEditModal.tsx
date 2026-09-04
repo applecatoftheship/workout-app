@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import {
   ensureTrainingLogForDate,
@@ -15,7 +15,13 @@ import { getMatchDayStatus } from '../../utils/periodizationHelpers'
 import { detectPersonalRecords } from '../../utils/prHelpers'
 import { calculateCurrentStreak, isStreakMilestone } from '../../utils/streakHelpers'
 import { toDateKey } from '../../utils/chartHelpers'
-import { bulkFromSets, buildGhostPlaceholders, detailedSetsFromBulk, isUniformSets } from '../../utils/trainingSetHelpers'
+import {
+  bulkFromSets,
+  buildGhostPlaceholders,
+  detailedSetsFromBulk,
+  isUniformSets,
+  resolveInitialBulk,
+} from '../../utils/trainingSetHelpers'
 import type { ComparableSet } from '../../utils/trainingSetHelpers'
 import { ExerciseNameInput } from './ExerciseNameInput'
 import { ExercisePicker } from './ExercisePicker'
@@ -115,14 +121,36 @@ export function TrainingExerciseEditModal({
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null)
   const [selectedExerciseName, setSelectedExerciseName] = useState('')
   const [mode, setMode] = useState<Mode>('bulk')
-  const [bulk, setBulk] = useState<BulkInput>({ sets: '3', reps: '10', weight: '' })
+  // 一括モードの初期値（2026年9月4日、ゴースト入力の追加対応）：
+  // 汎用既定値 3/10 は「前回記録が無い場合のフォールバック」に格下げした。
+  // 空で開始し、前回記録の取得結果が確定してから
+  //   - 前回記録なし → sets='3' / reps='10' を実値でセット（従来挙動）
+  //   - 前回記録あり → 空のまま（前回値を placeholder としてゴースト表示）
+  // で初期化する（取得完了前に 3/10 を出して後で消す＝ちらつきを避ける）。
+  const [bulk, setBulk] = useState<BulkInput>({ sets: '', reps: '', weight: '' })
   const [detailedSets, setDetailedSets] = useState<TrainingSetCardValue[]>([])
   const [previousRecord, setPreviousRecord] = useState<LatestExerciseRecord | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
+  // 現在選択中の種目について、ユーザーが一括モードの欄を手入力したか
+  // （手入力済みなら前回記録の取得完了後も 3/10 を上書きしない）。
+  const bulkTouchedRef = useRef(false)
+
   const isNewExercise = trainingLogExerciseId === undefined
+
+  // ゴースト入力（前回値プレースホルダー、2026年9月4日）：新規種目追加時のみ、
+  // 前回記録を重量・回数欄の placeholder として薄く表示する。ワンタップ確定は
+  // 既存の「前回の内容をコピー」ボタン（handleCopyPrevious）が担う。
+  const ghost = useMemo(
+    () =>
+      buildGhostPlaceholders(
+        previousRecord?.sets.map((set) => ({ weight: set.weight, reps: set.reps })) ?? null,
+        isNewExercise,
+      ),
+    [previousRecord, isNewExercise],
+  )
 
   const loadExercises = () => {
     fetchExercises()
@@ -178,12 +206,28 @@ export function TrainingExerciseEditModal({
       setPreviousRecord(null)
       return
     }
+    let cancelled = false
     fetchLatestExerciseRecord(selectedExerciseId, selectedDate)
-      .then(setPreviousRecord)
+      .then((record) => {
+        if (cancelled) {
+          return
+        }
+        setPreviousRecord(record)
+        // 一括モードの初期値決定（取得結果が確定してから）。判定は resolveInitialBulk
+        // に集約（前回記録なし＝3/10、前回記録あり＝空のままゴースト表示、
+        // 手入力済み・編集時＝変更しない）。
+        setBulk((current) => resolveInitialBulk(!!record, isNewExercise, current, bulkTouchedRef.current) ?? current)
+      })
       .catch((error) => {
+        if (cancelled) {
+          return
+        }
         console.error('Supabaseから前回の記録の取得に失敗しました', error)
       })
-  }, [selectedExerciseId, selectedDate])
+    return () => {
+      cancelled = true
+    }
+  }, [selectedExerciseId, selectedDate, isNewExercise])
 
   const selectedExercise = masterExercises.find((candidate) => candidate.id === selectedExerciseId)
 
@@ -202,6 +246,10 @@ export function TrainingExerciseEditModal({
     setSelectedExerciseName(name)
     setSelectedExerciseId(exerciseId)
     setErrors((current) => ({ ...current, name: undefined }))
+    // 種目を選び直したら一括モードの入力状態をリセットする。空に戻し、
+    // 新しい種目の前回記録の取得結果を待ってから初期値（空 or 3/10）を決める。
+    bulkTouchedRef.current = false
+    setBulk({ sets: '', reps: '', weight: '' })
   }
 
   const handleExerciseCreated = (exercise: ExerciseDefinition) => {
@@ -209,6 +257,7 @@ export function TrainingExerciseEditModal({
   }
 
   const handleBulkChange = (field: keyof BulkInput, value: string) => {
+    bulkTouchedRef.current = true
     setBulk((current) => ({ ...current, [field]: value }))
   }
 
@@ -228,7 +277,9 @@ export function TrainingExerciseEditModal({
   }
 
   const switchToDetailed = () => {
-    const setsCount = Math.max(1, Number(bulk.sets) || 1)
+    // 一括モードのセット数が空（＝前回記録ありでゴースト表示中）の場合は、
+    // 前回のセット数分の空カードを作る（各カードはゴースト placeholder 付き）。
+    const setsCount = Math.max(1, Number(bulk.sets) || Number(ghost?.bulk.setsCount) || 1)
     const comparable = toComparable(bulk.reps, bulk.weight)
     setDetailedSets(detailedInputFromComparable(detailedSetsFromBulk(setsCount, comparable.weight, comparable.reps)))
     setMode('detailed')
@@ -438,18 +489,6 @@ export function TrainingExerciseEditModal({
     const { setsCount, weight, reps } = bulkFromSets(comparable)
     previousHintText = `前回（${previousRecord.logDate}）: ${weight != null ? `${weight}kg` : '-'} × ${reps != null ? `${reps}回` : '-'} × ${setsCount}セット`
   }
-
-  // ゴースト入力（前回値プレースホルダー、2026年9月4日）：新規種目追加時のみ、
-  // 前回記録を重量・回数欄の placeholder として薄く表示する。ワンタップ確定は
-  // 既存の「前回の内容をコピー」ボタン（handleCopyPrevious）が担う。
-  const ghost = useMemo(
-    () =>
-      buildGhostPlaceholders(
-        previousRecord?.sets.map((set) => ({ weight: set.weight, reps: set.reps })) ?? null,
-        isNewExercise,
-      ),
-    [previousRecord, isNewExercise],
-  )
 
   return (
     <div className="calendar-detail__form">

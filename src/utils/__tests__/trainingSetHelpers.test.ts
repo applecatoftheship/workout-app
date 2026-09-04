@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { bulkFromSets, buildGhostPlaceholders, detailedSetsFromBulk, isUniformSets } from '../trainingSetHelpers'
+import {
+  bulkFromSets,
+  buildGhostPlaceholders,
+  detailedSetsFromBulk,
+  isUniformSets,
+  resolveInitialBulk,
+} from '../trainingSetHelpers'
 
 describe('isUniformSets', () => {
   it('0件はfalse（一括モードへの切替を無効化するため）', () => {
@@ -154,6 +160,35 @@ describe('buildGhostPlaceholders（トレーニング記録のゴースト入力
     expect(buildGhostPlaceholders([{ weight: null, reps: null }], true)).toEqual({
       bulk: { setsCount: '1', weight: '', reps: '' },
       detailed: [{ reps: '', weight: '' }],
+    })
+  })
+})
+
+describe('resolveInitialBulk（一括モードの初期値：前回記録あり/なしで切り替え）', () => {
+  const empty = { sets: '', reps: '', weight: '' }
+
+  it('新規追加 かつ 前回記録なし かつ 未入力：空欄を汎用既定値 3/10 で埋める（従来挙動を維持）', () => {
+    expect(resolveInitialBulk(false, true, empty, false)).toEqual({ sets: '3', reps: '10', weight: '' })
+  })
+
+  it('新規追加 かつ 前回記録あり：null を返す（空欄のまま前回値をゴースト表示させる）', () => {
+    expect(resolveInitialBulk(true, true, empty, false)).toBeNull()
+  })
+
+  it('編集時（isNewExercise=false）：null（ゴースト非表示・実値表示のまま）', () => {
+    expect(resolveInitialBulk(false, false, empty, false)).toBeNull()
+    expect(resolveInitialBulk(true, false, empty, false)).toBeNull()
+  })
+
+  it('ユーザーが既に手入力済み：null（3/10 で上書きしない）', () => {
+    expect(resolveInitialBulk(false, true, { sets: '5', reps: '', weight: '' }, true)).toBeNull()
+  })
+
+  it('既に値が入っている欄はそのまま、空欄だけを 3/10 で埋める', () => {
+    expect(resolveInitialBulk(false, true, { sets: '4', reps: '', weight: '50' }, false)).toEqual({
+      sets: '4',
+      reps: '10',
+      weight: '50',
     })
   })
 })

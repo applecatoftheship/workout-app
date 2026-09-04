@@ -80,3 +80,28 @@ export function buildGhostPlaceholders(
     })),
   }
 }
+
+export type BulkFormValues = { sets: string; reps: string; weight: string }
+
+// 一括モードの初期値を決める（ゴースト入力の追加対応、2026年9月4日）。
+// 汎用既定値 3/10 は「前回記録が無い場合のフォールバック」に格下げし、前回記録の
+// 取得結果が確定してから初期化する。返り値 null は「現在の bulk を変更しない」。
+//   - 編集時（isNewExercise=false）           → null
+//   - ユーザーが既に一括モードの欄を手入力済み → null（上書きしない）
+//   - 前回記録あり                            → null（空欄のまま placeholder でゴースト表示）
+//   - 新規追加 かつ 未入力 かつ 前回記録なし   → 空欄を 3/10 で埋めた値を返す（従来挙動）
+export function resolveInitialBulk(
+  hasPreviousRecord: boolean,
+  isNewExercise: boolean,
+  currentBulk: BulkFormValues,
+  userTouched: boolean,
+): BulkFormValues | null {
+  if (!isNewExercise || userTouched || hasPreviousRecord) {
+    return null
+  }
+  return {
+    sets: currentBulk.sets === '' ? '3' : currentBulk.sets,
+    reps: currentBulk.reps === '' ? '10' : currentBulk.reps,
+    weight: currentBulk.weight,
+  }
+}
