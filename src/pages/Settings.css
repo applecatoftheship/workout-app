@@ -149,6 +149,37 @@
   transform: translateX(18px);
 }
 
+/* 「今すぐ同期」ボタン追加（2026年9月5日）：Apple Health行はボタンが2つ並び、
+   「最終同期: 2026/09/05 …」の日時（改行不可トークン）も入るため、狭幅で
+   オーバーフローしやすい。この行だけ flex-wrap を許可し、幅が足りなければ
+   ボタン群を丸ごと次の行へ落とす（他の設定行のレイアウトには影響させない）。
+   ラベル側の縮小・折り返し制御は下記 .settings-row__text 参照。 */
+.settings-row--wrap {
+  flex-wrap: wrap;
+}
+
+/* min-width を持たせることで、幅が足りないとき flex-wrap がボタン群
+   （.settings-row__actions）を次の行へ送る判断をする。140px は
+   「最終同期: 2026/09/05 20:37」が日時トークンを崩さず2行に収まる目安。 */
+.settings-row__text {
+  flex: 1 1 auto;
+  min-width: 140px;
+}
+
+/* ボタン群は潰さず、次行に落ちたときは右寄せのまま横並び（狭ければ各ボタンが
+   さらに折り返す）。 */
+.settings-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  /* 親の justify-content:space-between は単独アイテムを主軸先頭（左）へ置くため、
+     次行へ落ちたボタン群が左寄せになってしまう。auto マージンで明示的に右寄せする
+     （同一行に収まる広い画面でも従来の右寄せ位置を維持）。 */
+  margin-left: auto;
+}
+
 /* 設定画面拡張Phase 2（2026年8月28日）：Apple Health連携ステータス案内 */
 .settings-guide {
   margin-top: 10px;

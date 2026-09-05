@@ -15,6 +15,12 @@ import { ChevronRightIcon } from '../components/icons'
 import { fetchProfile, upsertProfile } from '../api/profiles'
 import { ACCENT_COLOR_IDS, ACCENT_COLOR_LABELS, DEFAULT_ACCENT_COLOR } from '../utils/accentColor'
 import { formatSyncedAt } from '../utils/dateFormatHelpers'
+import {
+  APPLE_HEALTH_SYNC_SHORTCUT_NAME,
+  buildAppleHealthSyncUrl,
+  isIosDevice,
+  parseHealthSyncQuery,
+} from '../utils/appleHealthSyncHelpers'
 
 const ACCENT_SWATCH_COLORS: Record<AccentColorId, string> = {
   artdeco: '#E0524A',
@@ -83,8 +89,47 @@ export function Settings({
   const { user, signOut, updateEmail, updatePassword } = useAuth()
   const [isSavingPreference, setIsSavingPreference] = useState(false)
 
-  // 設定画面拡張 Phase 2（2026年8月28日）：Apple Health連携ステータス（未同期時の案内）
+  // 設定画面拡張 Phase 2（2026年8月28日）：Apple Health連携ステータス（案内）
   const [isAppleHealthGuideOpen, setIsAppleHealthGuideOpen] = useState(false)
+
+  // 「今すぐ同期」ボタン（2026年9月5日）：iOS以外では意味がないため非表示にする。
+  // navigatorはブラウザ実行時のみ参照するSPAのため、レンダーごとの再計算コストは無視できる。
+  const showAppleHealthSyncButton = isIosDevice({
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    maxTouchPoints: navigator.maxTouchPoints,
+  })
+
+  const handleAppleHealthSyncClick = () => {
+    window.location.href = buildAppleHealthSyncUrl(window.location.origin)
+  }
+
+  // Shortcutsのx-callback-urlから戻ってきた直後（マウント時）にクエリパラメータを
+  // 読み、結果をトースト表示する。読み取り後はhistory.replaceStateでクエリを
+  // 消し、リロードで再発火しないようにする。
+  useEffect(() => {
+    const result = parseHealthSyncQuery(window.location.search)
+    if (!result) {
+      return
+    }
+
+    if (result.status === 'success') {
+      showToast('同期しました', 'success')
+      fetchProfile()
+        .then((updated) => setProfile(updated))
+        .catch((error) => {
+          console.error('同期後のプロフィール再取得に失敗しました', error)
+        })
+    } else {
+      showToast(result.errorMessage ? `同期に失敗しました（${result.errorMessage}）` : '同期に失敗しました', 'error')
+    }
+
+    const url = new URL(window.location.href)
+    url.searchParams.delete('healthSync')
+    url.searchParams.delete('errorMessage')
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 設定画面拡張 Phase 2（2026年8月28日）：セキュリティ・アカウント（メール変更）
   const [newEmail, setNewEmail] = useState('')
@@ -317,20 +362,25 @@ export function Settings({
 
       <section className="panel-card">
         <h3 className="settings-section__title">データ連携</h3>
-        <div className="settings-row">
-          <div>
+        <div className="settings-row settings-row--wrap">
+          <div className="settings-row__text">
             <p className="settings-row__label">Apple Health</p>
             <p className="settings-row__description">
               {profile?.appleHealthLastSyncedAt ? `最終同期: ${formatSyncedAt(profile.appleHealthLastSyncedAt)}` : '未同期'}
             </p>
           </div>
-          {!profile?.appleHealthLastSyncedAt && (
+          <div className="settings-row__actions">
+            {showAppleHealthSyncButton && (
+              <button type="button" className="btn-secondary" onClick={handleAppleHealthSyncClick}>
+                今すぐ同期
+              </button>
+            )}
             <button type="button" className="btn-secondary" onClick={() => setIsAppleHealthGuideOpen((current) => !current)}>
               連携手順を見る
             </button>
-          )}
+          </div>
         </div>
-        {isAppleHealthGuideOpen && !profile?.appleHealthLastSyncedAt && (
+        {isAppleHealthGuideOpen && (
           <div className="settings-guide">
             <p className="settings-guide__title">iOSショートカットでの連携手順（概要）</p>
             <ol className="settings-guide__list">
@@ -338,6 +388,7 @@ export function Settings({
               <li>「ヘルスケア」アクションで睡眠・ワークアウトのデータを取得する</li>
               <li>取得したデータを本アプリの連携用エンドポイントへPOST送信するアクションを追加する</li>
               <li>送信先URLと認証ヘッダー（x-webhook-secret）は開発者にご確認ください</li>
+              <li>「今すぐ同期」ボタンを使うには、上記とは別に『{APPLE_HEALTH_SYNC_SHORTCUT_NAME}』という名前の手動実行用ショートカットもあらかじめ作成しておく必要があります</li>
             </ol>
           </div>
         )}

@@ -6,6 +6,8 @@ import {
   isFiniteNonNegative,
   isUnspecified,
   isValidDateKey,
+  resolveMetricsLogDate,
+  toJstDateKey,
   validateMetricsPayloadShape,
 } from '../healthMetricsHelpers'
 import type { MetricsPayload } from '../healthMetricsHelpers'
@@ -30,6 +32,28 @@ describe('isValidDateKey', () => {
     expect(isValidDateKey(undefined)).toBe(false)
     expect(isValidDateKey(null)).toBe(false)
     expect(isValidDateKey(20260903)).toBe(false)
+  })
+})
+
+describe('toJstDateKey', () => {
+  it('UTC時刻をJST（UTC+9）の暦日に変換する', () => {
+    expect(toJstDateKey('2026-09-05T14:59:00.000Z')).toBe('2026-09-05') // JST 23:59
+    expect(toJstDateKey('2026-09-05T15:00:00.000Z')).toBe('2026-09-06') // JST 翌日00:00
+  })
+})
+
+describe('resolveMetricsLogDate（今すぐ同期ボタンからの手動起動でdate未送信の場合の日付決定）', () => {
+  const nowIso = '2026-09-05T20:15:00.000Z' // JST 2026-09-06 05:15
+
+  it('dateが指定されていればその値をそのまま使う', () => {
+    expect(resolveMetricsLogDate({ date: '2026-09-01' }, nowIso)).toBe('2026-09-01')
+  })
+
+  it('date未指定・null・""なら受信時点（nowIso）のJST暦日を使う', () => {
+    expect(resolveMetricsLogDate({}, nowIso)).toBe('2026-09-06')
+    expect(resolveMetricsLogDate({ date: null }, nowIso)).toBe('2026-09-06')
+    expect(resolveMetricsLogDate({ date: '' }, nowIso)).toBe('2026-09-06')
+    expect(resolveMetricsLogDate({ date: undefined }, nowIso)).toBe('2026-09-06')
   })
 })
 
@@ -98,9 +122,16 @@ describe('validateMetricsPayloadShape', () => {
     expect(validateMetricsPayloadShape(validBase)).toBeNull()
   })
 
-  it('dateが無効なら date のエラーを返す', () => {
+  it('dateが指定されていて形式が無効ならエラーを返す', () => {
     expect(validateMetricsPayloadShape({ ...validBase, date: '2026-02-30' })).toMatch(/date/)
-    expect(validateMetricsPayloadShape({ ...validBase, date: undefined })).toMatch(/date/)
+    expect(validateMetricsPayloadShape({ ...validBase, date: '2026/09/03' })).toMatch(/date/)
+  })
+
+  it('date未指定・null・""はエラーにならない（2026年9月5日改定：受信時点のJST暦日を後段で自動補完するため）', () => {
+    expect(validateMetricsPayloadShape({ ...validBase, date: undefined })).toBeNull()
+    expect(validateMetricsPayloadShape({ ...validBase, date: null })).toBeNull()
+    expect(validateMetricsPayloadShape({ ...validBase, date: '' })).toBeNull()
+    expect(validateMetricsPayloadShape({ steps: 9821 })).toBeNull() // dateキー自体が無い場合
   })
 
   it('数値項目が負数・非数値ならその項目名でエラーを返す', () => {

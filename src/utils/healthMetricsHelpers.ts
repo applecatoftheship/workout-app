@@ -13,7 +13,11 @@
 
 export type MetricsPayload = {
   type: 'metrics'
-  date: string
+  // 2026年9月5日改定：アプリ内「今すぐ同期」ボタン（ショートカット手動起動）は
+  // 送信時点＝ユーザーが今見ている日のデータのため、送信元がdateを組み立てる
+  // 必要が無いよう任意項目にした。未指定（undefined/null/""）の場合は
+  // resolveMetricsLogDateが受信時点のJST暦日を自動的に使う。
+  date?: string
   resting_heart_rate?: number
   hrv_ms?: number
   steps?: number
@@ -75,14 +79,18 @@ export function hasAnyMetric(payload: {
 
 // type:"metrics" ペイロードの形をチェックし、問題があればエラーメッセージを、
 // 問題なければ null を返す（api/sync-apple-health.ts 側で ValidationError に変換する）。
-//   - date は必須、YYYY-MM-DD形式かつ実在する日付
+//   - date は任意。指定する場合はYYYY-MM-DD形式かつ実在する日付である必要がある
+//     （2026年9月5日改定：未指定/null/""は「未指定」として許容し、
+//     resolveMetricsLogDateが受信時点のJST暦日を後段で自動的に補完するため、
+//     ここではエラーにしない。アプリ内「今すぐ同期」ボタンはdateを送らずに
+//     呼び出す）
 //   - 他5項目は任意。null/""は「未指定」として無視する（欠測日の値がこの形で
 //     届くため、1項目でも欠測しているとリクエスト全体を400で落としてしまう
 //     不具合の修正、2026年9月4日）。指定されている場合のみ有限の数値かつ0以上を要求
 //   - 5項目が1つも指定されていなければエラー（空行防止）
 export function validateMetricsPayloadShape(payload: Record<string, unknown>): string | null {
-  if (!isValidDateKey(payload.date)) {
-    return 'date is required and must be a valid YYYY-MM-DD date'
+  if (!isUnspecified(payload.date) && !isValidDateKey(payload.date)) {
+    return 'date must be a valid YYYY-MM-DD date if provided'
   }
   for (const field of ALL_NUMERIC_FIELDS) {
     if (!isUnspecified(payload[field]) && !isFiniteNonNegative(payload[field])) {
@@ -93,6 +101,37 @@ export function validateMetricsPayloadShape(payload: Record<string, unknown>): s
     return 'at least one metric (resting_heart_rate, hrv_ms, steps, active_energy_kcal, weight_kg) must be provided'
   }
   return null
+}
+
+// UTC ISO文字列をJST（UTC+9固定、サマータイムなし）の暦日（YYYY-MM-DD）に変換する。
+// api/sync-apple-health.ts内の同名関数（sleep/workout用）と同じ考え方の実装だが、
+// api/**/*.tsはvitestのテスト対象外（vitest.config.tsのincludeがsrc/**/*.test.tsの
+// みのため）なので、resolveMetricsLogDateからテスト可能な形でこちらに複製している
+// （意図的な重複。nameMatching.tsのmatchByNameWithFallback移設時とは異なり、
+// Node専用コードとブラウザ/vitest対応コードが別ファイル系統にある構造上の制約のため）。
+export function toJstDateKey(isoString: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(isoString))
+  const year = parts.find((part) => part.type === 'year')?.value
+  const month = parts.find((part) => part.type === 'month')?.value
+  const day = parts.find((part) => part.type === 'day')?.value
+  return `${year}-${month}-${day}`
+}
+
+// type:"metrics"の実際の保存先日付を決定する（2026年9月5日追加）。
+// dateが指定されていればその値をそのまま使い、未指定（undefined/null/""）なら
+// nowIso（呼び出し元がnew Date().toISOString()を渡す想定）のJST暦日を使う。
+// バリデーション（形式チェック）はvalidateMetricsPayloadShape側の責務のため、
+// ここでは呼び出し前にバリデーション済みであることを前提とする。
+export function resolveMetricsLogDate(payload: { date?: unknown }, nowIso: string): string {
+  if (isUnspecified(payload.date)) {
+    return toJstDateKey(nowIso)
+  }
+  return payload.date as string
 }
 
 // health_metrics へのupsert行を組み立てる。

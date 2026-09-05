@@ -24,7 +24,8 @@
 //     "end_time"?: string, "duration_seconds"?: number,
 //     "distance_meters"?: number, "active_calories"?: number,
 //     "avg_heart_rate"?: number }
-//   { "type": "metrics", "date": string(YYYY-MM-DD, JST暦日),
+//   { "type": "metrics", "date"?: string(YYYY-MM-DD, JST暦日。省略時は受信時点の
+//     JST暦日を自動的に使う。2026年9月5日改定、下記コメント参照),
 //     "resting_heart_rate"?: number, "hrv_ms"?: number, "steps"?: number,
 //     "active_energy_kcal"?: number, "weight_kg"?: number }
 //
@@ -48,11 +49,21 @@
 // （YYYY-MM-DD）をそのまま受け取る（送信元のオートメーションが「前日分」を
 // 暦日単位で確定させて送ってくるため、toJstDateKeyによるタイムスタンプ→暦日
 // 変換が不要）。
+//
+// 【2026年9月5日追加：dateの任意化】アプリ内の「今すぐ同期」ボタン
+// （src/pages/Settings.tsx、Shortcutsのx-callback-url経由でショートカットを
+// 手動起動する運用）は、朝の自動オートメーションと違って「前日分」ではなく
+// 「送信時点＝今日」のデータを送るため、送信元（ショートカット側）にdateの
+// 組み立てロジックを持たせる必要が無いよう任意項目にした。dateが未指定
+// （undefined/null/""）の場合は、src/utils/healthMetricsHelpers.tsの
+// resolveMetricsLogDateが受信時点（サーバー側のnew Date()）のJST暦日を
+// 自動的に使う。
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildHealthMetricsRow,
   buildWeightUpsertRow,
+  resolveMetricsLogDate,
   validateMetricsPayloadShape,
 } from '../src/utils/healthMetricsHelpers.js'
 import type { MetricsPayload } from '../src/utils/healthMetricsHelpers.js'
@@ -190,13 +201,15 @@ async function handleSleep(supabase: SupabaseClient, userId: string, payload: Sl
 // buildWeightUpsertRow）に切り出してあり、ここではその結果をSupabaseへ投げるだけ。
 // validateMetricsPayloadShapeが「5項目のうち最低1つは存在する」ことを保証しているため、
 // savedMetrics・savedWeightの少なくとも一方は必ずtrueになる。
+// dateはresolveMetricsLogDateで解決する（指定されていればその値、未指定なら
+// 受信時点のJST暦日。2026年9月5日追加、詳細は上部コメント参照）。
 async function handleMetrics(
   supabase: SupabaseClient,
   userId: string,
   payload: MetricsPayload,
-): Promise<{ savedMetrics: boolean; savedWeight: boolean }> {
-  const logDate = payload.date
+): Promise<{ savedMetrics: boolean; savedWeight: boolean; logDate: string }> {
   const now = new Date().toISOString()
+  const logDate = resolveMetricsLogDate(payload, now)
 
   const metricsRow = buildHealthMetricsRow(payload, userId, logDate, now)
   let savedMetrics = false
@@ -223,7 +236,7 @@ async function handleMetrics(
     savedWeight = true
   }
 
-  return { savedMetrics, savedWeight }
+  return { savedMetrics, savedWeight, logDate }
 }
 
 type WorkoutRow = { id: string; notes: string | null }
@@ -396,7 +409,13 @@ export default async function handler(
       validateMetricsPayload(payload)
       const result = await handleMetrics(supabase, syncUserId, payload)
       await updateLastSyncedAt(supabase, syncUserId)
-      res.status(200).json({ ok: true, type: 'metrics', synced: payload.date, ...result })
+      res.status(200).json({
+        ok: true,
+        type: 'metrics',
+        synced: result.logDate,
+        savedMetrics: result.savedMetrics,
+        savedWeight: result.savedWeight,
+      })
       return
     }
 
