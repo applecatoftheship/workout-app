@@ -4,6 +4,7 @@ import {
   buildWeightUpsertRow,
   hasAnyMetric,
   isFiniteNonNegative,
+  isUnspecified,
   isValidDateKey,
   validateMetricsPayloadShape,
 } from '../healthMetricsHelpers'
@@ -49,6 +50,21 @@ describe('isFiniteNonNegative', () => {
   })
 })
 
+describe('isUnspecified（欠測日にiOSショートカットから届くnull/""の扱い）', () => {
+  it('undefined・null・空文字列は「未指定」', () => {
+    expect(isUnspecified(undefined)).toBe(true)
+    expect(isUnspecified(null)).toBe(true)
+    expect(isUnspecified('')).toBe(true)
+  })
+
+  it('0・空でない文字列・その他の値は「未指定」ではない', () => {
+    expect(isUnspecified(0)).toBe(false)
+    expect(isUnspecified('0')).toBe(false)
+    expect(isUnspecified(false)).toBe(false)
+    expect(isUnspecified(52)).toBe(false)
+  })
+})
+
 describe('hasAnyMetric', () => {
   it('5項目すべて未指定なら false', () => {
     expect(hasAnyMetric({})).toBe(false)
@@ -60,6 +76,18 @@ describe('hasAnyMetric', () => {
     expect(hasAnyMetric({ steps: 9821 })).toBe(true)
     expect(hasAnyMetric({ active_energy_kcal: 512 })).toBe(true)
     expect(hasAnyMetric({ weight_kg: 72.3 })).toBe(true)
+  })
+
+  it('null・""（欠測扱い）は「指定あり」に数えない', () => {
+    expect(hasAnyMetric({ hrv_ms: null })).toBe(false)
+    expect(hasAnyMetric({ hrv_ms: '' })).toBe(false)
+    expect(hasAnyMetric({ resting_heart_rate: null, hrv_ms: '', steps: null, active_energy_kcal: '', weight_kg: null })).toBe(
+      false,
+    )
+  })
+
+  it('他の項目がnull/""でも、1項目でも実値があれば true', () => {
+    expect(hasAnyMetric({ hrv_ms: null, steps: 9821 })).toBe(true)
   })
 })
 
@@ -87,6 +115,37 @@ describe('validateMetricsPayloadShape', () => {
 
   it('weight_kg のみの指定でも有効（health_metrics側は空でよい）', () => {
     expect(validateMetricsPayloadShape({ type: 'metrics', date: '2026-09-03', weight_kg: 72.3 })).toBeNull()
+  })
+
+  it('欠測（null/""）の項目はエラーにせず無視する（1項目欠測でリクエスト全体を400にしない）', () => {
+    // HRVが欠測（腕時計未装着で就寝した日等）でも、他の実値がある指標は保存対象になる。
+    expect(
+      validateMetricsPayloadShape({ type: 'metrics', date: '2026-09-03', hrv_ms: null, steps: 9821 }),
+    ).toBeNull()
+    expect(
+      validateMetricsPayloadShape({ type: 'metrics', date: '2026-09-03', hrv_ms: '', resting_heart_rate: 52 }),
+    ).toBeNull()
+  })
+
+  it('5項目すべてnull/""なら「1件も含まれない」エラー（空行防止）', () => {
+    expect(
+      validateMetricsPayloadShape({
+        type: 'metrics',
+        date: '2026-09-03',
+        resting_heart_rate: null,
+        hrv_ms: '',
+        steps: null,
+        active_energy_kcal: '',
+        weight_kg: null,
+      }),
+    ).toMatch(/at least one metric/)
+  })
+
+  it('値が入っているのに数値でない場合（"abc"・負数等）は従来どおりエラー', () => {
+    expect(validateMetricsPayloadShape({ type: 'metrics', date: '2026-09-03', hrv_ms: 'abc', steps: 9821 })).toMatch(
+      /hrv_ms/,
+    )
+    expect(validateMetricsPayloadShape({ type: 'metrics', date: '2026-09-03', steps: -1 })).toMatch(/steps/)
   })
 })
 
@@ -141,6 +200,33 @@ describe('buildHealthMetricsRow（送られてきた項目だけを含める）'
     const row = buildHealthMetricsRow(payload, userId, logDate, now)
     expect(row).toMatchObject({ steps: 0 })
   })
+
+  it('null/""（欠測扱い）の項目はrowに含めない（既存値を消さない）', () => {
+    const payload = {
+      type: 'metrics',
+      date: logDate,
+      hrv_ms: null,
+      active_energy_kcal: '',
+      steps: 9821,
+    } as unknown as MetricsPayload
+    const row = buildHealthMetricsRow(payload, userId, logDate, now)
+    expect(row).toEqual({ user_id: userId, log_date: logDate, updated_at: now, steps: 9821 })
+    expect(row).not.toHaveProperty('hrv_ms')
+    expect(row).not.toHaveProperty('active_energy_kcal')
+  })
+
+  it('4項目すべてnull/""なら null（weight_kgのみ実値がある場合を含む）', () => {
+    const payload = {
+      type: 'metrics',
+      date: logDate,
+      resting_heart_rate: null,
+      hrv_ms: '',
+      steps: null,
+      active_energy_kcal: '',
+      weight_kg: 72.3,
+    } as unknown as MetricsPayload
+    expect(buildHealthMetricsRow(payload, userId, logDate, now)).toBeNull()
+  })
 })
 
 describe('buildWeightUpsertRow（daily_conditions.weight の部分列upsert）', () => {
@@ -156,5 +242,12 @@ describe('buildWeightUpsertRow（daily_conditions.weight の部分列upsert）',
   it('weight_kg が未指定なら null（sleep_hours等の他の列を巻き込まない）', () => {
     const payload: MetricsPayload = { type: 'metrics', date: '2026-09-03', steps: 9821 }
     expect(buildWeightUpsertRow(payload, 'user-1', '2026-09-03')).toBeNull()
+  })
+
+  it('weight_kg が null/""（欠測扱い）でも null', () => {
+    const nullPayload = { type: 'metrics', date: '2026-09-03', weight_kg: null } as unknown as MetricsPayload
+    const emptyPayload = { type: 'metrics', date: '2026-09-03', weight_kg: '' } as unknown as MetricsPayload
+    expect(buildWeightUpsertRow(nullPayload, 'user-1', '2026-09-03')).toBeNull()
+    expect(buildWeightUpsertRow(emptyPayload, 'user-1', '2026-09-03')).toBeNull()
   })
 })

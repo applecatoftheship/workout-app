@@ -74,6 +74,14 @@ training_schedulesからの直接取得に置き換え済み（下記参照）�
 
 - 新規テーブルを作ったら、必ず先に grant とRLSポリシーを設定してから動作確認する。
   後付けにすると 401 / 42501 エラーの原因調査に時間がかかる。
+- 新規テーブルを作成するマイグレーションには、必ず
+  `revoke all on <table> from service_role;` → `grant <必要な操作> on <table> to service_role;`
+  の順で書く。Supabaseは新規テーブルに REFERENCES/TRIGGER/TRUNCATE を自動付与するため、
+  grant だけでは過剰権限が残る（2026年9月4日、health_metrics新設時の調査で判明。
+  2026年8月29日の過剰権限監査ではsoccer_logsのみ是正し、その後新設した
+  workouts・profiles・user_badgesには再び自動付与されたまま運用されている
+  （health_metricsは新設時に本ルールに沿って是正済み）。実害があるのはTRUNCATEの
+  みで緊急性は低いため、workouts・profiles・user_badgesの一括是正はバックログとする）。
 - スキーマ変更は Supabase の SQL Editor で実行する。Claude Codeから直接
   Supabaseへは接続していないため、SQLは必ず人間が手動で実行する。
 - 本番と開発が同一プロジェクトのため、スキーマ変更は即座に本番へ反映される。

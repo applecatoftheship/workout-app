@@ -47,9 +47,22 @@ export function isFiniteNonNegative(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
+// 「未指定」とみなす値かどうか（2026年9月4日追加）。
+// 送信元のiOSショートカットは「ヘルスケアサンプルを検索」結果が0件（HRVを
+// 腕時計を着けずに寝た日等、欠測は日常的に発生する）の場合、辞書アクションの
+// 値が空になり "hrv_ms": null や "hrv_ms": "" の形で届く。これらは undefined と
+// 同じ「その項目は送られてこなかった」として扱い、エラーにも既存値の上書きにも
+// しない（数値の文字列化 "9821" 等への対応は不要。sleep/workoutが typeof==='number'
+// の厳密判定で本番稼働できており、送信元が正しい型のJSON数値を送れることは
+// 確認済みのため）。
+export function isUnspecified(value: unknown): boolean {
+  return value === undefined || value === null || value === ''
+}
+
 // 5項目（resting_heart_rate・hrv_ms・steps・active_energy_kcal・weight_kg）の
-// うち1つでも指定されているか。全て未指定（type・dateのみ）の場合、
-// 空行を作らないよう呼び出し元で400にする判定に使う。
+// うち1つでも指定されているか（null/""は「未指定」扱いで数えない）。
+// 全て未指定（type・dateのみ、または全項目がnull/""）の場合、空行を作らないよう
+// 呼び出し元で400にする判定に使う。
 export function hasAnyMetric(payload: {
   resting_heart_rate?: unknown
   hrv_ms?: unknown
@@ -57,20 +70,22 @@ export function hasAnyMetric(payload: {
   active_energy_kcal?: unknown
   weight_kg?: unknown
 }): boolean {
-  return ALL_NUMERIC_FIELDS.some((field) => payload[field] !== undefined)
+  return ALL_NUMERIC_FIELDS.some((field) => !isUnspecified(payload[field]))
 }
 
 // type:"metrics" ペイロードの形をチェックし、問題があればエラーメッセージを、
 // 問題なければ null を返す（api/sync-apple-health.ts 側で ValidationError に変換する）。
 //   - date は必須、YYYY-MM-DD形式かつ実在する日付
-//   - 他5項目は任意。指定時は有限の数値かつ0以上
+//   - 他5項目は任意。null/""は「未指定」として無視する（欠測日の値がこの形で
+//     届くため、1項目でも欠測しているとリクエスト全体を400で落としてしまう
+//     不具合の修正、2026年9月4日）。指定されている場合のみ有限の数値かつ0以上を要求
 //   - 5項目が1つも指定されていなければエラー（空行防止）
 export function validateMetricsPayloadShape(payload: Record<string, unknown>): string | null {
   if (!isValidDateKey(payload.date)) {
     return 'date is required and must be a valid YYYY-MM-DD date'
   }
   for (const field of ALL_NUMERIC_FIELDS) {
-    if (payload[field] !== undefined && !isFiniteNonNegative(payload[field])) {
+    if (!isUnspecified(payload[field]) && !isFiniteNonNegative(payload[field])) {
       return `${field} must be a non-negative finite number if provided`
     }
   }
@@ -99,12 +114,14 @@ export function buildHealthMetricsRow(
   let hasAny = false
   for (const field of HEALTH_METRIC_FIELDS) {
     const value = payload[field]
-    if (value === undefined) {
+    // null/""（欠測日にiOSショートカットから届く「未指定」の表現）も
+    // undefined と同様にスキップする（2026年9月4日）。
+    if (isUnspecified(value)) {
       continue
     }
     // stepsはDB上integer列のため、小数で送られてきても丸めて渡す
     // （HealthKitの歩数は本来整数だが、送信元での丸め誤差等に備えた保険）。
-    row[field] = field === 'steps' ? Math.round(value) : value
+    row[field] = field === 'steps' ? Math.round(value as number) : value
     hasAny = true
   }
   return hasAny ? row : null
@@ -118,8 +135,9 @@ export function buildWeightUpsertRow(
   userId: string,
   logDate: string,
 ): { user_id: string; log_date: string; weight: number } | null {
-  if (payload.weight_kg === undefined) {
+  // null/""（欠測扱い）も未指定として扱う（2026年9月4日）。
+  if (isUnspecified(payload.weight_kg)) {
     return null
   }
-  return { user_id: userId, log_date: logDate, weight: payload.weight_kg }
+  return { user_id: userId, log_date: logDate, weight: payload.weight_kg as number }
 }

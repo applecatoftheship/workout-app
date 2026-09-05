@@ -42,6 +42,17 @@ create table if not exists health_metrics (
 grant select, insert, update, delete on health_metrics to authenticated;
 grant select, insert, update on health_metrics to service_role;
 
+-- ===== 2b. service_role の過剰権限を是正（実行済み・2026年9月4日） =====
+-- Supabaseは新規テーブル作成時に service_role へ REFERENCES / TRIGGER / TRUNCATE を
+-- 自動付与する。2026-08-29の過剰権限監査ではこの3権限を不要と判断して soccer_logs から
+-- 剥奪したが、その後に作成した workouts・profiles・user_badges には付き直している。
+-- 実害があるのは TRUNCATE のみで緊急性は低いため、既存テーブルの一括是正はバックログとする。
+-- health_metrics は新設時点でこのrevoke/grantを実行し、過剰権限が残らない状態にする。
+begin;
+revoke all on health_metrics from service_role;
+grant select, insert, update on health_metrics to service_role;
+commit;
+
 -- ===== 3. RLS有効化（workouts と同一パターン） =====
 alter table health_metrics enable row level security;
 
