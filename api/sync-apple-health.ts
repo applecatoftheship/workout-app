@@ -3,9 +3,11 @@
 // エンドポイント。api/send-reminder.tsと同じくservice_roleでSupabaseへ接続する
 // Vercel Serverless Functionパターンを踏襲している。
 //
-// 【認証】ユーザーの実セッションを持たない外部呼び出しのため、リクエストヘッダー
-// x-webhook-secretを環境変数APPLE_HEALTH_SYNC_SECRETと比較して認証する
-// （Vercel Cronのbearerトークン検証と同種の共有シークレット方式）。
+// 【認証】ユーザーの実セッションを持たない外部呼び出しのため、リクエストヘッダーの
+// 共有シークレットを環境変数APPLE_HEALTH_SYNC_SECRETと比較して認証する
+// （Vercel Cronのbearerトークン検証と同種の方式）。ヘッダー名は x-webhook-secret
+// または X-API-Key（Health Data Tracker が送るヘッダー名、2026年9月7日追加）の
+// どちらか一方が一致すればよい。大文字小文字は区別しない（isAuthorizedBySharedSecret）。
 //
 // 【ユーザー特定】このアプリは実質単一ユーザー運用のため、環境変数
 // APPLE_HEALTH_SYNC_USER_IDに対象ユーザーの実UUIDを直接設定する方式とした。
@@ -31,6 +33,10 @@
 //   （type無し）Health Auto Export形式（2026年9月6日追加、下記コメント参照）：
 //     { "data": { "metrics": [ { "name": string(snake_case), "units": string,
 //       "data": [ { "qty": number, "date": string("yyyy-MM-dd HH:mm:ss Z") } ] } ] } }
+//   （type無し）Health Data Tracker形式（2026年9月7日追加、下記コメント参照。
+//     ヘッダは X-API-Key、1リクエスト＝サンプル1件）：
+//     { "time": string(日付), "cargo_id": string(Apple表示名), "ship_id": string,
+//       "value": number }
 //
 // 【2026年8月27日改修】Apple純正Shortcutsの制約上、ワークアウトは当面
 // type・distance_meters・start_timeの3項目のみが送られてくる運用に変更された。
@@ -86,6 +92,12 @@ import {
 } from '../src/utils/healthAutoExportHelpers.js'
 import type { HealthAutoExportPayload } from '../src/utils/healthAutoExportHelpers.js'
 import { summarizePayloadShape, topLevelKeysOf } from '../src/utils/payloadDiagnostics.js'
+import {
+  isAuthorizedBySharedSecret,
+  isHealthDataTrackerPayload,
+  parseHealthDataTrackerSample,
+} from '../src/utils/healthDataTrackerHelpers.js'
+import type { HealthDataTrackerTargetField } from '../src/utils/healthDataTrackerHelpers.js'
 
 type SleepPayload = {
   type: 'sleep'
@@ -379,6 +391,89 @@ async function handleHealthAutoExport(
   }
 }
 
+// Health Data Tracker 形式（2026年9月7日追加）：type も data.metrics も無く cargo_id と
+// value を持つフラットなペイロード。1リクエスト＝ヘルスケアサンプル1件。
+// パース・cargo_id照合・日付変換は src/utils/healthDataTrackerHelpers.ts の
+// parseHealthDataTrackerSample（純粋関数）に切り出してあり、ここではその結果を
+// handleMetrics と同じ部分列upsert（buildHealthMetricsRow / buildWeightUpsertRow を
+// 再利用）でSupabaseへ投げるだけ。
+//
+// 【後勝ち】1リクエスト＝1サンプルのため、同じ日に複数回届いた指標は upsert により
+// 後勝ち（最後の値で上書き）になる。steps / active_energy_kcal は本来「その日の合計」
+// だがこの経路では合計できない（対応表には含めるが正確な集計には Health Auto Export
+// 経路が必要。healthDataTrackerHelpers.ts のコメント参照）。
+// 【防御的挙動】未対応の cargo_id・パース不能な time・不正な value でも 200 を返す
+// （ショートカットが「各項目を繰り返す」ループの途中で止まらないようにするため）。
+async function handleHealthDataTracker(
+  supabase: SupabaseClient,
+  userId: string,
+  payload: Record<string, unknown>,
+): Promise<
+  | { status: 'saved'; savedField: HealthDataTrackerTargetField; logDate: string }
+  | { status: 'unrecognized_cargo'; cargoId: unknown }
+  | { status: 'skipped'; reason: string; logDate?: string }
+> {
+  const now = new Date().toISOString()
+  // このファイル内の toJstDateKey（sleep/workout用に定義済み）をそのまま使う。
+  const parsed = parseHealthDataTrackerSample(payload, toJstDateKey(now))
+
+  if (parsed.status === 'unrecognized_cargo') {
+    console.warn('Health Data Tracker：未対応の cargo_id を無視しました:', parsed.cargoId)
+    return { status: 'unrecognized_cargo', cargoId: payload.cargo_id }
+  }
+  if (parsed.status === 'unparseable_time') {
+    console.warn(
+      'Health Data Tracker：time をパースできずスキップしました（cargo_id:',
+      parsed.cargoId,
+      '）:',
+      typeof payload.time === 'string' ? payload.time : String(payload.time),
+    )
+    return { status: 'skipped', reason: 'unparseable time' }
+  }
+  if (parsed.status === 'invalid_value') {
+    console.warn('Health Data Tracker：value が不正でスキップしました（cargo_id:', parsed.cargoId, '）')
+    return { status: 'skipped', reason: 'invalid value' }
+  }
+  if (parsed.status === 'weight_date_too_old') {
+    console.warn('Health Data Tracker：受信時点から3日以上前の体重をスキップしました:', parsed.logDate)
+    return { status: 'skipped', reason: 'weight date too old', logDate: parsed.logDate }
+  }
+
+  // status === 'ok'
+  const pseudoPayload: MetricsPayload = {
+    type: 'metrics',
+    resting_heart_rate: parsed.field === 'resting_heart_rate' ? parsed.value : undefined,
+    hrv_ms: parsed.field === 'hrv_ms' ? parsed.value : undefined,
+    steps: parsed.field === 'steps' ? parsed.value : undefined,
+    active_energy_kcal: parsed.field === 'active_energy_kcal' ? parsed.value : undefined,
+    weight_kg: parsed.field === 'weight_kg' ? parsed.value : undefined,
+  }
+
+  if (parsed.field === 'weight_kg') {
+    const weightRow = buildWeightUpsertRow(pseudoPayload, userId, parsed.logDate)
+    if (weightRow) {
+      const { error } = await supabase
+        .from('daily_conditions')
+        .upsert(weightRow, { onConflict: 'user_id,log_date' })
+      if (error) {
+        throw error
+      }
+    }
+  } else {
+    const metricsRow = buildHealthMetricsRow(pseudoPayload, userId, parsed.logDate, now)
+    if (metricsRow) {
+      const { error } = await supabase
+        .from('health_metrics')
+        .upsert(metricsRow, { onConflict: 'user_id,log_date' })
+      if (error) {
+        throw error
+      }
+    }
+  }
+
+  return { status: 'saved', savedField: parsed.field, logDate: parsed.logDate }
+}
+
 type WorkoutRow = { id: string; notes: string | null }
 
 async function handleWorkout(supabase: SupabaseClient, userId: string, payload: WorkoutPayload): Promise<{ mergedManualId: string | null; selfDedupId: string | null }> {
@@ -514,8 +609,9 @@ export default async function handler(
     return
   }
 
-  const providedSecret = req.headers['x-webhook-secret']
-  if (providedSecret !== webhookSecret) {
+  // x-webhook-secret（既存）と X-API-Key（Health Data Tracker）のどちらか一方でも
+  // APPLE_HEALTH_SYNC_SECRET と一致すれば認証成功。ヘッダー名の大文字小文字は区別しない。
+  if (!isAuthorizedBySharedSecret(req.headers, webhookSecret)) {
     res.status(401).json({ error: 'unauthorized' })
     return
   }
@@ -529,13 +625,16 @@ export default async function handler(
     return
   }
 
-  // Health Auto Export（type が無く data.metrics 配列）を先に判別する。
-  // 既存3種別（type付き）とは排他のため、既存の分岐・挙動には影響しない。
+  // 既存3種別（type付き）以外の2形式を判別する。いずれも type を持たず、
+  // Health Auto Export は data.metrics 配列を持つ／Health Data Tracker は cargo_id と
+  // value を持つ、という排他条件のため、既存の分岐・挙動には影響しない。
   const isHealthAutoExport = isHealthAutoExportPayload(payload)
+  const isHealthDataTracker = !isHealthAutoExport && isHealthDataTrackerPayload(payload)
 
   if (
     !payload ||
     (!isHealthAutoExport &&
+      !isHealthDataTracker &&
       payload.type !== 'sleep' &&
       payload.type !== 'workout' &&
       payload.type !== 'metrics')
@@ -551,7 +650,7 @@ export default async function handler(
     )
     res.status(400).json({
       error:
-        'invalid payload: expected type "sleep" | "workout" | "metrics", or a Health Auto Export payload (data.metrics array, no type)',
+        'invalid payload: expected type "sleep" | "workout" | "metrics", a Health Auto Export payload (data.metrics array), or a Health Data Tracker payload (cargo_id + value)',
       receivedKeys: topLevelKeysOf(shapeSummary),
     })
     return
@@ -578,6 +677,38 @@ export default async function handler(
         skippedUnitMetrics: result.skippedUnitMetrics,
         skippedOldWeightDates: result.skippedOldWeightDates,
         ...(result.savedAny ? {} : { warning: 'no recognized metrics were saved' }),
+      })
+      return
+    }
+
+    if (isHealthDataTracker) {
+      const result = await handleHealthDataTracker(supabase, syncUserId, payload)
+      if (result.status === 'saved') {
+        await updateLastSyncedAt(supabase, syncUserId)
+        res.status(200).json({
+          ok: true,
+          source: 'health-data-tracker',
+          savedField: result.savedField,
+          logDate: result.logDate,
+        })
+        return
+      }
+      if (result.status === 'unrecognized_cargo') {
+        // 認識できない cargo_id でも 200（ショートカットのループを止めないため）。
+        res.status(200).json({
+          ok: true,
+          source: 'health-data-tracker',
+          warning: 'unrecognized cargo_id',
+          cargo_id: result.cargoId,
+        })
+        return
+      }
+      // status === 'skipped'（time パース不能・value 不正・体重が古すぎる）
+      res.status(200).json({
+        ok: true,
+        source: 'health-data-tracker',
+        warning: result.reason,
+        ...(result.logDate ? { logDate: result.logDate } : {}),
       })
       return
     }
