@@ -28,6 +28,9 @@
 //     JST暦日を自動的に使う。2026年9月5日改定、下記コメント参照),
 //     "resting_heart_rate"?: number, "hrv_ms"?: number, "steps"?: number,
 //     "active_energy_kcal"?: number, "weight_kg"?: number }
+//   （type無し）Health Auto Export形式（2026年9月6日追加、下記コメント参照）：
+//     { "data": { "metrics": [ { "name": string(snake_case), "units": string,
+//       "data": [ { "qty": number, "date": string("yyyy-MM-dd HH:mm:ss Z") } ] } ] } }
 //
 // 【2026年8月27日改修】Apple純正Shortcutsの制約上、ワークアウトは当面
 // type・distance_meters・start_timeの3項目のみが送られてくる運用に変更された。
@@ -58,6 +61,14 @@
 // （undefined/null/""）の場合は、src/utils/healthMetricsHelpers.tsの
 // resolveMetricsLogDateが受信時点（サーバー側のnew Date()）のJST暦日を
 // 自動的に使う。
+//
+// 【2026年9月6日追加：Health Auto Export 形式】手組みのiOSショートカットは
+// Health系アクションのパラメータキーが一次情報で裏付けられず断念し、代わりに
+// サードパーティのネイティブアプリ Health Auto Export から自動POSTさせる方式を
+// 追加した。同アプリのペイロードには type が無く data.metrics 配列を持つ
+// （形式・集約ロジックは src/utils/healthAutoExportHelpers.ts のコメント参照）。
+// 「type が無く data.metrics が配列」の場合に handleHealthAutoExport へ振り分ける。
+// 既存3種別（sleep/workout/metrics）の挙動は一切変えていない。
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
@@ -67,6 +78,11 @@ import {
   validateMetricsPayloadShape,
 } from '../src/utils/healthMetricsHelpers.js'
 import type { MetricsPayload } from '../src/utils/healthMetricsHelpers.js'
+import {
+  aggregateHealthAutoExport,
+  isHealthAutoExportPayload,
+} from '../src/utils/healthAutoExportHelpers.js'
+import type { HealthAutoExportPayload } from '../src/utils/healthAutoExportHelpers.js'
 
 type SleepPayload = {
   type: 'sleep'
@@ -239,6 +255,84 @@ async function handleMetrics(
   return { savedMetrics, savedWeight, logDate }
 }
 
+// Health Auto Export 形式（2026年9月6日追加）：type が無く data.metrics 配列を持つ
+// ペイロード。パース・単位正規化・JST暦日ごとの集約は
+// src/utils/healthAutoExportHelpers.ts の純粋関数（aggregateHealthAutoExport）に
+// 切り出してあり、ここでは集約済みの日次行を handleMetrics と同じ部分列upsert
+// （buildHealthMetricsRow / buildWeightUpsertRow を再利用）でSupabaseへ投げるだけ。
+//
+// 【防御的挙動】
+//   - 保存できた指標が1つも無くても400にしない（Health Auto Export側の無限リトライを
+//     避けるため）。レスポンスにその旨を含める。
+//   - 対応表に無い指標名・想定外の単位は aggregate 側でスキップ済み（警告ログ出力済み）。
+//     その一覧をレスポンスに含めて、初回の実データで対応表を調整できるようにする。
+async function handleHealthAutoExport(
+  supabase: SupabaseClient,
+  userId: string,
+  payload: HealthAutoExportPayload,
+): Promise<{
+  savedMetricFields: string[]
+  savedDates: string[]
+  unrecognizedMetricNames: string[]
+  skippedUnitMetrics: string[]
+  savedAny: boolean
+}> {
+  const now = new Date().toISOString()
+  const { rows, unrecognizedMetricNames, skippedUnitMetrics } = aggregateHealthAutoExport(payload)
+
+  const savedFields = new Set<string>()
+  const savedDates = new Set<string>()
+
+  for (const row of rows) {
+    // aggregate の日次行を handleMetrics と同じ形（MetricsPayload）に詰め替えて
+    // 既存の行組み立て関数を再利用する。含まれるフィールドだけがrowに入っている。
+    const pseudoPayload: MetricsPayload = {
+      type: 'metrics',
+      resting_heart_rate: row.resting_heart_rate,
+      hrv_ms: row.hrv_ms,
+      steps: row.steps,
+      active_energy_kcal: row.active_energy_kcal,
+      weight_kg: row.weight_kg,
+    }
+
+    const metricsRow = buildHealthMetricsRow(pseudoPayload, userId, row.logDate, now)
+    if (metricsRow) {
+      const { error } = await supabase
+        .from('health_metrics')
+        .upsert(metricsRow, { onConflict: 'user_id,log_date' })
+      if (error) {
+        throw error
+      }
+      savedDates.add(row.logDate)
+      for (const field of ['resting_heart_rate', 'hrv_ms', 'steps', 'active_energy_kcal'] as const) {
+        if (row[field] !== undefined) {
+          savedFields.add(field)
+        }
+      }
+    }
+
+    const weightRow = buildWeightUpsertRow(pseudoPayload, userId, row.logDate)
+    if (weightRow) {
+      const { error } = await supabase
+        .from('daily_conditions')
+        .upsert(weightRow, { onConflict: 'user_id,log_date' })
+      if (error) {
+        throw error
+      }
+      savedDates.add(row.logDate)
+      savedFields.add('weight_kg')
+    }
+  }
+
+  return {
+    savedMetricFields: [...savedFields].sort(),
+    savedDates: [...savedDates].sort(),
+    unrecognizedMetricNames,
+    skippedUnitMetrics,
+    savedAny: savedDates.size > 0,
+  }
+}
+
 type WorkoutRow = { id: string; notes: string | null }
 
 async function handleWorkout(supabase: SupabaseClient, userId: string, payload: WorkoutPayload): Promise<{ mergedManualId: string | null; selfDedupId: string | null }> {
@@ -389,14 +483,48 @@ export default async function handler(
     return
   }
 
-  if (!payload || (payload.type !== 'sleep' && payload.type !== 'workout' && payload.type !== 'metrics')) {
-    res.status(400).json({ error: 'invalid payload: type must be "sleep", "workout", or "metrics"' })
+  // Health Auto Export（type が無く data.metrics 配列）を先に判別する。
+  // 既存3種別（type付き）とは排他のため、既存の分岐・挙動には影響しない。
+  const isHealthAutoExport = isHealthAutoExportPayload(payload)
+
+  if (
+    !payload ||
+    (!isHealthAutoExport &&
+      payload.type !== 'sleep' &&
+      payload.type !== 'workout' &&
+      payload.type !== 'metrics')
+  ) {
+    res.status(400).json({
+      error:
+        'invalid payload: expected type "sleep" | "workout" | "metrics", or a Health Auto Export payload (data.metrics array, no type)',
+    })
     return
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey)
 
   try {
+    if (isHealthAutoExport) {
+      const result = await handleHealthAutoExport(
+        supabase,
+        syncUserId,
+        payload as unknown as HealthAutoExportPayload,
+      )
+      if (result.savedAny) {
+        await updateLastSyncedAt(supabase, syncUserId)
+      }
+      res.status(200).json({
+        ok: true,
+        source: 'health-auto-export',
+        savedMetrics: result.savedMetricFields,
+        savedDates: result.savedDates,
+        unrecognizedMetricNames: result.unrecognizedMetricNames,
+        skippedUnitMetrics: result.skippedUnitMetrics,
+        ...(result.savedAny ? {} : { warning: 'no recognized metrics were saved' }),
+      })
+      return
+    }
+
     if (payload.type === 'sleep') {
       validateSleepPayload(payload)
       const result = await handleSleep(supabase, syncUserId, payload)
