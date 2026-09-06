@@ -85,6 +85,7 @@ import {
   isWeightWritableForDate,
 } from '../src/utils/healthAutoExportHelpers.js'
 import type { HealthAutoExportPayload } from '../src/utils/healthAutoExportHelpers.js'
+import { summarizePayloadShape, topLevelKeysOf } from '../src/utils/payloadDiagnostics.js'
 
 type SleepPayload = {
   type: 'sleep'
@@ -539,9 +540,19 @@ export default async function handler(
       payload.type !== 'workout' &&
       payload.type !== 'metrics')
   ) {
+    // 既知のどの形式にも該当しないペイロード。RoutineHub等の公開ショートカットが
+    // どんなJSONを送ってくるか事前に分からないため、構造だけ（実データは出さない）を
+    // ログに残し、レスポンスにもトップレベルのキー一覧を返す（送信元でも確認できるよう）。
+    // 認証ヘッダーはそもそも summarizePayloadShape に渡していない。
+    const shapeSummary = summarizePayloadShape(payload)
+    console.warn(
+      'Apple Health同期：未知の形式のペイロードを受信しました（構造のみ・実データは出力していません）:',
+      JSON.stringify(shapeSummary),
+    )
     res.status(400).json({
       error:
         'invalid payload: expected type "sleep" | "workout" | "metrics", or a Health Auto Export payload (data.metrics array, no type)',
+      receivedKeys: topLevelKeysOf(shapeSummary),
     })
     return
   }
