@@ -80,7 +80,9 @@ import {
 import type { MetricsPayload } from '../src/utils/healthMetricsHelpers.js'
 import {
   aggregateHealthAutoExport,
+  groupRowsBySharedKeys,
   isHealthAutoExportPayload,
+  isWeightWritableForDate,
 } from '../src/utils/healthAutoExportHelpers.js'
 import type { HealthAutoExportPayload } from '../src/utils/healthAutoExportHelpers.js'
 
@@ -261,6 +263,21 @@ async function handleMetrics(
 // 切り出してあり、ここでは集約済みの日次行を handleMetrics と同じ部分列upsert
 // （buildHealthMetricsRow / buildWeightUpsertRow を再利用）でSupabaseへ投げるだけ。
 //
+// 【N+1回避】Health Auto Export の初回同期は過去分をまとめて送る（30日分なら
+// 逐次awaitで最大60往復＝Vercel関数タイムアウトで「途中まで書き込んで504」の恐れ）
+// ため、ループ内では行を配列に貯め、ループ後にまとめて upsert する
+// （supabase-jsのupsertは配列を受け取れる）。health_metrics だけは日ごとに含まれる
+// 指標が異なりうるので「同一キー構成」単位に分けて投げる（下記コメント参照。
+// 通常1〜2回）。daily_conditions の体重行は均一なので1回。
+//
+// 【体重バックフィルの制限】buildWeightUpsertRow は daily_conditions に書き込むため、
+// 過去30日分の体重を送られると streakHelpers.collectLogDates が各日を「記録した日」と
+// みなし過去の連続記録日数が遡って伸びる（health_metrics を分離した目的が崩れる）。
+// type:"metrics" 経由（アプリ内同期ボタン）の体重は当日分のみのため問題ないが、
+// Health Auto Export は送信内容を制御できないため、受信時点のJST暦日から2日以内
+// （当日・前日・前々日）の体重に限って書き込む（isWeightWritableForDate）。
+// それより古い体重はスキップし、日付一覧を skippedOldWeightDates でレスポンスに返す。
+//
 // 【防御的挙動】
 //   - 保存できた指標が1つも無くても400にしない（Health Auto Export側の無限リトライを
 //     避けるため）。レスポンスにその旨を含める。
@@ -275,13 +292,20 @@ async function handleHealthAutoExport(
   savedDates: string[]
   unrecognizedMetricNames: string[]
   skippedUnitMetrics: string[]
+  skippedOldWeightDates: string[]
   savedAny: boolean
 }> {
   const now = new Date().toISOString()
+  // このファイル内の toJstDateKey（sleep/workout用に定義済み）をそのまま使う。
+  const nowJstDateKey = toJstDateKey(now)
   const { rows, unrecognizedMetricNames, skippedUnitMetrics } = aggregateHealthAutoExport(payload)
 
+  // ループ内では貯めるだけ。実際のupsertはループ後にテーブルごと1回（N+1回避）。
+  const metricsRows: Record<string, unknown>[] = []
+  const weightRows: { user_id: string; log_date: string; weight: number }[] = []
   const savedFields = new Set<string>()
   const savedDates = new Set<string>()
+  const skippedOldWeightDates: string[] = []
 
   for (const row of rows) {
     // aggregate の日次行を handleMetrics と同じ形（MetricsPayload）に詰め替えて
@@ -297,12 +321,7 @@ async function handleHealthAutoExport(
 
     const metricsRow = buildHealthMetricsRow(pseudoPayload, userId, row.logDate, now)
     if (metricsRow) {
-      const { error } = await supabase
-        .from('health_metrics')
-        .upsert(metricsRow, { onConflict: 'user_id,log_date' })
-      if (error) {
-        throw error
-      }
+      metricsRows.push(metricsRow)
       savedDates.add(row.logDate)
       for (const field of ['resting_heart_rate', 'hrv_ms', 'steps', 'active_energy_kcal'] as const) {
         if (row[field] !== undefined) {
@@ -311,16 +330,41 @@ async function handleHealthAutoExport(
       }
     }
 
-    const weightRow = buildWeightUpsertRow(pseudoPayload, userId, row.logDate)
-    if (weightRow) {
-      const { error } = await supabase
-        .from('daily_conditions')
-        .upsert(weightRow, { onConflict: 'user_id,log_date' })
-      if (error) {
-        throw error
+    if (row.weight_kg !== undefined) {
+      if (isWeightWritableForDate(row.logDate, nowJstDateKey)) {
+        const weightRow = buildWeightUpsertRow(pseudoPayload, userId, row.logDate)
+        if (weightRow) {
+          weightRows.push(weightRow)
+          savedDates.add(row.logDate)
+          savedFields.add('weight_kg')
+        }
+      } else {
+        // 受信時点から3日以上前の体重＝過去のストリークを書き換えかねないためスキップ。
+        skippedOldWeightDates.push(row.logDate)
       }
-      savedDates.add(row.logDate)
-      savedFields.add('weight_kg')
+    }
+  }
+
+  // health_metrics は日によって含まれる指標が異なりうる（HRV欠測日など）。
+  // supabase-js の bulk upsert は全行のキー和集合を columns にするため、キー構成が
+  // 異なる行を混ぜると欠けたカラムが NULL 上書きされる。同一キー構成ごとに分けて
+  // upsert する（groupRowsBySharedKeys のコメント参照。通常1〜2グループ）。
+  for (const batch of groupRowsBySharedKeys(metricsRows)) {
+    const { error } = await supabase
+      .from('health_metrics')
+      .upsert(batch, { onConflict: 'user_id,log_date' })
+    if (error) {
+      throw error
+    }
+  }
+
+  // 体重行は常に {user_id, log_date, weight} で均一なため1回のupsertで安全。
+  if (weightRows.length > 0) {
+    const { error } = await supabase
+      .from('daily_conditions')
+      .upsert(weightRows, { onConflict: 'user_id,log_date' })
+    if (error) {
+      throw error
     }
   }
 
@@ -329,6 +373,7 @@ async function handleHealthAutoExport(
     savedDates: [...savedDates].sort(),
     unrecognizedMetricNames,
     skippedUnitMetrics,
+    skippedOldWeightDates: [...skippedOldWeightDates].sort(),
     savedAny: savedDates.size > 0,
   }
 }
@@ -520,6 +565,7 @@ export default async function handler(
         savedDates: result.savedDates,
         unrecognizedMetricNames: result.unrecognizedMetricNames,
         skippedUnitMetrics: result.skippedUnitMetrics,
+        skippedOldWeightDates: result.skippedOldWeightDates,
         ...(result.savedAny ? {} : { warning: 'no recognized metrics were saved' }),
       })
       return

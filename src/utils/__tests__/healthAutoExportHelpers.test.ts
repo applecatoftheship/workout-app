@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   aggregateHealthAutoExport,
+  groupRowsBySharedKeys,
   isHealthAutoExportPayload,
+  isWeightWritableForDate,
   parseHealthAutoExportDate,
   resolveHealthAutoExportUnitFactor,
 } from '../healthAutoExportHelpers'
@@ -76,6 +78,57 @@ describe('resolveHealthAutoExportUnitFactor', () => {
     expect(resolveHealthAutoExportUnitFactor('steps', 'count')).toBe(1)
     expect(resolveHealthAutoExportUnitFactor('resting_heart_rate', 'bpm')).toBe(1)
     expect(resolveHealthAutoExportUnitFactor('hrv_ms', 'ms')).toBe(1)
+  })
+})
+
+describe('isWeightWritableForDate（Health Auto Export 経由の体重は過去分でストリークを書き換えないよう当日〜前々日に限定）', () => {
+  const now = '2026-09-06' // 受信時点のJST暦日
+
+  it('当日・前日・前々日は書き込み可', () => {
+    expect(isWeightWritableForDate('2026-09-06', now)).toBe(true)
+    expect(isWeightWritableForDate('2026-09-05', now)).toBe(true)
+    expect(isWeightWritableForDate('2026-09-04', now)).toBe(true)
+  })
+
+  it('3日前は書き込み不可（境界）', () => {
+    expect(isWeightWritableForDate('2026-09-03', now)).toBe(false)
+    expect(isWeightWritableForDate('2026-08-20', now)).toBe(false)
+  })
+
+  it('未来日は書き込み不可', () => {
+    expect(isWeightWritableForDate('2026-09-07', now)).toBe(false)
+  })
+
+  it('月をまたぐ境界も正しく判定する', () => {
+    expect(isWeightWritableForDate('2026-08-31', '2026-09-02')).toBe(true) // 2日前
+    expect(isWeightWritableForDate('2026-08-31', '2026-09-03')).toBe(false) // 3日前
+  })
+})
+
+describe('groupRowsBySharedKeys（bulk upsert前にキー構成が同じ行だけまとめる／NULL上書き防止）', () => {
+  it('同一キー構成の行はまとめ、異なる構成は別グループにする', () => {
+    const rows = [
+      { user_id: 'u', log_date: '2026-09-01', steps: 100 },
+      { user_id: 'u', log_date: '2026-09-02', steps: 200 },
+      { user_id: 'u', log_date: '2026-09-03', steps: 300, hrv_ms: 45 },
+    ]
+    const groups = groupRowsBySharedKeys(rows)
+    expect(groups).toHaveLength(2)
+    expect(groups.find((g) => g.length === 2)).toBeDefined()
+    expect(groups.find((g) => g.length === 1)?.[0]).toMatchObject({ hrv_ms: 45 })
+  })
+
+  it('キーの順序が違っても同じ構成として扱う', () => {
+    const groups = groupRowsBySharedKeys([
+      { a: 1, b: 2 },
+      { b: 3, a: 4 },
+    ])
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toHaveLength(2)
+  })
+
+  it('空配列は空グループ', () => {
+    expect(groupRowsBySharedKeys([])).toEqual([])
   })
 })
 

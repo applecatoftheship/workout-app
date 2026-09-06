@@ -118,6 +118,52 @@ export function parseHealthAutoExportDate(raw: string): string | null {
   return toJstDateKey(instant.toISOString())
 }
 
+// Health Auto Export 経由の体重を daily_conditions に無制限に書き込むと、初回同期で
+// 過去分をまとめて送られたときに streakHelpers.collectLogDates が各日を「記録した日」と
+// みなし、過去の連続記録日数（streak_7 / streak_30 バッジ）が遡って伸びてしまう
+// （自動計測値を health_metrics に分離した目的が崩れる）。type:"metrics" 経由
+// （アプリ内同期ボタン）の体重は当日分のみなので問題ないが、Health Auto Export は
+// 送信内容をこちら側で制御できないため、受信時点のJST暦日から2日以内（当日・前日・
+// 前々日）に限って書き込みを許可する。
+export const HEALTH_AUTO_EXPORT_WEIGHT_MAX_AGE_DAYS = 2
+
+function utcMidnightOfDateKey(dateKey: string): number {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  return Date.UTC(year, month - 1, day)
+}
+
+// logDate（保存対象のJST暦日 YYYY-MM-DD）が nowJstDateKey（受信時点のJST暦日）から見て
+// 当日〜HEALTH_AUTO_EXPORT_WEIGHT_MAX_AGE_DAYS日前の範囲内なら true。
+// 未来日・それより古い日付は false（＝ daily_conditions へ書き込まない）。
+export function isWeightWritableForDate(logDate: string, nowJstDateKey: string): boolean {
+  const ageDays = Math.round(
+    (utcMidnightOfDateKey(nowJstDateKey) - utcMidnightOfDateKey(logDate)) / 86_400_000,
+  )
+  return ageDays >= 0 && ageDays <= HEALTH_AUTO_EXPORT_WEIGHT_MAX_AGE_DAYS
+}
+
+// supabase-js の `.upsert(配列)` は配列内**全行のキーの和集合**を columns として送り、
+// キーを持たない行はそのカラムに NULL が入る（defaultToNull のデフォルトが true）。
+// PostgREST の ON CONFLICT DO UPDATE SET <全カラム> = EXCLUDED.<...> により、
+// あるキーを持たない行では既存カラムが NULL 上書きされてしまう（buildHealthMetricsRow
+// の「送られてきた項目だけを含める」保証が崩れる）。このため health_metrics へ
+// バッチupsertする前に「含まれるキー構成が同一の行」だけをまとめる。健康計測は
+// 毎日同じ指標が記録される想定のためグループ数は通常1〜2で、N+1にはならない。
+// （daily_conditions の体重行は常に {user_id, log_date, weight} で均一なため対象外。）
+export function groupRowsBySharedKeys<T extends Record<string, unknown>>(rows: T[]): T[][] {
+  const groups = new Map<string, T[]>()
+  for (const row of rows) {
+    const signature = Object.keys(row).sort().join(' ')
+    const existing = groups.get(signature)
+    if (existing) {
+      existing.push(row)
+    } else {
+      groups.set(signature, [row])
+    }
+  }
+  return [...groups.values()]
+}
+
 // 「type が無く data.metrics が配列である」= Health Auto Export のペイロード。
 // 既存の sleep / workout / metrics は payload.type で分岐しているため、type の有無で
 // 確実に区別できる。
