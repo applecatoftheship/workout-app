@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react'
 import { DISH_CATEGORIES } from '../../types'
 import type { DishCategory, DishWithDetails, FoodItem } from '../../types'
 import { createDish, updateDish } from '../../api/dishes'
+import { suggestDishIngredients } from '../../api/dishIngredients'
 import { formatDishAmountLabel, resolveDishItemUnit } from '../../utils/dishHelpers'
+import { matchDishIngredientSuggestions, resolveDraftAmount } from '../../utils/dishIngredientHelpers'
 import { GenreFoodPicker } from './GenreFoodPicker'
+import { FoodItemFormModal } from './FoodItemFormModal'
 import { useToast } from '../../hooks/useToast'
 import './DishFormModal.css'
 
@@ -11,6 +14,7 @@ const DEFAULT_FOOD_EMOJI = '🍽️'
 
 type DishItemForm = {
   key: string
+  // 空文字列 = 未紐付け（AI材料提案で food_items マスタに一致しなかった食材）。
   foodItemId: string
   amount: string
   // 料理レシピの単位不一致・再発防止（2026年9月4日）：unit はユーザーが編集できず、
@@ -18,6 +22,10 @@ type DishItemForm = {
   // （resolveDishItemUnit）。ここに持つ値は、食材が見つからない場合の
   // フォールバック（新規は食材の serving_unit、編集は既存 dish_food_items.unit）。
   fallbackUnit: string
+  // 以下はAI材料提案由来（2026年9月7日）。foodItemId が空のときの表示・操作に使う。
+  aiSuggestedName?: string
+  aiSimilarFoodItemId?: string
+  aiSimilarLabel?: string
 }
 
 let itemKeyCounter = 0
@@ -36,11 +44,22 @@ type DishFormModalProps = {
   onSaved: () => void
   foodItems: FoodItem[]
   onFoodItemDeleted: () => void
+  /** AI材料提案の「新規食材として登録」で食材を作成したときに呼ばれる
+   * （呼び出し元は fetchFoodItems() を再実行して foodItems を最新化する想定）。 */
+  onFoodItemCreated?: () => void
   /** 指定すると編集モードで開く。 */
   editingDish?: DishWithDetails | null
 }
 
-export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemDeleted, editingDish }: DishFormModalProps) {
+export function DishFormModal({
+  isOpen,
+  onClose,
+  onSaved,
+  foodItems,
+  onFoodItemDeleted,
+  onFoodItemCreated,
+  editingDish,
+}: DishFormModalProps) {
   const { showToast } = useToast()
   const [name, setName] = useState('')
   const [category, setCategory] = useState<DishCategory | ''>('')
@@ -49,6 +68,11 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
   const [pickerResetKey, setPickerResetKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  // AI材料提案（2026年9月7日）
+  const [isSuggesting, setIsSuggesting] = useState(false)
+  const [suggestError, setSuggestError] = useState<string | null>(null)
+  // null 以外なら FoodItemFormModal を開く（値は食材名の初期値）
+  const [foodItemModalInitialName, setFoodItemModalInitialName] = useState<string | null>(null)
 
   const isEditing = editingDish != null
 
@@ -60,6 +84,9 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
       setItems([])
       setError(null)
       setIsSaving(false)
+      setIsSuggesting(false)
+      setSuggestError(null)
+      setFoodItemModalInitialName(null)
       setPickerResetKey((key) => key + 1)
       return
     }
@@ -84,6 +111,9 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
     }
     setError(null)
     setIsSaving(false)
+    setIsSuggesting(false)
+    setSuggestError(null)
+    setFoodItemModalInitialName(null)
     setPickerResetKey((key) => key + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, editingDish?.id])
@@ -109,6 +139,78 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
 
   const handleAmountChange = (key: string, value: string) => {
     setItems((current) => current.map((item) => (item.key === key ? { ...item, amount: value } : item)))
+  }
+
+  // AI材料提案（2026年9月7日）：料理名から Gemini に材料候補（食材名＋概算グラム）を
+  // 提案させ、既存の nameMatching.ts で food_items と照合して下書きとしてフォームへ
+  // 追加する。**DBには一切書き込まない**（ユーザーが保存ボタンを押すまで永続化しない）。
+  // AI呼び出しが失敗した場合は suggestError を表示するだけで、手動入力フローには影響しない。
+  const handleSuggestIngredients = async () => {
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      setSuggestError('先に料理名を入力してください')
+      return
+    }
+    setSuggestError(null)
+    setIsSuggesting(true)
+    try {
+      const suggestions = await suggestDishIngredients(trimmedName)
+      if (suggestions.length === 0) {
+        setSuggestError('AIから材料を取得できませんでした。手動で入力してください')
+        return
+      }
+      const matched = matchDishIngredientSuggestions(suggestions, foodItems)
+      const draftItems: DishItemForm[] = matched.map((m) => {
+        if (m.matched) {
+          return {
+            key: createItemKey(),
+            foodItemId: m.matched.id as string,
+            amount: String(resolveDraftAmount(m.matched, m.grams)),
+            fallbackUnit: m.matched.servingUnit,
+          }
+        }
+        return {
+          key: createItemKey(),
+          foodItemId: '',
+          amount: String(m.grams),
+          fallbackUnit: 'g',
+          aiSuggestedName: m.suggestedName,
+          aiSimilarFoodItemId: m.similar ? (m.similar.item.id as string) : undefined,
+          aiSimilarLabel: m.similar
+            ? `${m.similar.item.name}（類似度${Math.round(m.similar.similarity * 100)}%）`
+            : undefined,
+        }
+      })
+      setItems((current) => [...current, ...draftItems])
+      setError(null)
+    } catch (suggestionError) {
+      console.error('AIによる材料提案に失敗しました', suggestionError)
+      setSuggestError(
+        suggestionError instanceof Error ? suggestionError.message : 'AIによる材料提案に失敗しました',
+      )
+    } finally {
+      setIsSuggesting(false)
+    }
+  }
+
+  // 未紐付け（AI提案で一致しなかった）行を、選択した food_item に紐付ける。
+  const linkItemToFood = (key: string, foodItemId: string) => {
+    const foodItem = foodItems.find((food) => food.id === foodItemId)
+    if (!foodItem) {
+      return
+    }
+    setItems((current) =>
+      current.map((item) =>
+        item.key === key
+          ? {
+              key: item.key,
+              foodItemId,
+              amount: String(resolveDraftAmount(foodItem, Number(item.amount) || foodItem.servingAmount)),
+              fallbackUnit: foodItem.servingUnit,
+            }
+          : item,
+      ),
+    )
   }
 
   // 選択した食材の serving_unit へ単位を固定する。食材が見つからない場合のみ
@@ -149,6 +251,12 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
     }
     if (items.length === 0) {
       setError('少なくとも1つの食材を選択してください')
+      return
+    }
+    // AI材料提案で food_items に一致しなかった行（未紐付け）が残っていると保存できない。
+    const hasUnlinked = items.some((item) => !item.foodItemId || !foodItems.some((food) => food.id === item.foodItemId))
+    if (hasUnlinked) {
+      setError('未登録の食材（要確認）があります。食材を紐付けるか、その行を削除してください')
       return
     }
     for (const item of items) {
@@ -193,6 +301,8 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
   const heading = isEditing ? '料理を編集' : '新しい料理を作る'
 
   return (
+    // Fragment：DishFormModal のオーバーレイと、その外側に置く FoodItemFormModal を並べる。
+    <>
     <div className="dish-form-modal__overlay" role="presentation" onClick={onClose}>
       <div
         className="dish-form-modal"
@@ -215,6 +325,23 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
             <span>料理名</span>
             <input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="例: 親子丼" />
           </label>
+
+          {/* AI材料提案（2026年9月7日）：料理名から材料の下書きを生成してフォームへ
+              追加する。DBには書き込まず、あくまで編集可能な下書き。失敗時はエラー表示のみ。 */}
+          <div className="dish-form-modal__ai-suggest">
+            <button
+              type="button"
+              className="calendar-detail__secondary-button"
+              onClick={handleSuggestIngredients}
+              disabled={isSuggesting || !name.trim()}
+            >
+              {isSuggesting ? 'AIが考え中...' : '✨ AIで材料を提案'}
+            </button>
+            <p className="calendar-detail__description">
+              料理名からAIが材料と概算分量を下書きします。内容を確認・編集してから保存してください。
+            </p>
+            {suggestError ? <p className="calendar-detail__form-error">{suggestError}</p> : null}
+          </div>
 
           <div className="calendar-detail__inline-fields">
             <label className="calendar-detail__field">
@@ -246,20 +373,66 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
             <div className="calendar-detail__log-list">
               {items.map((item) => {
                 const foodItem = foodItems.find((food) => food.id === item.foodItemId)
+                const isUnlinked = !item.foodItemId || !foodItem
                 const unit = unitForItem(item)
                 return (
-                  <div key={item.key} className="calendar-detail__meal-item">
+                  <div
+                    key={item.key}
+                    className={`calendar-detail__meal-item${isUnlinked ? ' dish-form-modal__meal-item--unlinked' : ''}`}
+                  >
                     <div className="calendar-detail__meal-head">
                       <span>
-                        {foodItem?.emoji ?? DEFAULT_FOOD_EMOJI} {foodItem?.name ?? '不明な食材'}
+                        {isUnlinked
+                          ? `⚠️ 未登録の食材（要確認）: ${item.aiSuggestedName ?? '不明な食材'}`
+                          : `${foodItem?.emoji ?? DEFAULT_FOOD_EMOJI} ${foodItem?.name ?? '不明な食材'}`}
                       </span>
                       <button type="button" className="calendar-detail__delete-button" onClick={() => removeItem(item.key)}>
                         削除
                       </button>
                     </div>
+
+                    {isUnlinked ? (
+                      <div className="dish-form-modal__unlinked-actions">
+                        {item.aiSimilarFoodItemId ? (
+                          <button
+                            type="button"
+                            className="calendar-detail__secondary-button"
+                            onClick={() => linkItemToFood(item.key, item.aiSimilarFoodItemId as string)}
+                          >
+                            「{item.aiSimilarLabel}」を使う
+                          </button>
+                        ) : null}
+                        <label className="calendar-detail__field">
+                          <span>食材を選んで紐付け</span>
+                          <select
+                            value=""
+                            onChange={(event) => {
+                              if (event.target.value) {
+                                linkItemToFood(item.key, event.target.value)
+                              }
+                            }}
+                          >
+                            <option value="">選択してください</option>
+                            {foodItems.map((food) => (
+                              <option key={food.id} value={food.id}>
+                                {food.emoji ?? DEFAULT_FOOD_EMOJI} {food.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          className="calendar-detail__secondary-button"
+                          onClick={() => setFoodItemModalInitialName(item.aiSuggestedName ?? '')}
+                        >
+                          新規食材として登録
+                        </button>
+                      </div>
+                    ) : null}
+
                     <div className="calendar-detail__inline-fields">
                       <label className="calendar-detail__field">
-                        <span>{formatDishAmountLabel(unit)}</span>
+                        <span>{isUnlinked ? '分量（g）' : formatDishAmountLabel(unit)}</span>
                         <input
                           type="number"
                           min="0.1"
@@ -268,12 +441,14 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
                           onChange={(event) => handleAmountChange(item.key, event.target.value)}
                         />
                       </label>
-                      <div className="calendar-detail__field">
-                        <span>単位</span>
-                        {/* 料理レシピの単位不一致・再発防止（2026年9月4日）：単位は
-                            食材の基準単位（serving_unit）に固定。ユーザーは編集不可。 */}
-                        <input type="text" value={unit} readOnly disabled aria-label="単位（食材の基準単位に固定）" />
-                      </div>
+                      {!isUnlinked ? (
+                        <div className="calendar-detail__field">
+                          <span>単位</span>
+                          {/* 料理レシピの単位不一致・再発防止（2026年9月4日）：単位は
+                              食材の基準単位（serving_unit）に固定。ユーザーは編集不可。 */}
+                          <input type="text" value={unit} readOnly disabled aria-label="単位（食材の基準単位に固定）" />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )
@@ -305,5 +480,22 @@ export function DishFormModal({ isOpen, onClose, onSaved, foodItems, onFoodItemD
         </div>
       </div>
     </div>
+
+    {/* 未登録食材の「新規食材として登録」用。DishFormModal のオーバーレイの外側に
+        置き、クリックが DishFormModal の onClose に伝播しないようにする。 */}
+    <FoodItemFormModal
+      isOpen={foodItemModalInitialName !== null}
+      initialName={foodItemModalInitialName ?? ''}
+      onClose={() => setFoodItemModalInitialName(null)}
+      onSaved={() => {
+        // 親（MealLogWizardModal）に foodItems の再取得を依頼する。登録直後は
+        // foodItems prop がまだ古いため自動紐付けはせず、ユーザーが「食材を選んで
+        // 紐付け」または類似候補ボタンで紐付ける。
+        onFoodItemCreated?.()
+        setFoodItemModalInitialName(null)
+      }}
+      foodItems={foodItems}
+    />
+    </>
   )
 }

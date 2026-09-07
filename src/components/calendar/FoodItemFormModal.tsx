@@ -68,9 +68,12 @@ type FoodItemFormModalProps = {
    * 作成した食材を自動的に食事記録へ追加しない）。 */
   onSaved: () => void
   foodItems: FoodItem[]
+  /** 開いたときに食材名の初期値として入れる（AI材料提案の「新規食材として登録」
+   * から料理名由来の食材名をプリフィルする用途、2026年9月7日）。 */
+  initialName?: string
 }
 
-export function FoodItemFormModal({ isOpen, onClose, onSaved, foodItems }: FoodItemFormModalProps) {
+export function FoodItemFormModal({ isOpen, onClose, onSaved, foodItems, initialName }: FoodItemFormModalProps) {
   const { showToast } = useToast()
   const [newFood, setNewFood] = useState<NewFoodForm>(createEmptyNewFoodForm())
   const [duplicateFoodSuggestion, setDuplicateFoodSuggestion] = useState<{ name: string } | null>(null)
@@ -85,6 +88,14 @@ export function FoodItemFormModal({ isOpen, onClose, onSaved, foodItems }: FoodI
       setIsSaving(false)
     }
   }, [isOpen])
+
+  // 開いたときに initialName が指定されていれば食材名にプリフィルする
+  // （名前欄が空のときだけ。ユーザーが入力中の値は上書きしない）。
+  useEffect(() => {
+    if (isOpen && initialName) {
+      setNewFood((current) => (current.name ? current : { ...current, name: initialName }))
+    }
+  }, [isOpen, initialName])
 
   if (!isOpen) {
     return null

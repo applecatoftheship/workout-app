@@ -66,6 +66,38 @@
   gap: 8px;
 }
 
+/* AI材料提案（2026年9月7日） */
+.dish-form-modal__ai-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+}
+
+.dish-form-modal__ai-suggest > button {
+  align-self: flex-start;
+}
+
+/* AI提案で food_items に一致しなかった未紐付けの行 */
+.dish-form-modal__meal-item--unlinked {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.dish-form-modal__unlinked-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.dish-form-modal__unlinked-actions > button {
+  align-self: flex-start;
+}
+
 @media (max-width: 640px) {
   .dish-form-modal__overlay {
     padding: 0;

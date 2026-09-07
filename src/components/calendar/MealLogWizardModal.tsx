@@ -103,6 +103,10 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   const [mealSizes, setMealSizes] = useState<MealSize[]>([])
   const [selectedDishId, setSelectedDishId] = useState('')
   const [selectedDishCategory, setSelectedDishCategory] = useState<DishCategory | ''>('')
+  // 料理のキーワード検索（2026年9月7日）：登録済み料理が増え目的の料理を探しにくく
+  // なったため。GenreFoodPickerの「食材名で検索」と同じ独立フィルタの方針で、
+  // カテゴリ絞り込みとはAND（大文字小文字を区別しない部分一致）。
+  const [dishSearchQuery, setDishSearchQuery] = useState('')
   const [selectedMealSizeId, setSelectedMealSizeId] = useState('')
   const [isDishModalOpen, setIsDishModalOpen] = useState(false)
   const [editingDish, setEditingDish] = useState<DishWithDetails | null>(null)
@@ -212,6 +216,15 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   // 料理マスタ大幅拡充（2026年9月3日）：122件運用のためカテゴリで絞り込む。
   const categoryFilteredDishes =
     selectedDishCategory === '' ? dishes : dishes.filter((dish) => dish.category === selectedDishCategory)
+
+  // キーワード検索（カテゴリ絞り込みの結果にさらにAND）。
+  const visibleDishes = (() => {
+    const query = dishSearchQuery.trim().toLowerCase()
+    if (!query) {
+      return categoryFilteredDishes
+    }
+    return categoryFilteredDishes.filter((dish) => dish.name.toLowerCase().includes(query))
+  })()
 
   const selectedDish = dishes.find((dish) => dish.id === selectedDishId)
   const selectedMealSize = mealSizes.find((size) => size.id === selectedMealSizeId)
@@ -508,11 +521,24 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
                 </div>
 
                 <div className="calendar-detail__field calendar-detail__field--full">
+                  <span>料理名で検索</span>
+                  <input
+                    type="text"
+                    value={dishSearchQuery}
+                    onChange={(event) => setDishSearchQuery(event.target.value)}
+                    placeholder="例: カレー"
+                  />
+                  {dishSearchQuery.trim() && visibleDishes.length === 0 ? (
+                    <p className="calendar-detail__description">一致する料理が見つかりません</p>
+                  ) : null}
+                </div>
+
+                <div className="calendar-detail__field calendar-detail__field--full">
                   <span>登録済みの料理</span>
                   <div className="calendar-detail__select-with-action">
                     <select value={selectedDishId} onChange={(event) => setSelectedDishId(event.target.value)}>
                       <option value="">選択してください</option>
-                      {categoryFilteredDishes.map((dish) => (
+                      {visibleDishes.map((dish) => (
                         <option key={dish.id} value={dish.id}>
                           {dish.emoji ? `${dish.emoji} ` : ''}
                           {dish.name} ({Math.round(dish.totalCalories)}kcal)
@@ -721,6 +747,7 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
         }}
         foodItems={foodItems}
         onFoodItemDeleted={loadFoodItems}
+        onFoodItemCreated={loadFoodItems}
       />
 
       <FoodItemFormModal
