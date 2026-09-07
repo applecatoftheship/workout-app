@@ -19,6 +19,12 @@
   pointer-events: none;
 }
 
+/* フェードアウト後は無限アニメーション（明滅ループ等）を止める。画面は
+   visibility:hidden で見えなくなるが、常時マウントのままなので明示的に停止する。 */
+.splash-screen.fade-out .splash-dumbbell__pulse {
+  animation-play-state: paused;
+}
+
 .splash-screen__content {
   display: flex;
   flex-direction: column;
@@ -202,5 +208,250 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+/* ============================================================================
+   AETHER-FLOW（起動画面テーマ2、2026年9月7日）
+   Geminiから提供されたSVGソースの配色をそのまま使う固定色（このスプラッシュ
+   専用ブランドカラー。ライト/ダークテーマの切り替えには連動しない、既存の
+   ART DECO CLASSIC スプラッシュと同じ方針）。
+   ============================================================================ */
+.splash-screen--aetherflow {
+  background-color: #0f172a;
+  /* オーロラ背景が inset: -10% で少しはみ出すためクリップする。 */
+  overflow: hidden;
+}
+
+/* アンビエントなオーロラの発光背景（画面全体・ゆっくり明滅＋わずかにドリフト）。 */
+.splash-aether__aurora {
+  position: absolute;
+  inset: -10%;
+  background:
+    radial-gradient(46% 40% at 50% 38%, rgba(196, 181, 253, 0.3), rgba(110, 231, 183, 0.13) 55%, rgba(15, 23, 42, 0) 100%),
+    radial-gradient(34% 28% at 68% 66%, rgba(252, 165, 165, 0.16), rgba(15, 23, 42, 0) 100%);
+  filter: blur(6px);
+  opacity: 0.85;
+  animation: aether-aurora-pulse 3600ms ease-in-out 0ms infinite;
+}
+
+@keyframes aether-aurora-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06) translateY(-6px);
+  }
+}
+
+.splash-aether {
+  position: relative;
+  z-index: 1;
+}
+
+.splash-aether__visual {
+  width: 200px;
+  height: 200px;
+}
+
+.splash-aether__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* 半透明ガラスリング（外周）：フェードイン */
+.splash-aether__glass-ring {
+  opacity: 0;
+  animation: aether-fade-in 400ms ease-out 100ms forwards;
+}
+
+/* 内側のごく薄いリング：少し遅れてフェードイン */
+.splash-aether__inner-ring {
+  opacity: 0;
+  animation: aether-fade-in 400ms ease-out 250ms forwards;
+}
+
+/* オーロラの弧：すっと描画（70%弧を stroke-dashoffset 0.7→0 で描く） */
+.splash-aether__arc {
+  stroke-dasharray: 0.7 1;
+  stroke-dashoffset: 0.7;
+  animation: aether-arc-draw 700ms cubic-bezier(0.22, 1, 0.36, 1) 150ms forwards;
+}
+
+@keyframes aether-arc-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* オーガニックな曲線のダンベル：プレートが中心から外へ滑らかに現れる */
+.splash-aether__plate {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.splash-aether__plate--l1 {
+  animation: aether-plate-in-left 320ms ease-out 420ms forwards;
+}
+.splash-aether__plate--l2 {
+  animation: aether-plate-in-left 320ms ease-out 480ms forwards;
+}
+.splash-aether__plate--r2 {
+  animation: aether-plate-in-right 320ms ease-out 480ms forwards;
+}
+.splash-aether__plate--r1 {
+  animation: aether-plate-in-right 320ms ease-out 420ms forwards;
+}
+
+@keyframes aether-plate-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(10px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes aether-plate-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* パルスの曲線：滑らかに一度きり描画（stroke-dashoffset）＋データ取得未完了時の
+   ゆっくりした明滅ループ（opacity）。別プロパティに分けて互いに干渉させない
+   （既存 splash-dumbbell__pulse と同じ考え方。isVisible が false になると
+   splash-screen 自体がフェードアウトするためループを止める追加ロジックは不要）。 */
+.splash-aether__pulse {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  animation:
+    aether-pulse-draw 520ms ease-out 520ms forwards,
+    aether-pulse-loop 3200ms ease-in-out 1100ms infinite;
+}
+
+@keyframes aether-pulse-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes aether-pulse-loop {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.splash-aether__ring-label {
+  fill: #e2e8f0;
+  font-family: var(--font-base, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  opacity: 0;
+  animation: aether-fade-in 300ms ease-out 700ms forwards;
+}
+
+.splash-aether__eyebrow {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: aether-fade-up 200ms ease-out 350ms forwards;
+}
+
+.splash-aether__title {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  /* SVGソースの filter="url(#softAetherGlow)" に相当するソフトグロー。 */
+  text-shadow: 0 0 12px rgba(196, 181, 253, 0.55), 0 0 4px rgba(110, 231, 183, 0.35);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: aether-fade-up 220ms ease-out 620ms forwards;
+}
+
+.splash-aether__subtitle {
+  margin: 0;
+  color: #6ee7b7;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: aether-fade-up 220ms ease-out 720ms forwards;
+}
+
+@keyframes aether-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes aether-fade-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* フェードアウト後（visibility:hidden）は無限アニメーションを止めて、blur を伴う
+   オーロラ背景の再ラスタライズが走り続けないようにする。 */
+.splash-screen.fade-out .splash-aether__aurora,
+.splash-screen.fade-out .splash-aether__pulse {
+  animation-play-state: paused;
+}
+
+/* prefers-reduced-motion: reduce（要件通り）：スライド・描画系を省略して最終状態に
+   固定し、全体をシンプルなフェードインのみに置き換える。 */
+@media (prefers-reduced-motion: reduce) {
+  .splash-aether__aurora {
+    animation: none !important;
+    opacity: 0.85 !important;
+    transform: none !important;
+  }
+
+  .splash-aether__glass-ring,
+  .splash-aether__inner-ring,
+  .splash-aether__arc,
+  .splash-aether__plate,
+  .splash-aether__pulse,
+  .splash-aether__ring-label,
+  .splash-aether__eyebrow,
+  .splash-aether__title,
+  .splash-aether__subtitle {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+
+  .splash-aether__arc {
+    transform: rotate(-30deg) !important;
+  }
+
+  .splash-screen--aetherflow .splash-screen__content {
+    animation: splash-reduced-fade-in 200ms ease-out forwards;
   }
 }

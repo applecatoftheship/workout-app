@@ -247,7 +247,13 @@ export type AvatarType = 'preset' | 'upload';
 // 設定画面拡張 Phase 1（2026年8月28日）：カレンダー週始まり・アクセントカラー設定を追加。
 // 1: 月曜始まり, 0: 日曜始まり（DBのfirst_day_of_week列と同じ意味）。
 export type FirstDayOfWeek = 0 | 1;
-export type AccentColorId = 'teal' | 'orange' | 'blue' | 'purple' | 'artdeco';
+// 起動画面テーマ（2026年8月28日〜）：accent_color はプリセット名ベース。
+// 'artdeco'（ART DECO CLASSIC、コーラル×ティール、テーマ1）に加えて
+// 'aetherflow'（AETHER-FLOW、オーロラ配色、テーマ2、2026年9月7日）を追加。
+// これらは accent トークンだけでなく SplashScreen のアニメーションバリアントも
+// 切り替える（orange/teal/blue/purple は accent 色のみで専用スプラッシュは無く、
+// ART DECO CLASSIC のスプラッシュにフォールバックする）。
+export type AccentColorId = 'teal' | 'orange' | 'blue' | 'purple' | 'artdeco' | 'aetherflow';
 
 export interface Profile {
   userId: string;

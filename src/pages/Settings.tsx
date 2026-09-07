@@ -24,6 +24,7 @@ import {
 
 const ACCENT_SWATCH_COLORS: Record<AccentColorId, string> = {
   artdeco: '#E0524A',
+  aetherflow: '#7C5CE0',
   orange: '#E85D2C',
   teal: '#1D9C93',
   blue: '#2F6FED',

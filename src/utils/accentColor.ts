@@ -14,10 +14,11 @@ import type { AccentColorId } from '../types'
 // 'artdeco'（コーラル、スプラッシュ画面の心拍ラインと同じ#FF6B6B系）を追加し、
 // これを新しいデフォルトに変更した（John「選択機能は残す」の指示により、既存の
 // orange/teal/blue/purpleは削除せずそのまま選択肢に残す）。
-export const ACCENT_COLOR_IDS: AccentColorId[] = ['artdeco', 'orange', 'teal', 'blue', 'purple']
+export const ACCENT_COLOR_IDS: AccentColorId[] = ['artdeco', 'aetherflow', 'orange', 'teal', 'blue', 'purple']
 
 export const ACCENT_COLOR_LABELS: Record<AccentColorId, string> = {
   artdeco: 'コーラル',
+  aetherflow: 'オーロラ',
   orange: 'オレンジ',
   teal: 'ティール',
   blue: 'ブルー',
@@ -25,6 +26,22 @@ export const ACCENT_COLOR_LABELS: Record<AccentColorId, string> = {
 }
 
 export const DEFAULT_ACCENT_COLOR: AccentColorId = 'artdeco'
+
+// 起動画面テーマ2「AETHER-FLOW」（2026年9月7日）：accent_color を localStorage にも
+// ミラーする。SplashScreen は profile がロードされる前（初回ペイント時）に描画される
+// ため、DB の profiles.accent_color を待たずに前回選択したテーマのスプラッシュ
+// バリアントを即座に出せるようにするための保存先（useTheme.ts / deviceId.ts と
+// 同じ 'workout-app:' 名前空間）。
+const ACCENT_COLOR_STORAGE_KEY = 'workout-app:accent-color'
+
+export function readStoredAccentColor(): AccentColorId | undefined {
+  try {
+    const stored = localStorage.getItem(ACCENT_COLOR_STORAGE_KEY)
+    return stored && (ACCENT_COLOR_IDS as string[]).includes(stored) ? (stored as AccentColorId) : undefined
+  } catch {
+    return undefined
+  }
+}
 
 type AccentColorTokens = {
   accent: string
@@ -43,6 +60,15 @@ const ACCENT_COLOR_TOKENS: Record<AccentColorId, { light: AccentColorTokens; dar
   artdeco: {
     light: { accent: '#E0524A', accentSoft: '#FCE4E1', accentText: '#A13228' },
     dark: { accent: '#FF6B6B', accentSoft: '#3D2323', accentText: '#FFAFAF' },
+  },
+  // AETHER-FLOW（テーマ2、2026年9月7日）：SVGソースのオーロラ配色から抽出。
+  // dark はバイオレット #C4B5FD をそのまま accent に使う（背景ミッドナイト
+  // #0F172A 上で映える色）。light は artdeco が dark コーラル #FF6B6B に対し
+  // light 用にコントラスト調整した #E0524A を用意したのと同じ考え方で、
+  // 白背景でも十分なコントラストが取れる濃いバイオレットに調整した。
+  aetherflow: {
+    light: { accent: '#6D45D6', accentSoft: '#ECE6FB', accentText: '#4A2E9E' },
+    dark: { accent: '#C4B5FD', accentSoft: '#241F3D', accentText: '#DDD3FE' },
   },
   orange: {
     light: { accent: '#E85D2C', accentSoft: '#FBE2D3', accentText: '#A8391A' },
@@ -74,4 +100,15 @@ export function applyAccentColor(accentColorId: AccentColorId | undefined, theme
   root.style.setProperty('--color-accent', tokens.accent)
   root.style.setProperty('--color-accent-soft', tokens.accentSoft)
   root.style.setProperty('--color-accent-text', tokens.accentText)
+
+  // 確定したユーザー設定（accentColorId が明示された呼び出し）のみ localStorage に
+  // ミラーする。profile 未ロード時（accentColorId === undefined）はデフォルトを
+  // 適用するだけで保存はしない（前回保存した実際の選択を上書きしないため）。
+  if (accentColorId) {
+    try {
+      localStorage.setItem(ACCENT_COLOR_STORAGE_KEY, accentColorId)
+    } catch {
+      // localStorage 不可（プライベートブラウジング等）でも配色適用は継続する
+    }
+  }
 }
