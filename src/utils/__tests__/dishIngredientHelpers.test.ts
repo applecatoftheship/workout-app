@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AI_FOOD_ITEM_CATEGORIES,
   buildDishIngredientPrompt,
+  buildFoodItemDraftFromSuggestion,
   matchDishIngredientSuggestions,
   parseDishIngredientSuggestions,
   resolveDraftAmount,
+  resolveFoodItemCategory,
 } from '../dishIngredientHelpers'
+import type { DishIngredientSuggestion } from '../dishIngredientHelpers'
 import type { FoodItem } from '../../types'
 
 function makeFoodItem(overrides: Partial<FoodItem> & { name: string }): FoodItem {
@@ -22,20 +26,70 @@ function makeFoodItem(overrides: Partial<FoodItem> & { name: string }): FoodItem
   }
 }
 
+const FULL_SUGGESTION: DishIngredientSuggestion = {
+  name: 'マグロの刺身',
+  grams: 80,
+  caloriesPer100g: 125,
+  proteinPer100g: 26,
+  fatPer100g: 1.4,
+  carbohydratesPer100g: 0.1,
+  category: '魚介類',
+}
+
 describe('buildDishIngredientPrompt', () => {
-  it('料理名を含み、JSON配列形式を要求する', () => {
+  it('料理名・栄養成分・カテゴリの各フィールドを要求する', () => {
     const prompt = buildDishIngredientPrompt('親子丼')
     expect(prompt).toContain('親子丼')
-    expect(prompt).toContain('[{"name": "食材名", "grams": 数値}, ...]')
+    expect(prompt).toContain('caloriesPer100g')
+    expect(prompt).toContain('proteinPer100g')
+    expect(prompt).toContain('category')
+    // カテゴリ選択肢が全部プロンプトに入っている
+    for (const category of AI_FOOD_ITEM_CATEGORIES) {
+      expect(prompt).toContain(category)
+    }
+  })
+})
+
+describe('resolveFoodItemCategory', () => {
+  it('有効なカテゴリはそのまま、それ以外は「その他・未分類」', () => {
+    expect(resolveFoodItemCategory('肉類')).toBe('肉類')
+    expect(resolveFoodItemCategory('  野菜・キノコ・海藻 ')).toBe('野菜・キノコ・海藻')
+    expect(resolveFoodItemCategory('肉')).toBe('その他・未分類')
+    expect(resolveFoodItemCategory(undefined)).toBe('その他・未分類')
+    expect(resolveFoodItemCategory(42)).toBe('その他・未分類')
   })
 })
 
 describe('parseDishIngredientSuggestions', () => {
-  it('素のJSON配列をパースする', () => {
-    expect(parseDishIngredientSuggestions('[{"name":"鶏もも肉","grams":120},{"name":"玉ねぎ","grams":50}]')).toEqual([
-      { name: '鶏もも肉', grams: 120 },
-      { name: '玉ねぎ', grams: 50 },
+  it('name / grams / 栄養4項目 / category を全部パースする', () => {
+    const raw =
+      '[{"name":"鶏もも肉","grams":120,"caloriesPer100g":200,"proteinPer100g":17,"fatPer100g":14,"carbohydratesPer100g":0,"category":"肉類"}]'
+    expect(parseDishIngredientSuggestions(raw)).toEqual([
+      {
+        name: '鶏もも肉',
+        grams: 120,
+        caloriesPer100g: 200,
+        proteinPer100g: 17,
+        fatPer100g: 14,
+        carbohydratesPer100g: 0,
+        category: '肉類',
+      },
     ])
+  })
+
+  it('栄養成分が欠落・非数値なら、そのフィールドだけ落とす（項目自体は残す）', () => {
+    const raw = '[{"name":"謎の食材","grams":30,"caloriesPer100g":"わからない","proteinPer100g":5}]'
+    expect(parseDishIngredientSuggestions(raw)).toEqual([{ name: '謎の食材', grams: 30, proteinPer100g: 5 }])
+  })
+
+  it('栄養成分 0 は有効な値として残す（水など protein=0）', () => {
+    const raw = '[{"name":"水","grams":100,"caloriesPer100g":0,"proteinPer100g":0,"fatPer100g":0,"carbohydratesPer100g":0}]'
+    expect(parseDishIngredientSuggestions(raw)?.[0]).toMatchObject({
+      caloriesPer100g: 0,
+      proteinPer100g: 0,
+      fatPer100g: 0,
+      carbohydratesPer100g: 0,
+    })
   })
 
   it('```json コードフェンスや前後の説明文を剥がす', () => {
@@ -67,7 +121,39 @@ describe('parseDishIngredientSuggestions', () => {
   })
 })
 
-describe('matchDishIngredientSuggestions', () => {
+describe('buildFoodItemDraftFromSuggestion', () => {
+  it('栄養4項目が揃っていれば food_items 登録入力を組み立てる', () => {
+    expect(buildFoodItemDraftFromSuggestion(FULL_SUGGESTION)).toEqual({
+      name: 'マグロの刺身',
+      servingAmount: 100,
+      servingUnit: 'g',
+      calories: 125,
+      protein: 26,
+      fat: 1.4,
+      carbohydrates: 0.1,
+      category: '魚介類',
+    })
+  })
+
+  it('カテゴリが無効／欠落なら「その他・未分類」でフォールバック', () => {
+    const draft = buildFoodItemDraftFromSuggestion({ ...FULL_SUGGESTION, category: 'よくわからない' })
+    expect(draft?.category).toBe('その他・未分類')
+  })
+
+  it('栄養4項目のうち1つでも欠けていれば null（自動登録しない）', () => {
+    expect(buildFoodItemDraftFromSuggestion({ name: 'x', grams: 10 })).toBeNull()
+    const missingFat: DishIngredientSuggestion = {
+      name: 'x',
+      grams: 10,
+      caloriesPer100g: 100,
+      proteinPer100g: 5,
+      carbohydratesPer100g: 5,
+    }
+    expect(buildFoodItemDraftFromSuggestion(missingFat)).toBeNull()
+  })
+})
+
+describe('matchDishIngredientSuggestions（4分岐）', () => {
   const foodItems = [
     makeFoodItem({ name: '鶏もも肉' }),
     makeFoodItem({ name: '玉ねぎ' }),
@@ -75,24 +161,32 @@ describe('matchDishIngredientSuggestions', () => {
     makeFoodItem({ name: 'たまご', servingUnit: '個', servingAmount: 1 }),
   ]
 
-  it('完全一致した食材は matched に入る', () => {
-    const result = matchDishIngredientSuggestions([{ name: '玉ねぎ', grams: 50 }], foodItems)
-    expect(result[0].matched?.name).toBe('玉ねぎ')
-    expect(result[0].similar).toBeNull()
+  it("完全一致 → disposition 'matched'、linkTo にその食材", () => {
+    const [result] = matchDishIngredientSuggestions([{ name: '玉ねぎ', grams: 50 }], foodItems)
+    expect(result.disposition).toBe('matched')
+    expect(result.linkTo?.name).toBe('玉ねぎ')
+    expect(result.foodItemDraft).toBeNull()
   })
 
-  it('一致しない食材は matched=null、似ている候補が similar に入る', () => {
-    // "ほうれんそう"（ひらがな）は "ほうれん草" と類似度が高い（約0.67）
-    const result = matchDishIngredientSuggestions([{ name: 'ほうれんそう', grams: 50 }], foodItems)
-    expect(result[0].matched).toBeNull()
-    expect(result[0].similar?.item.name).toBe('ほうれん草')
-    expect(result[0].similar?.similarity).toBeGreaterThanOrEqual(0.6)
+  it("類似候補あり → disposition 'auto-link-similar'、確認を挟まず linkTo に類似食材＋similarity", () => {
+    const [result] = matchDishIngredientSuggestions([{ name: 'ほうれんそう', grams: 50 }], foodItems)
+    expect(result.disposition).toBe('auto-link-similar')
+    expect(result.linkTo?.name).toBe('ほうれん草')
+    expect(result.similarity).toBeGreaterThanOrEqual(0.6)
   })
 
-  it('全く無関係な食材は matched も similar も null', () => {
-    const result = matchDishIngredientSuggestions([{ name: 'マグロの刺身', grams: 80 }], foodItems)
-    expect(result[0].matched).toBeNull()
-    expect(result[0].similar).toBeNull()
+  it("一致も類似も無く栄養成分が有効 → disposition 'auto-create'、foodItemDraft を持つ", () => {
+    const [result] = matchDishIngredientSuggestions([FULL_SUGGESTION], foodItems)
+    expect(result.disposition).toBe('auto-create')
+    expect(result.linkTo).toBeNull()
+    expect(result.foodItemDraft).toMatchObject({ name: 'マグロの刺身', servingUnit: 'g', calories: 125 })
+  })
+
+  it("一致・類似・有効な栄養成分いずれも無し → disposition 'manual'", () => {
+    const [result] = matchDishIngredientSuggestions([{ name: 'マグロの刺身', grams: 80 }], foodItems)
+    expect(result.disposition).toBe('manual')
+    expect(result.linkTo).toBeNull()
+    expect(result.foodItemDraft).toBeNull()
   })
 })
 

@@ -98,6 +98,23 @@
   align-self: flex-start;
 }
 
+/* AI材料提案のサマリー（「N件を新規食材として自動登録」等） */
+.dish-form-modal__ai-info {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-accent-text);
+}
+
+/* AIが自動紐付け／自動登録した行の由来ラベル＋選び直し */
+.dish-form-modal__ai-origin {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
 @media (max-width: 640px) {
   .dish-form-modal__overlay {
     padding: 0;

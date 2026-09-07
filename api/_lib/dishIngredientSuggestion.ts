@@ -17,8 +17,9 @@ import {
 } from '../../src/utils/dishIngredientHelpers.js'
 import type { DishIngredientSuggestion } from '../../src/utils/dishIngredientHelpers.js'
 
-// 材料提案はコメント生成（3秒）より時間がかかりうるため少し長めに取る。
-const GEMINI_TIMEOUT_MS = 8000
+// 材料提案はコメント生成（3秒）より応答が長い（最大10食材×栄養4項目＋カテゴリ）
+// ため長めに取る。ユーザーが「AIが考え中...」を待つ画面操作なので、多少長くても許容。
+const GEMINI_TIMEOUT_MS = 15000
 
 export type DishIngredientSuggestionResult =
   | { status: 'ok'; ingredients: DishIngredientSuggestion[] }
@@ -41,7 +42,8 @@ export async function suggestDishIngredientsViaGemini(dishName: string): Promise
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: buildDishIngredientPrompt(dishName) }] }],
-          generationConfig: { maxOutputTokens: 800, temperature: 0.4 },
+          // 1食材あたり name/grams/栄養4項目/category を返すため、10食材で余裕を持たせる。
+          generationConfig: { maxOutputTokens: 1600, temperature: 0.4 },
         }),
         signal: controller.signal,
       },
