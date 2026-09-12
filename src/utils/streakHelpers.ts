@@ -1,4 +1,4 @@
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog } from '../types.js'
+import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog } from '../types.js'
 import { toDateKey } from './chartHelpers.js'
 
 // 記録更新演出機能（PR・連続記録、2026年8月21日）：ストリーク（連続記録日数）の節目。
@@ -10,32 +10,39 @@ export function isStreakMilestone(days: number): boolean {
   return days > 365 && (days - 365) % 100 === 0
 }
 
-// training_logs・soccer_logs・meal_logs・daily_conditionsのlog_dateをOR結合し、
-// 重複除去した「記録がある日」の集合を作る。
+// training_logs・soccer_logs・meal_logs・daily_conditions・sport_logsのlog_dateを
+// OR結合し、重複除去した「記録がある日」の集合を作る。sport_logsはユーザーが
+// 能動的に記録する活動のため、training_logs・soccer_logsと同様に「記録した日」と
+// してカウントする（Tier 4-2：競技の拡張、2026年9月12日追加。health_metricsのような
+// 自動計測値テーブルとは異なる扱い）。
 function collectLogDates(
   trainingLogs: TrainingLog[],
   soccerLogs: SoccerLog[],
   mealLogs: MealLog[],
   dailyConditions: DailyCondition[],
+  sportLogs: SportLog[] = [],
 ): Set<DateString> {
   const dates = new Set<DateString>()
   trainingLogs.forEach((log) => dates.add(log.date))
   soccerLogs.forEach((log) => dates.add(log.date))
   mealLogs.forEach((log) => dates.add(log.date))
   dailyConditions.forEach((log) => dates.add(log.date))
+  sportLogs.forEach((log) => dates.add(log.date))
   return dates
 }
 
-// todayから遡って連続で「記録がある日」が続く日数を数える。4テーブルいずれかに
+// todayから遡って連続で「記録がある日」が続く日数を数える。5テーブルいずれかに
 // 該当日のlog_dateが1件でもあれば「記録がある日」とみなす（OR結合）。
+// sportLogsは末尾に追加（省略時は空配列、既存呼び出しとの後方互換）。
 export function calculateCurrentStreak(
   trainingLogs: TrainingLog[],
   soccerLogs: SoccerLog[],
   mealLogs: MealLog[],
   dailyConditions: DailyCondition[],
   today: Date,
+  sportLogs: SportLog[] = [],
 ): number {
-  const dates = collectLogDates(trainingLogs, soccerLogs, mealLogs, dailyConditions)
+  const dates = collectLogDates(trainingLogs, soccerLogs, mealLogs, dailyConditions, sportLogs)
   let streak = 0
   const cursor = new Date(today)
   while (dates.has(toDateKey(cursor) as DateString)) {

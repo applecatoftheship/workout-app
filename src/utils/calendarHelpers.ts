@@ -1,4 +1,4 @@
-import type { DateString, DailyCondition, FirstDayOfWeek, MealLog, MealType, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types.js'
+import type { DateString, DailyCondition, FirstDayOfWeek, MealLog, MealType, SoccerLog, SportLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types.js'
 import type { ActivityType, CalendarCellItem } from '../types/calendar.js'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from './acwrHelpers.js'
 
@@ -97,6 +97,9 @@ export function buildActivityByDate(
   schedulesByDate: Map<string, TrainingSchedule[]>,
   soccerLogsByDate: Map<string, SoccerLog[]>,
   workoutsByDate?: Map<string, Workout[]>,
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：workoutsByDateと同じく省略可能
+  // （既存の3引数呼び出し・テスト等を壊さないため）。
+  sportLogsByDate?: Map<string, SportLog[]>,
 ): Map<string, Set<ActivityType>> {
   const map = new Map<string, Set<ActivityType>>()
 
@@ -128,6 +131,12 @@ export function buildActivityByDate(
     }
   })
 
+  sportLogsByDate?.forEach((daySportLogs, dateKey) => {
+    if (daySportLogs.length > 0) {
+      addActivity(dateKey, 'sport')
+    }
+  })
+
   return map
 }
 
@@ -139,6 +148,8 @@ export interface GetCellStateParams {
   hasSoccerLog: boolean
   // Apple Health連携（2026年8月27日）：省略時はfalse扱い（既存呼び出しを壊さない）。
   hasAppleWorkout?: boolean
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：省略時はfalse扱い。
+  hasSportLog?: boolean
 }
 
 // 予定と実績を日付ベースで突き合わせ、カレンダーセルに表示するアイテムを
@@ -146,7 +157,7 @@ export interface GetCellStateParams {
 // （hasSchedule && isPast && !hasTrainingLog）は意図的に何も追加しない
 // （＝missedはセル非表示）。
 export function getCalendarCellState(params: GetCellStateParams): CalendarCellItem[] {
-  const { isPast, hasSchedule, scheduleIcon, hasTrainingLog, hasSoccerLog, hasAppleWorkout } = params
+  const { isPast, hasSchedule, scheduleIcon, hasTrainingLog, hasSoccerLog, hasAppleWorkout, hasSportLog } = params
   const items: CalendarCellItem[] = []
 
   if (hasTrainingLog) {
@@ -172,6 +183,13 @@ export function getCalendarCellState(params: GetCellStateParams): CalendarCellIt
   // 常にcompleted_unplanned固定とする。
   if (hasAppleWorkout) {
     items.push({ type: 'appleWorkout', icon: '🏃', status: 'completed_unplanned' })
+  }
+
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：sport_logsも予定の概念を持たない
+  // （soccer・appleWorkoutと同じ）ため、statusは常にcompleted_unplanned固定。
+  // 汎用アイコン🏆を使う（種目ごとの絵文字出し分けはしない）。
+  if (hasSportLog) {
+    items.push({ type: 'sport', icon: '🏆', status: 'completed_unplanned' })
   }
 
   return items

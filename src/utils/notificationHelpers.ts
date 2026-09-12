@@ -4,7 +4,7 @@
 // streakHelpers.tsと同じく、判定ロジックのみを担当する層として分離）。
 import { calculateACWR } from './acwrHelpers.js'
 import { calculateCurrentStreak } from './streakHelpers.js'
-import type { DailyCondition, DateString, MealLog, NotificationType, SoccerLog, TrainingLog, Workout } from '../types.js'
+import type { DailyCondition, DateString, MealLog, NotificationType, SoccerLog, SportLog, TrainingLog, Workout } from '../types.js'
 
 export type NotificationCandidate = {
   type: NotificationType
@@ -56,8 +56,19 @@ export function detectAcwrDangerNotification(
   // Apple Health連携（2026年8月27日）：既存呼び出しとの後方互換のため末尾に追加。
   workouts: Workout[] = [],
   dailyConditions: DailyCondition[] = [],
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：同じく末尾に追加、省略時は空配列。
+  sportLogs: SportLog[] = [],
 ): NotificationCandidate | null {
-  const result = calculateACWR(trainingLogs, soccerLogs, targetDate, todaySorenessLevel, todaySorenessLocation, workouts, dailyConditions)
+  const result = calculateACWR(
+    trainingLogs,
+    soccerLogs,
+    targetDate,
+    todaySorenessLevel,
+    todaySorenessLocation,
+    workouts,
+    dailyConditions,
+    sportLogs,
+  )
   if (!result || result.acwr <= 1.5) {
     return null
   }
@@ -78,13 +89,16 @@ export function detectStreakBrokenNotification(
   mealLogs: MealLog[],
   dailyConditions: DailyCondition[],
   targetDate: DateString,
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：既存呼び出しとの後方互換のため
+  // 末尾に追加、省略時は空配列。
+  sportLogs: SportLog[] = [],
 ): NotificationCandidate | null {
   const targetDay = new Date(`${targetDate}T00:00:00`)
   const yesterday = previousDateString(targetDate)
   const yesterdayDay = new Date(`${yesterday}T00:00:00`)
 
-  const streakYesterday = calculateCurrentStreak(trainingLogs, soccerLogs, mealLogs, dailyConditions, yesterdayDay)
-  const streakToday = calculateCurrentStreak(trainingLogs, soccerLogs, mealLogs, dailyConditions, targetDay)
+  const streakYesterday = calculateCurrentStreak(trainingLogs, soccerLogs, mealLogs, dailyConditions, yesterdayDay, sportLogs)
+  const streakToday = calculateCurrentStreak(trainingLogs, soccerLogs, mealLogs, dailyConditions, targetDay, sportLogs)
 
   if (streakYesterday <= 0 || streakToday > 0) {
     return null

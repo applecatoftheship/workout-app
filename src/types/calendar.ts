@@ -7,7 +7,10 @@ export type CellActivityStatus = 'planned' | 'completed_planned' | 'completed_un
 // Apple Health連携（2026年8月27日）：'appleWorkout'はworkoutsテーブル
 // （Apple Watch自動記録）由来のアイコンを表す。既存の'workout'（training_schedules
 // 起点の予定・実績アイコン）とは意味が異なるため、混同を避けるため別の値とした。
-export type ActivityType = 'workout' | 'soccer' | 'appleWorkout'
+// スポーツ記録機能（Tier 4-2、2026年9月12日）：'sport'はsport_logs
+// （汎用スポーツ記録）由来のアイコンを表す。'soccer'とは別テーブル・別アイコン
+// （🏆汎用、種目ごとの出し分けはしない）のため独立した値とした。
+export type ActivityType = 'workout' | 'soccer' | 'appleWorkout' | 'sport'
 
 export interface CalendarCellItem {
   type: ActivityType

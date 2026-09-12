@@ -3,11 +3,12 @@ import './BadgeGallery.css'
 import { BADGE_DEFINITIONS, BADGE_ORDER } from '../constants/badges'
 import { useBadgeEvaluator } from '../hooks/useBadgeEvaluator'
 import { fetchSoccerLogs } from '../api/soccerLogs'
+import { fetchSportLogs } from '../api/sportLogs'
 import { fetchWorkouts } from '../api/workouts'
 import { calculateCurrentStreak } from '../utils/streakHelpers'
 import { calculateMovingAverage, toDateKey } from '../utils/chartHelpers'
 import { hasConsecutiveOptimalDays } from '../utils/acwrHelpers'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, Workout } from '../types'
+import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, Workout } from '../types'
 
 // streak_30バッジ（30日連続）の判定に十分な余裕を持たせた取得幅。
 const BADGE_STREAK_WINDOW_DAYS = 35
@@ -27,6 +28,7 @@ type BadgeGalleryProps = {
 // （Settings.tsx側に元々存在しないデータのため、これは重複フェッチではない）。
 export function BadgeGallery({ trainingLogs, mealLogs, dailyConditions, today, todayString }: BadgeGalleryProps) {
   const [soccerLogs, setSoccerLogs] = useState<SoccerLog[]>([])
+  const [sportLogs, setSportLogs] = useState<SportLog[]>([])
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [isDataLoading, setIsDataLoading] = useState(true)
 
@@ -39,15 +41,20 @@ export function BadgeGallery({ trainingLogs, mealLogs, dailyConditions, today, t
   useEffect(() => {
     let isMounted = true
 
-    Promise.all([fetchSoccerLogs(windowStartKey, todayString), fetchWorkouts(windowStartKey, todayString)])
-      .then(([soccerData, workoutData]) => {
+    Promise.all([
+      fetchSoccerLogs(windowStartKey, todayString),
+      fetchWorkouts(windowStartKey, todayString),
+      fetchSportLogs(windowStartKey, todayString),
+    ])
+      .then(([soccerData, workoutData, sportData]) => {
         if (isMounted) {
           setSoccerLogs(soccerData)
           setWorkouts(workoutData)
+          setSportLogs(sportData)
         }
       })
       .catch((error) => {
-        console.error('Supabaseからバッジ判定用のサッカー記録・ワークアウト記録の取得に失敗しました', error)
+        console.error('Supabaseからバッジ判定用のサッカー記録・ワークアウト記録・スポーツ記録の取得に失敗しました', error)
       })
       .finally(() => {
         if (isMounted) {
@@ -61,15 +68,20 @@ export function BadgeGallery({ trainingLogs, mealLogs, dailyConditions, today, t
   }, [windowStartKey, todayString])
 
   const currentStreak = useMemo(
-    () => calculateCurrentStreak(trainingLogs, soccerLogs, mealLogs, dailyConditions, today),
-    [trainingLogs, soccerLogs, mealLogs, dailyConditions, today],
+    () => calculateCurrentStreak(trainingLogs, soccerLogs, mealLogs, dailyConditions, today, sportLogs),
+    [trainingLogs, soccerLogs, mealLogs, dailyConditions, today, sportLogs],
   )
-  const hasAnyRecord = trainingLogs.length > 0 || soccerLogs.length > 0 || mealLogs.length > 0 || dailyConditions.length > 0
+  const hasAnyRecord =
+    trainingLogs.length > 0 ||
+    soccerLogs.length > 0 ||
+    mealLogs.length > 0 ||
+    dailyConditions.length > 0 ||
+    sportLogs.length > 0
   const sleepMA = useMemo(() => calculateMovingAverage(dailyConditions, 'date', 'sleepHours'), [dailyConditions])
   const sleepMovingAverageHours = sleepMA.length > 0 ? sleepMA[sleepMA.length - 1].movingAvg : null
   const isOptimalZoneStreak = useMemo(
-    () => hasConsecutiveOptimalDays(trainingLogs, soccerLogs, dailyConditions, todayString, 7, workouts),
-    [trainingLogs, soccerLogs, dailyConditions, todayString, workouts],
+    () => hasConsecutiveOptimalDays(trainingLogs, soccerLogs, dailyConditions, todayString, 7, workouts, sportLogs),
+    [trainingLogs, soccerLogs, dailyConditions, todayString, workouts, sportLogs],
   )
 
   const { userBadges, isLoading: isBadgesLoading } = useBadgeEvaluator({

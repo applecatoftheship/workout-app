@@ -1,4 +1,4 @@
-import type { ACWRResult, DailyCondition, DateString, MuscleLocation, SoccerLog, SorenessLevel, TrainingLog, Workout } from '../types.js'
+import type { ACWRResult, DailyCondition, DateString, MuscleLocation, SoccerLog, SorenessLevel, SportLog, TrainingLog, Workout } from '../types.js'
 
 // 運動負荷の正規化定数（将来的なチューニングに対応できるよう分離）
 export const GYM_VOLUME_DIVISOR = 100 // 筋トレ総挙上量(kg) → 負荷スコア換算
@@ -85,8 +85,10 @@ function daysBetween(start: DateString, end: DateString): number {
   return Math.round((endTime - startTime) / 86_400_000) + 1
 }
 
-function findEarliestDate(trainingLogs: TrainingLog[], soccerLogs: SoccerLog[]): DateString | null {
-  const dates = [...trainingLogs.map((log) => log.date), ...soccerLogs.map((log) => log.date)]
+// スポーツ記録機能（Tier 4-2、2026年9月12日）：sportLogsの日付も「データ蓄積中」
+// 判定に含める。デフォルト空配列で既存呼び出し（テスト含む）との後方互換を維持。
+function findEarliestDate(trainingLogs: TrainingLog[], soccerLogs: SoccerLog[], sportLogs: SportLog[] = []): DateString | null {
+  const dates = [...trainingLogs.map((log) => log.date), ...soccerLogs.map((log) => log.date), ...sportLogs.map((log) => log.date)]
   if (dates.length === 0) {
     return null
   }
@@ -94,15 +96,17 @@ function findEarliestDate(trainingLogs: TrainingLog[], soccerLogs: SoccerLog[]):
 }
 
 /**
- * 日付ごとの統合負荷（筋トレ負荷＋サッカー負荷＋ワークアウト負荷）を算出する。
- * 記録がない日は0（完全休養日）。DBにはキャッシュせず、呼び出しのたびに算出する。
- * workouts・dailyConditionsは省略可（デフォルト空配列、既存呼び出しとの後方互換）。
+ * 日付ごとの統合負荷（筋トレ負荷＋サッカー負荷＋ワークアウト負荷＋スポーツ負荷）を
+ * 算出する。記録がない日は0（完全休養日）。DBにはキャッシュせず、呼び出しのたびに
+ * 算出する。workouts・dailyConditions・sportLogsは省略可（デフォルト空配列、
+ * 既存呼び出しとの後方互換）。
  */
 function calculateDailyLoadMap(
   trainingLogs: TrainingLog[],
   soccerLogs: SoccerLog[],
   workouts: Workout[] = [],
   dailyConditions: DailyCondition[] = [],
+  sportLogs: SportLog[] = [],
 ): Map<DateString, number> {
   const map = new Map<DateString, number>()
 
@@ -141,6 +145,15 @@ function calculateDailyLoadMap(
       const workoutLoad = Math.min(MAX_SINGLE_LOAD_SCORE, estimatedCalories / SOCCER_CALORIE_DIVISOR)
       map.set(dateKey, (map.get(dateKey) ?? 0) + workoutLoad)
     })
+
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：既存のサッカー・ワークアウトと
+  // 完全に同じ考え方（消費カロリー ÷ SOCCER_CALORIE_DIVISOR、上限MAX_SINGLE_LOAD_SCORE）。
+  // 新しい定数は増やさず、既存のSOCCER_CALORIE_DIVISOR・MAX_SINGLE_LOAD_SCOREを
+  // そのまま使う（種目間で負荷スコアのスケールを揃えるため）。
+  sportLogs.forEach((log) => {
+    const sportLoad = Math.min(MAX_SINGLE_LOAD_SCORE, (log.caloriesBurned ?? 0) / SOCCER_CALORIE_DIVISOR)
+    map.set(log.date, (map.get(log.date) ?? 0) + sportLoad)
+  })
 
   return map
 }
@@ -214,12 +227,12 @@ export function calculateACWR(
   // 追加、省略時は空配列（ワークアウト負荷ゼロ）扱い。
   workouts: Workout[] = [],
   dailyConditions: DailyCondition[] = [],
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：同じく末尾に追加、省略時は空配列。
+  // findEarliestDateにもsportLogsを渡し「データ蓄積中」判定に含める
+  // （workoutsとは異なり、この点は明示的に指示範囲に含まれている）。
+  sportLogs: SportLog[] = [],
 ): ACWRResult | null {
-  // findEarliestDate・daysUntilACWRAvailableはtrainingLogs/soccerLogsのみを見る
-  // 既存仕様のまま変更していない（今回の指示範囲はcalculateDailyLoadMapへの
-  // 負荷入力追加のみのため）。ワークアウト記録しかない利用者の「データ蓄積中」
-  // 判定がずれる可能性がある点は既知の限界として残る。
-  const earliestDate = findEarliestDate(trainingLogs, soccerLogs)
+  const earliestDate = findEarliestDate(trainingLogs, soccerLogs, sportLogs)
   if (!earliestDate) {
     return null
   }
@@ -229,7 +242,7 @@ export function calculateACWR(
     return null
   }
 
-  const dailyLoadMap = calculateDailyLoadMap(trainingLogs, soccerLogs, workouts, dailyConditions)
+  const dailyLoadMap = calculateDailyLoadMap(trainingLogs, soccerLogs, workouts, dailyConditions, sportLogs)
   const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
 
   const loadForOffset = (offsetDays: number) => {
@@ -280,6 +293,8 @@ export function hasConsecutiveDangerDays(
   consecutiveDays = 3,
   // Apple Health連携（2026年8月27日）：既存呼び出しとの後方互換のため末尾に追加。
   workouts: Workout[] = [],
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：同じく末尾に追加、省略時は空配列。
+  sportLogs: SportLog[] = [],
 ): boolean {
   const conditionByDate = new Map(dailyConditions.map((condition) => [condition.date, condition]))
   const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
@@ -295,6 +310,7 @@ export function hasConsecutiveDangerDays(
       condition?.muscleSorenessLocation,
       workouts,
       dailyConditions,
+      sportLogs,
     )
 
     if (result?.status !== 'danger') {
@@ -323,6 +339,8 @@ export function hasConsecutiveOptimalDays(
   todayDate: DateString,
   consecutiveDays = 7,
   workouts: Workout[] = [],
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：同じく末尾に追加、省略時は空配列。
+  sportLogs: SportLog[] = [],
 ): boolean {
   const conditionByDate = new Map(dailyConditions.map((condition) => [condition.date, condition]))
   const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
@@ -338,6 +356,7 @@ export function hasConsecutiveOptimalDays(
       condition?.muscleSorenessLocation,
       workouts,
       dailyConditions,
+      sportLogs,
     )
 
     if (result?.status !== 'sweet_spot') {
@@ -349,8 +368,14 @@ export function hasConsecutiveOptimalDays(
 }
 
 /** データ蓄積があと何日で7日分に達するか（表示用）。7日分以上ある場合は0。 */
-export function daysUntilACWRAvailable(trainingLogs: TrainingLog[], soccerLogs: SoccerLog[], todayDate: DateString): number {
-  const earliestDate = findEarliestDate(trainingLogs, soccerLogs)
+export function daysUntilACWRAvailable(
+  trainingLogs: TrainingLog[],
+  soccerLogs: SoccerLog[],
+  todayDate: DateString,
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：末尾に追加、省略時は空配列。
+  sportLogs: SportLog[] = [],
+): number {
+  const earliestDate = findEarliestDate(trainingLogs, soccerLogs, sportLogs)
   if (!earliestDate) {
     return MIN_DAYS_FOR_CALCULATION
   }
@@ -383,13 +408,15 @@ export function calculateDailyACWRSeries(
   // 週次ACWR（WeeklyACWRTrendCard・WeeklyACWRDetailModal）にも自動的に反映される。
   workouts: Workout[] = [],
   dailyConditions: DailyCondition[] = [],
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：同じく末尾に追加、省略時は空配列。
+  sportLogs: SportLog[] = [],
 ): DailyACWRPoint[] {
   const todayTime = new Date(`${todayDate}T00:00:00`).getTime()
   const points: DailyACWRPoint[] = []
 
   for (let offset = days - 1; offset >= 0; offset -= 1) {
     const date = toDateKey(new Date(todayTime - offset * 86_400_000))
-    const result = calculateACWR(trainingLogs, soccerLogs, date, undefined, undefined, workouts, dailyConditions)
+    const result = calculateACWR(trainingLogs, soccerLogs, date, undefined, undefined, workouts, dailyConditions, sportLogs)
     points.push({ date, acwr: result ? result.acwr : null })
   }
 

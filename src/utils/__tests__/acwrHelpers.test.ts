@@ -8,7 +8,7 @@ import {
   hasConsecutiveOptimalDays,
 } from '../acwrHelpers'
 import { toDateKey } from '../chartHelpers'
-import type { DailyCondition, DateString, TrainingLog, Workout } from '../../types'
+import type { DailyCondition, DateString, SportLog, TrainingLog, Workout } from '../../types'
 
 const TODAY = new Date(2026, 7, 23) // 2026-08-23
 
@@ -50,6 +50,12 @@ function workoutAt(offsetDaysAgo: number, distanceMeters: number, isPrimary = tr
 
 function dailyConditionAt(offsetDaysAgo: number, weight: number): DailyCondition {
   return { date: dateAt(offsetDaysAgo), weight, sleepHours: 7, fatigue: 3 }
+}
+
+// スポーツ記録機能（Tier 4-2、2026年9月12日）：負荷スコア = min(100, 消費カロリー ÷ 8)
+// のため、caloriesBurnedをそのまま指定できる。
+function sportLogAt(offsetDaysAgo: number, caloriesBurned: number): SportLog {
+  return { date: dateAt(offsetDaysAgo), sportType: 'テニス', durationMinutes: 60, caloriesBurned }
 }
 
 describe('calculateACWR', () => {
@@ -169,8 +175,9 @@ describe('calculateACWR', () => {
   })
 
   describe('ワークアウト負荷（Apple Health連携、2026年8月27日追加）', () => {
-    // findEarliestDate（ひいてはcalculateACWRのnullガード）はtrainingLogs/soccerLogsの
-    // みを見る既存仕様のため、workoutsだけではdaysAvailableの起点が定まらない。
+    // findEarliestDate（ひいてはcalculateACWRのnullガード）はtrainingLogs/soccerLogsに
+    // 加え、2026年9月12日からsportLogsも見るようになったが、workouts自体は
+    // 引き続きfindEarliestDateの対象外（既知の限界、下記コメント参照）。
     // ボリューム0のトレーニング実績を「アンカー」として1件加え、7日分のデータ
     // 蓄積があることを確立した上でワークアウト負荷の計算だけを検証する。
     const anchor = trainingLogWithVolume(6, 0)
@@ -231,6 +238,47 @@ describe('calculateACWR', () => {
       expect(result!.acwr).toBeCloseTo(1)
     })
   })
+
+  describe('スポーツ負荷（Tier 4-2：競技の拡張、2026年9月12日追加）', () => {
+    it('負荷=消費カロリー÷8（既存のSOCCER_CALORIE_DIVISOR・MAX_SINGLE_LOAD_SCOREをそのまま使う）', () => {
+      const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 400)) // 400/8=50
+      const result = calculateACWR([], [], TODAY_KEY, undefined, undefined, [], [], sportLogs)
+
+      expect(result).not.toBeNull()
+      expect(result!.acuteLoad).toBeCloseTo(50)
+      expect(result!.chronicLoad).toBeCloseTo(50)
+      expect(result!.acwr).toBeCloseTo(1)
+    })
+
+    it('MAX_SINGLE_LOAD_SCORE(100)で頭打ちになる', () => {
+      const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 10000)) // 10000/8=1250 -> 100に頭打ち
+      const result = calculateACWR([], [], TODAY_KEY, undefined, undefined, [], [], sportLogs)
+
+      expect(result!.acuteLoad).toBe(100)
+    })
+
+    it('同日にトレーニング・サッカー・スポーツが重なると合算される', () => {
+      const trainingLogs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 1000)) // 1000/100=10
+      const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 400)) // 400/8=50
+      const result = calculateACWR(trainingLogs, [], TODAY_KEY, undefined, undefined, [], [], sportLogs)
+
+      expect(result!.acuteLoad).toBeCloseTo(60)
+    })
+
+    it('findEarliestDateはsportLogsのみのデータ蓄積でも「データ蓄積中」を解除する', () => {
+      // trainingLogs/soccerLogsが1件も無くても、sportLogsだけで7日分あれば
+      // calculateACWRはnullを返さない（2026年9月12日、findEarliestDateへのsportLogs追加）。
+      const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 80))
+      const result = calculateACWR([], [], TODAY_KEY, undefined, undefined, [], [], sportLogs)
+      expect(result).not.toBeNull()
+    })
+
+    it('sportLogs省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
+      const logs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 5000))
+      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      expect(result!.acwr).toBeCloseTo(1)
+    })
+  })
 })
 
 describe('hasConsecutiveDangerDays', () => {
@@ -258,6 +306,13 @@ describe('hasConsecutiveDangerDays', () => {
   it('consecutiveDays省略時は既定値3で判定する', () => {
     expect(hasConsecutiveDangerDays(dangerLogs, [], [], TODAY_KEY)).toBe(true)
   })
+
+  it('sportLogsだけでも高負荷が続けば連続警戒と判定する（Tier 4-2、2026年9月12日追加）', () => {
+    const highSportLoads = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 10000)) // 頭打ち100
+    const lowSportLoads = Array.from({ length: 21 }, (_, i) => sportLogAt(7 + i, 80)) // 80/8=10
+    const sportLogs = [...highSportLoads, ...lowSportLoads]
+    expect(hasConsecutiveDangerDays([], [], [], TODAY_KEY, 3, [], sportLogs)).toBe(true)
+  })
 })
 
 describe('hasConsecutiveOptimalDays', () => {
@@ -270,6 +325,11 @@ describe('hasConsecutiveOptimalDays', () => {
 
   it('consecutiveDays省略時は既定値7で判定する', () => {
     expect(hasConsecutiveOptimalDays(constantLoadLogs, [], [], TODAY_KEY)).toBe(true)
+  })
+
+  it('sportLogsだけでも一定負荷が続けば適正判定になる（Tier 4-2、2026年9月12日追加）', () => {
+    const constantSportLoads = Array.from({ length: 14 }, (_, i) => sportLogAt(i, 400)) // 400/8=50固定
+    expect(hasConsecutiveOptimalDays([], [], [], TODAY_KEY, 7, [], constantSportLoads)).toBe(true)
   })
 
   it('危険状態（danger）が続く期間はfalse', () => {
@@ -299,6 +359,11 @@ describe('daysUntilACWRAvailable', () => {
     const logs = [trainingLogWithVolume(0, 1000), trainingLogWithVolume(6, 1000)]
     expect(daysUntilACWRAvailable(logs, [], TODAY_KEY)).toBe(0)
   })
+
+  it('sportLogsのみでも起点として認識する（Tier 4-2、2026年9月12日追加）', () => {
+    const sportLogs = [sportLogAt(0, 80), sportLogAt(6, 80)]
+    expect(daysUntilACWRAvailable([], [], TODAY_KEY, sportLogs)).toBe(0)
+  })
 })
 
 describe('calculateDailyACWRSeries', () => {
@@ -323,6 +388,12 @@ describe('calculateDailyACWRSeries', () => {
     const series = calculateDailyACWRSeries(logs, [], TODAY_KEY, 7)
     expect(series.slice(0, 6).every((point) => point.acwr === null)).toBe(true)
     expect(series[6].acwr).not.toBeNull()
+    expect(series[6].acwr).toBeCloseTo(1)
+  })
+
+  it('sportLogsもcalculateACWRへ伝播する（Tier 4-2、2026年9月12日追加）', () => {
+    const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 400)) // 400/8=50
+    const series = calculateDailyACWRSeries([], [], TODAY_KEY, 7, [], [], sportLogs)
     expect(series[6].acwr).toBeCloseTo(1)
   })
 })

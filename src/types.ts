@@ -218,6 +218,25 @@ export interface SoccerLog extends BaseRecord {
   endTime?: string;
 }
 
+// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：soccer_logsと役割は
+// 同じ（ユーザーが実施後に手入力する競技記録）だが、種目を選択式にした汎用
+// テーブル（sport_logs）に対応する型。soccer_logs自体は変更していない。
+export interface SportLog extends BaseRecord {
+  userId?: string;
+  date: DateString;
+  /** SPORT_TYPE_PRESETS（src/utils/sportCalorieHelpers.ts）のいずれか、または'その他'。 */
+  sportType: string;
+  /** sportType === 'その他' のときのみ使用する自由入力の競技名。 */
+  customSportName?: string;
+  durationMinutes: number;
+  /** 主観的運動強度（1〜10）。任意入力、未入力可。 */
+  rpe?: number;
+  caloriesBurned?: number;
+  /** スコア・得点・勝敗の自由記述（例：「3-1勝利」「6-2 6-4」等）。 */
+  resultNote?: string;
+  notes?: string;
+}
+
 // Apple Health連携（2026年8月27日）：workoutsテーブルに対応する型。
 // api/sync-apple-health.tsが自動登録する行と、将来の手動登録行の両方を表す。
 // 手動データが自動データに統合された際、統合済みの手動レコードはisPrimaryが

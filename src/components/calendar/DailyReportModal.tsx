@@ -4,7 +4,8 @@ import { AiCommentCard } from '../AiCommentCard'
 import { useDailyAiComment } from '../../hooks/useDailyAiComment'
 import { AI_COMMENT_PENDING_TEXT } from '../../utils/dailyCommentHelpers'
 import { CloseIcon } from '../icons'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
+import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
+import { OTHER_SPORT_TYPE } from '../../utils/sportCalorieHelpers'
 import './DailyReportModal.css'
 
 // カレンダー「詳細」バッジ：日次レポート機能（Phase 2、2026年8月22日）。
@@ -35,6 +36,7 @@ type DailyReportModalProps = {
   dailyConditions: DailyCondition[]
   mealLogs: MealLog[]
   soccerLogs: SoccerLog[]
+  sportLogs: SportLog[]
   // Apple Health連携 Task4（2026年8月27日）：workoutsテーブル新設（Task1）より
   // 後に実装された日次レポートは、当初このテーブルを参照していなかった
   // （Johnさんからの指摘を受けて追加）。fetchWorkoutsが既にis_primary=trueの
@@ -52,6 +54,7 @@ export function DailyReportModal({
   dailyConditions,
   mealLogs,
   soccerLogs,
+  sportLogs,
   workouts,
   setDailyConditions,
   onClose,
@@ -61,6 +64,7 @@ export function DailyReportModal({
   const condition = dailyConditions.find((current) => current.date === selectedDate)
   const dayMealLogs = mealLogs.filter((log) => log.date === selectedDate)
   const soccerLog = soccerLogs.find((log) => log.date === selectedDate)
+  const sportLog = sportLogs.find((log) => log.date === selectedDate)
   // workouts.start_timeはtimestamptzのため、CalendarDaySummaries.tsxの
   // WorkoutSummaryと同じくtoJstDateKeyFromIsoでJST暦日に変換してから絞り込む
   // （log_dateのような単純な日付カラムでの比較はできない）。
@@ -218,6 +222,24 @@ export function DailyReportModal({
                   <p className="daily-report__note">最高速度: {soccerLog.maxSpeedKmh}km/h</p>
                 ) : null}
                 {soccerLog.notes ? <p className="daily-report__note">メモ: {soccerLog.notes}</p> : null}
+              </div>
+            ) : (
+              <p className="daily-report__empty">記録なし</p>
+            )}
+          </section>
+
+          <section className="daily-report__section">
+            <h4>スポーツ</h4>
+            {sportLog ? (
+              <div className="daily-report__item">
+                <p>
+                  🏆 {sportLog.sportType === OTHER_SPORT_TYPE ? sportLog.customSportName ?? OTHER_SPORT_TYPE : sportLog.sportType}
+                  {` / ${sportLog.durationMinutes}分`}
+                  {sportLog.rpe !== undefined ? ` / RPE${sportLog.rpe}` : ''}
+                  {sportLog.caloriesBurned !== undefined ? ` / ${sportLog.caloriesBurned}kcal` : ''}
+                </p>
+                {sportLog.resultNote ? <p className="daily-report__note">スコア・結果: {sportLog.resultNote}</p> : null}
+                {sportLog.notes ? <p className="daily-report__note">メモ: {sportLog.notes}</p> : null}
               </div>
             ) : (
               <p className="daily-report__empty">記録なし</p>

@@ -28,7 +28,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { detectAcwrDangerNotification, detectStreakBrokenNotification, shouldCreateNotification } from '../src/utils/notificationHelpers.js'
 import type { NotificationCandidate } from '../src/utils/notificationHelpers.js'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, Workout } from '../src/types.js'
+import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, Workout } from '../src/types.js'
 
 function todayInJst(): DateString {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -130,6 +130,33 @@ async function fetchSoccerLogsForAcwr(supabase: SupabaseClient, userId: string):
   return (data as unknown as { log_date: string; activity_type: string; calories_burned: number | null }[]).map((row) => ({
     date: row.log_date as DateString,
     activityType: row.activity_type,
+    caloriesBurned: row.calories_burned ?? undefined,
+  }))
+}
+
+// スポーツ記録機能（Tier 4-2、2026年9月12日）：fetchSoccerLogsForAcwrと同じ
+// パターンでsport_logsを取得する（ACWR・ストリーク双方の判定に必要な範囲、
+// この関数は期間を絞らずユーザーの全履歴を取得する既存パターンを踏襲）。
+async function fetchSportLogsForAcwr(supabase: SupabaseClient, userId: string): Promise<SportLog[]> {
+  const { data, error } = await supabase
+    .from('sport_logs')
+    .select('log_date, sport_type, custom_sport_name, duration_minutes, calories_burned')
+    .eq('user_id', userId)
+  if (error) throw error
+
+  return (
+    data as unknown as {
+      log_date: string
+      sport_type: string
+      custom_sport_name: string | null
+      duration_minutes: number
+      calories_burned: number | null
+    }[]
+  ).map((row) => ({
+    date: row.log_date as DateString,
+    sportType: row.sport_type,
+    customSportName: row.custom_sport_name ?? undefined,
+    durationMinutes: row.duration_minutes,
     caloriesBurned: row.calories_burned ?? undefined,
   }))
 }
@@ -300,12 +327,13 @@ export default async function handler(req: { headers: Record<string, string | st
   const sentTypesByUser: Record<string, string[]> = {}
 
   for (const [userId, subscriptions] of subscriptionsByUser) {
-    const [trainingLogs, soccerLogs, mealLogs, dailyConditions, workouts] = await Promise.all([
+    const [trainingLogs, soccerLogs, mealLogs, dailyConditions, workouts, sportLogs] = await Promise.all([
       fetchTrainingLogsForAcwr(supabase, userId),
       fetchSoccerLogsForAcwr(supabase, userId),
       fetchMealLogsForStreak(supabase, userId),
       fetchDailyConditions(supabase, userId),
       fetchWorkoutsForAcwr(supabase, userId),
+      fetchSportLogsForAcwr(supabase, userId),
     ])
 
     const todayCondition = dailyConditions.find((condition) => condition.date === targetDate)
@@ -319,8 +347,9 @@ export default async function handler(req: { headers: Record<string, string | st
         todayCondition?.muscleSorenessLocation,
         workouts,
         dailyConditions,
+        sportLogs,
       ),
-      detectStreakBrokenNotification(trainingLogs, soccerLogs, mealLogs, dailyConditions, targetDate),
+      detectStreakBrokenNotification(trainingLogs, soccerLogs, mealLogs, dailyConditions, targetDate, sportLogs),
     ].filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
 
     if (candidates.length === 0) {

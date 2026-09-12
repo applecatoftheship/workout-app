@@ -1,5 +1,6 @@
-import type { DateString, MealLog, SoccerLog, TrainingLog, Workout } from '../types'
+import type { DateString, MealLog, SoccerLog, SportLog, TrainingLog, Workout } from '../types'
 import { formatTrainingLogItem, toJstDateKeyFromIso } from './calendarHelpers'
+import { OTHER_SPORT_TYPE } from './sportCalorieHelpers'
 
 // AIコメント生成タイミング見直し（2026年8月29日）：自動生成トリガー廃止に伴い、
 // 「本日分はまだ生成されていない（cronが翌日05:00 JSTに実行するため）」を案内する
@@ -24,6 +25,9 @@ export function buildDailySummaryText(
   workouts: Workout[],
   mealLogs: MealLog[],
   date: DateString,
+  // スポーツ記録機能（Tier 4-2、2026年9月12日）：末尾に追加、省略時は空配列
+  // （既存呼び出しとの後方互換）。
+  sportLogs: SportLog[] = [],
 ): string {
   const parts: string[] = []
 
@@ -36,6 +40,13 @@ export function buildDailySummaryText(
   if (soccerLog) {
     const duration = soccerLog.durationMinutes !== undefined ? `${soccerLog.durationMinutes}分` : ''
     parts.push(`サッカー: ${soccerLog.activityType}${duration ? `（${duration}）` : ''}`)
+  }
+
+  // sport_logsは1ユーザー1日1行（soccer_logsと同じ制約）のためfindでよい。
+  const sportLog = sportLogs.find((log) => log.date === date)
+  if (sportLog) {
+    const label = sportLog.sportType === OTHER_SPORT_TYPE ? sportLog.customSportName ?? OTHER_SPORT_TYPE : sportLog.sportType
+    parts.push(`スポーツ: ${label}（${sportLog.durationMinutes}分）`)
   }
 
   // workouts.start_timeはtimestamptzのため、DailyReportModal.tsxと同じく

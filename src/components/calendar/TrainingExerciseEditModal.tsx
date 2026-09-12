@@ -11,6 +11,7 @@ import {
 import type { LatestExerciseRecord } from '../../api/trainingLogs'
 import { completeScheduleForDate } from '../../api/trainingSchedules'
 import { fetchSoccerLogs } from '../../api/soccerLogs'
+import { fetchSportLogs } from '../../api/sportLogs'
 import { getMatchDayStatus } from '../../utils/periodizationHelpers'
 import { detectPersonalRecords } from '../../utils/prHelpers'
 import { calculateCurrentStreak, isStreakMilestone } from '../../utils/streakHelpers'
@@ -464,12 +465,13 @@ export function TrainingExerciseEditModal({
         const streakWindowStart = new Date(today)
         streakWindowStart.setDate(streakWindowStart.getDate() - 900)
         const soccerLogsForStreak = await fetchSoccerLogs(toDateKey(streakWindowStart), toDateKey(today))
-        const streakDays = calculateCurrentStreak(refreshed, soccerLogsForStreak, mealLogs, dailyConditions, today)
+        const sportLogsForStreak = await fetchSportLogs(toDateKey(streakWindowStart), toDateKey(today))
+        const streakDays = calculateCurrentStreak(refreshed, soccerLogsForStreak, mealLogs, dailyConditions, today, sportLogsForStreak)
         if (isStreakMilestone(streakDays)) {
           showStreakCelebration(streakDays)
         }
       } catch (error) {
-        console.error('Supabaseからストリーク判定用のサッカー記録の取得に失敗しました', error)
+        console.error('Supabaseからストリーク判定用のサッカー記録・スポーツ記録の取得に失敗しました', error)
       }
 
       const refreshedDayLog = refreshed.find((log) => log.date === selectedDate)

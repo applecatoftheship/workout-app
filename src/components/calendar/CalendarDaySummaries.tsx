@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
+import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
+import { OTHER_SPORT_TYPE } from '../../utils/sportCalorieHelpers'
 import {
   formatConditionSummary,
   getMealTypeLabel,
@@ -367,6 +368,50 @@ export function SoccerSummary({ soccerLogs, selectedDate, onAdd, onEdit }: Socce
         </div>
       ) : (
         <p className="calendar-detail__empty">⚽ まだサッカー記録がありません</p>
+      )}
+    </div>
+  )
+}
+
+// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：SoccerSummaryと同じ
+// 1日1件前提のfindパターン。
+type SportSummaryProps = {
+  sportLogs: SportLog[]
+  selectedDate: DateString
+  onAdd: () => void
+  onEdit: () => void
+}
+
+export function SportSummary({ sportLogs, selectedDate, onAdd, onEdit }: SportSummaryProps) {
+  const log = sportLogs.find((current) => current.date === selectedDate)
+  const label = log ? (log.sportType === OTHER_SPORT_TYPE ? log.customSportName ?? OTHER_SPORT_TYPE : log.sportType) : ''
+
+  return (
+    <div className="calendar-detail__section">
+      <div className="calendar-detail__section-header">
+        <h4>スポーツ</h4>
+        <button type="button" className="calendar-detail__secondary-button" onClick={onAdd}>
+          {log ? '記録を編集' : '記録を追加'}
+        </button>
+      </div>
+      {log ? (
+        <div className="calendar-detail__item">
+          <p>
+            🏆 {label}
+            {` / ${log.durationMinutes}分`}
+            {log.rpe !== undefined ? ` / RPE${log.rpe}` : ''}
+            {log.caloriesBurned !== undefined ? ` / ${log.caloriesBurned}kcal` : ''}
+          </p>
+          {log.resultNote ? <p className="calendar-detail__description">スコア・結果: {log.resultNote}</p> : null}
+          {log.notes ? <p className="calendar-detail__description">メモ: {log.notes}</p> : null}
+          <div className="calendar-detail__condition-actions">
+            <button type="button" className="calendar-detail__edit-button" onClick={onEdit}>
+              編集
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="calendar-detail__empty">🏆 まだスポーツ記録がありません</p>
       )}
     </div>
   )

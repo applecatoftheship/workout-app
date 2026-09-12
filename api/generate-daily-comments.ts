@@ -42,7 +42,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { calculateACWR } from '../src/utils/acwrHelpers.js'
 import { buildDailySummaryText } from '../src/utils/dailyCommentHelpers.js'
 import { generateDailyCommentViaGemini } from './_lib/dailyCommentGeneration.js'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog, Workout } from '../src/types.js'
+import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, Workout } from '../src/types.js'
 
 const CHRONIC_WINDOW_DAYS = 28
 
@@ -157,6 +157,39 @@ async function fetchSoccerLogsForAcwr(
   return (data as unknown as { log_date: string; activity_type: string; calories_burned: number | null }[]).map((row) => ({
     date: row.log_date as DateString,
     activityType: row.activity_type,
+    caloriesBurned: row.calories_burned ?? undefined,
+  }))
+}
+
+// スポーツ記録機能（Tier 4-2、2026年9月12日）：fetchSoccerLogsForAcwrと同じ
+// パターンでsport_logsを取得する。
+async function fetchSportLogsForAcwr(
+  supabase: SupabaseClient,
+  userId: string,
+  startDate: DateString,
+  endDate: DateString,
+): Promise<SportLog[]> {
+  const { data, error } = await supabase
+    .from('sport_logs')
+    .select('log_date, sport_type, custom_sport_name, duration_minutes, calories_burned')
+    .eq('user_id', userId)
+    .gte('log_date', startDate)
+    .lte('log_date', endDate)
+  if (error) throw error
+
+  return (
+    data as unknown as {
+      log_date: string
+      sport_type: string
+      custom_sport_name: string | null
+      duration_minutes: number
+      calories_burned: number | null
+    }[]
+  ).map((row) => ({
+    date: row.log_date as DateString,
+    sportType: row.sport_type,
+    customSportName: row.custom_sport_name ?? undefined,
+    durationMinutes: row.duration_minutes,
     caloriesBurned: row.calories_burned ?? undefined,
   }))
 }
@@ -319,12 +352,13 @@ export default async function handler(
 
   for (const userId of pendingUserIds) {
     try {
-      const [trainingLogs, soccerLogs, workouts, mealLogs, dailyConditions] = await Promise.all([
+      const [trainingLogs, soccerLogs, workouts, mealLogs, dailyConditions, sportLogs] = await Promise.all([
         fetchTrainingLogsForAcwr(supabase, userId, chronicStartKey, targetDate),
         fetchSoccerLogsForAcwr(supabase, userId, chronicStartKey, targetDate),
         fetchWorkoutsForAcwr(supabase, userId, chronicStartKey, targetDate),
         fetchMealLogsForDate(supabase, userId, targetDate),
         fetchAllDailyConditions(supabase, userId),
+        fetchSportLogsForAcwr(supabase, userId, chronicStartKey, targetDate),
       ])
 
       const targetCondition = dailyConditions.find((condition) => condition.date === targetDate)
@@ -343,8 +377,9 @@ export default async function handler(
         targetCondition.muscleSorenessLocation,
         workouts,
         dailyConditions,
+        sportLogs,
       )
-      const dailySummary = buildDailySummaryText(trainingLogs, soccerLogs, workouts, mealLogs, targetDate)
+      const dailySummary = buildDailySummaryText(trainingLogs, soccerLogs, workouts, mealLogs, targetDate, sportLogs)
 
       const generated = await generateDailyCommentViaGemini({
         acwr: acwrResult?.acwr ?? null,

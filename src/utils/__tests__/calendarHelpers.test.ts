@@ -17,7 +17,7 @@ import {
   toJstDateKeyFromIso,
   weekDays,
 } from '../calendarHelpers'
-import type { DailyCondition, MealLog, SoccerLog, TrainingLogExercise, TrainingSchedule, Workout } from '../../types'
+import type { DailyCondition, MealLog, SoccerLog, SportLog, TrainingLogExercise, TrainingSchedule, Workout } from '../../types'
 
 describe('toDateKey', () => {
   it('year/month/dayをゼロ埋めしたYYYY-MM-DDにする', () => {
@@ -198,6 +198,27 @@ describe('buildActivityByDate', () => {
     expect(result.get('2026-08-23')?.has('workout')).toBe(true)
     expect(result.get('2026-08-23')?.has('appleWorkout')).toBe(false)
   })
+
+  it('スポーツ記録がある日はsportを含む（Tier 4-2、2026年9月12日追加）', () => {
+    const sportLogsByDate = new Map([
+      ['2026-08-23', [{ date: '2026-08-23', sportType: 'テニス', durationMinutes: 60 } as SportLog]],
+    ])
+    const result = buildActivityByDate(new Map(), new Map(), undefined, sportLogsByDate)
+    expect(result.get('2026-08-23')?.has('sport')).toBe(true)
+  })
+
+  it('スポーツ記録が空配列の日はsportを含まない', () => {
+    const sportLogsByDate = new Map([['2026-08-23', [] as SportLog[]]])
+    const result = buildActivityByDate(new Map(), new Map(), undefined, sportLogsByDate)
+    expect(result.has('2026-08-23')).toBe(false)
+  })
+
+  it('sportLogsByDate省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
+    const soccerLogsByDate = new Map([['2026-08-23', [{ date: '2026-08-23', activityType: '練習' } as SoccerLog]]])
+    const result = buildActivityByDate(new Map(), soccerLogsByDate)
+    expect(result.get('2026-08-23')?.has('soccer')).toBe(true)
+    expect(result.get('2026-08-23')?.has('sport')).toBe(false)
+  })
 })
 
 describe('getCalendarCellState', () => {
@@ -267,6 +288,29 @@ describe('getCalendarCellState', () => {
   })
 
   it('hasAppleWorkout省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
+    const result = getCalendarCellState({
+      isPast: true,
+      hasSchedule: false,
+      scheduleIcon: '🏋️',
+      hasTrainingLog: false,
+      hasSoccerLog: false,
+    })
+    expect(result).toEqual([])
+  })
+
+  it('スポーツ記録があれば常にcompleted_unplannedのsportアイテムが追加される（Tier 4-2、2026年9月12日追加）', () => {
+    const result = getCalendarCellState({
+      isPast: false,
+      hasSchedule: false,
+      scheduleIcon: '🏋️',
+      hasTrainingLog: false,
+      hasSoccerLog: false,
+      hasSportLog: true,
+    })
+    expect(result).toEqual([{ type: 'sport', icon: '🏆', status: 'completed_unplanned' }])
+  })
+
+  it('hasSportLog省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
     const result = getCalendarCellState({
       isPast: true,
       hasSchedule: false,

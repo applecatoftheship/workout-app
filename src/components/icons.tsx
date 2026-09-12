@@ -191,3 +191,15 @@ export function CloseIcon({ strokeWidth = 2, className }: IconProps) {
     </svg>
   )
 }
+
+// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：RecordSheet.tsxの
+// 「＋記録」シート用の汎用トロフィーアイコン（種目ごとの出し分けはしない）。
+export function TrophyIcon({ strokeWidth = 2, className }: IconProps) {
+  return (
+    <svg {...base} strokeWidth={strokeWidth} className={className}>
+      <path d="M7 4h10v4a5 5 0 0 1-10 0V4Z" />
+      <path d="M7 5H4a2 2 0 0 0 0 4h1.5M17 5h3a2 2 0 0 1 0 4h-1.5" />
+      <path d="M12 13v4M9 21h6M9.5 17h5l.5 4H9l.5-4Z" />
+    </svg>
+  )
+}

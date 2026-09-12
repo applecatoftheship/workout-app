@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { DailyCondition, DateString, FirstDayOfWeek, MealLog, SoccerLog, TrainingLog, TrainingSchedule, Workout } from '../types'
+import type { DailyCondition, DateString, FirstDayOfWeek, MealLog, SoccerLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../types'
 import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
-import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, SoccerSummary, WorkoutSummary } from '../components/calendar/CalendarDaySummaries'
+import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, SoccerSummary, SportSummary, WorkoutSummary } from '../components/calendar/CalendarDaySummaries'
 import { BulkScheduleImportModal } from '../components/calendar/BulkScheduleImportModal'
 import { DailyReportModal } from '../components/calendar/DailyReportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSoccerLogs } from '../api/soccerLogs'
+import { fetchSportLogs } from '../api/sportLogs'
 import { fetchWorkouts } from '../api/workouts'
 import {
   toDateKey,
@@ -22,8 +23,8 @@ import {
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import type { RecordModalRequest } from '../components/RecordFormModal'
 
-type DetailTab = 'training' | 'schedule' | 'condition' | 'meal' | 'soccer' | 'workout'
-const DETAIL_TABS: DetailTab[] = ['training', 'schedule', 'condition', 'meal', 'soccer', 'workout']
+type DetailTab = 'training' | 'schedule' | 'condition' | 'meal' | 'soccer' | 'sport' | 'workout'
+const DETAIL_TABS: DetailTab[] = ['training', 'schedule', 'condition', 'meal', 'soccer', 'sport', 'workout']
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 type MonthlyCalendarProps = {
@@ -74,6 +75,7 @@ export function MonthlyCalendar({
   const [isDailyReportOpen, setIsDailyReportOpen] = useState(false)
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
   const [soccerLogs, setSoccerLogs] = useState<SoccerLog[]>([])
+  const [sportLogs, setSportLogs] = useState<SportLog[]>([])
   const [workouts, setWorkouts] = useState<Workout[]>([])
 
   const year = displayDate.getFullYear()
@@ -173,6 +175,30 @@ export function MonthlyCalendar({
     }
   }, [scheduleRangeStart, scheduleRangeEnd])
 
+  // スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：soccerLogsと同じ
+  // 月範囲フェッチパターン。
+  useEffect(() => {
+    if (!scheduleRangeStart || !scheduleRangeEnd) {
+      return
+    }
+
+    let isMounted = true
+
+    fetchSportLogs(scheduleRangeStart, scheduleRangeEnd)
+      .then((data) => {
+        if (isMounted) {
+          setSportLogs(data)
+        }
+      })
+      .catch((error) => {
+        console.error('Supabaseからスポーツ記録の取得に失敗しました', error)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [scheduleRangeStart, scheduleRangeEnd])
+
   // Apple Health連携 Task3（2026年8月27日）：読み取り専用のためRecordFormModal
   // 経由の書き込みが無く、schedules/soccerLogsのような「モーダルを閉じたら
   // 再取得」の仕組みは不要（範囲変更時のみ取得すれば十分）。
@@ -237,9 +263,19 @@ export function MonthlyCalendar({
     return map
   }, [workouts])
 
+  const sportLogsByDate = useMemo(() => {
+    const map = new Map<string, SportLog[]>()
+    sportLogs.forEach((log) => {
+      const list = map.get(log.date) ?? []
+      list.push(log)
+      map.set(log.date, list)
+    })
+    return map
+  }, [sportLogs])
+
   const activityByDate = useMemo(
-    () => buildActivityByDate(schedulesByDate, soccerLogsByDate, workoutsByDate),
-    [schedulesByDate, soccerLogsByDate, workoutsByDate],
+    () => buildActivityByDate(schedulesByDate, soccerLogsByDate, workoutsByDate, sportLogsByDate),
+    [schedulesByDate, soccerLogsByDate, workoutsByDate, sportLogsByDate],
   )
 
   const refetchSoccerLogs = () => {
@@ -251,6 +287,18 @@ export function MonthlyCalendar({
       .then((data) => setSoccerLogs(data))
       .catch((error) => {
         console.error('Supabaseからサッカー記録の再取得に失敗しました', error)
+      })
+  }
+
+  const refetchSportLogs = () => {
+    if (!scheduleRangeStart || !scheduleRangeEnd) {
+      return
+    }
+
+    fetchSportLogs(scheduleRangeStart, scheduleRangeEnd)
+      .then((data) => setSportLogs(data))
+      .catch((error) => {
+        console.error('Supabaseからスポーツ記録の再取得に失敗しました', error)
       })
   }
 
@@ -278,6 +326,7 @@ export function MonthlyCalendar({
     if (wasRecordModalOpen && !isRecordModalOpen) {
       refetchSchedules()
       refetchSoccerLogs()
+      refetchSportLogs()
       refetchWorkouts()
     }
     setWasRecordModalOpen(isRecordModalOpen)
@@ -366,6 +415,7 @@ export function MonthlyCalendar({
             hasTrainingLog: dayTrainingLogs.length > 0,
             hasSoccerLog: activityByDate.get(day.dateKey)?.has('soccer') ?? false,
             hasAppleWorkout: activityByDate.get(day.dateKey)?.has('appleWorkout') ?? false,
+            hasSportLog: activityByDate.get(day.dateKey)?.has('sport') ?? false,
           })
 
           return (
@@ -446,6 +496,13 @@ export function MonthlyCalendar({
               </button>
               <button
                 type="button"
+                className={`calendar-detail__tab ${activeDetailTab === 'sport' ? 'calendar-detail__tab--active' : ''}`}
+                onClick={() => setActiveDetailTab('sport')}
+              >
+                スポーツ
+              </button>
+              <button
+                type="button"
                 className={`calendar-detail__tab ${activeDetailTab === 'workout' ? 'calendar-detail__tab--active' : ''}`}
                 onClick={() => setActiveDetailTab('workout')}
               >
@@ -501,6 +558,15 @@ export function MonthlyCalendar({
             />
           ) : null}
 
+          {activeDetailTab === 'sport' ? (
+            <SportSummary
+              sportLogs={sportLogs}
+              selectedDate={selectedDate}
+              onAdd={() => openRecordModal({ type: 'sport', date: selectedDate })}
+              onEdit={() => openRecordModal({ type: 'sport', date: selectedDate })}
+            />
+          ) : null}
+
           {activeDetailTab === 'workout' ? (
             <WorkoutSummary
               workouts={workouts}
@@ -530,6 +596,7 @@ export function MonthlyCalendar({
           dailyConditions={dailyConditions}
           mealLogs={mealLogs}
           soccerLogs={soccerLogs}
+          sportLogs={sportLogs}
           workouts={workouts}
           setDailyConditions={setDailyConditions}
           onClose={() => setIsDailyReportOpen(false)}

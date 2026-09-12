@@ -6,6 +6,7 @@ import { calculateACWR } from '../utils/acwrHelpers'
 import { buildDailySummaryText } from '../utils/dailyCommentHelpers'
 import { fetchTrainingLogs } from '../api/trainingLogs'
 import { fetchSoccerLogs } from '../api/soccerLogs'
+import { fetchSportLogs } from '../api/sportLogs'
 import { fetchWorkouts } from '../api/workouts'
 import { fetchMealLogs } from '../api/mealLogs'
 import { fetchDailyConditions } from '../api/dailyConditions'
@@ -70,11 +71,12 @@ export function useDailyAiComment(params: {
       const sorenessLocation = condition?.muscleSorenessLocation ?? 'none'
 
       try {
-        const [trainingLogs, soccerLogs, workouts, mealLogs] = await Promise.all([
+        const [trainingLogs, soccerLogs, workouts, mealLogs, sportLogs] = await Promise.all([
           fetchTrainingLogs(),
           fetchSoccerLogs(chronicStartKey, selectedDate),
           fetchWorkouts(chronicStartKey, selectedDate),
           fetchMealLogs(),
+          fetchSportLogs(chronicStartKey, selectedDate),
         ])
 
         const acwrResult = calculateACWR(
@@ -85,8 +87,9 @@ export function useDailyAiComment(params: {
           sorenessLocation,
           workouts,
           dailyConditions,
+          sportLogs,
         )
-        const dailySummary = buildDailySummaryText(trainingLogs, soccerLogs, workouts, mealLogs, selectedDate)
+        const dailySummary = buildDailySummaryText(trainingLogs, soccerLogs, workouts, mealLogs, selectedDate, sportLogs)
 
         const { aiComment } = await generateDailyComment({
           date: selectedDate,

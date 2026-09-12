@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calculateCurrentStreak, isStreakMilestone } from '../streakHelpers'
-import type { DailyCondition, MealLog, SoccerLog, TrainingLog } from '../../types'
+import type { DailyCondition, MealLog, SoccerLog, SportLog, TrainingLog } from '../../types'
 
 describe('isStreakMilestone', () => {
   it('7/30/100/365日は節目', () => {
@@ -70,6 +70,9 @@ describe('calculateCurrentStreak', () => {
   function condition(date: string): DailyCondition {
     return { date: date as DailyCondition['date'], weight: 70, sleepHours: 7, fatigue: 3 }
   }
+  function sportLog(date: string): SportLog {
+    return { date: date as SportLog['date'], sportType: 'テニス', durationMinutes: 60 }
+  }
 
   it('記録が1件も無ければ0', () => {
     expect(calculateCurrentStreak([], [], [], [], today)).toBe(0)
@@ -98,5 +101,15 @@ describe('calculateCurrentStreak', () => {
   it('当日に記録が無ければ0を返す', () => {
     const logs = [trainingLog('2026-08-22'), trainingLog('2026-08-21')]
     expect(calculateCurrentStreak(logs, [], [], [], today)).toBe(0)
+  })
+
+  it('sportLogsも「記録がある日」としてOR結合される（Tier 4-2、2026年9月12日追加）', () => {
+    const sportLogs = [sportLog('2026-08-23'), sportLog('2026-08-22'), sportLog('2026-08-21')]
+    expect(calculateCurrentStreak([], [], [], [], today, sportLogs)).toBe(3)
+  })
+
+  it('sportLogs省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
+    const logs = [trainingLog('2026-08-23'), trainingLog('2026-08-22')]
+    expect(calculateCurrentStreak(logs, [], [], [], today)).toBe(2)
   })
 })
