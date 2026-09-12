@@ -11,6 +11,8 @@
   align-items: center;
   justify-content: center;
   transition: opacity 300ms ease-out, visibility 300ms ease-out;
+  /* タップで進める設計（2026年9月12日）：デスクトップ幅でも操作可能であることを示す。 */
+  cursor: pointer;
 }
 
 .splash-screen.fade-out {

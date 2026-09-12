@@ -183,7 +183,7 @@ function AppShell() {
 
   return (
     <>
-      <SplashScreen isVisible={!isInitialLoadComplete} />
+      <SplashScreen isLoadComplete={isInitialLoadComplete} />
 
       <main className="app-shell">
         <Routes>

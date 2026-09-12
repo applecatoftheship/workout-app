@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
 import { readStoredAccentColor } from '../utils/accentColor'
 import './SplashScreen.css'
 
 type SplashScreenProps = {
-  isVisible: boolean
+  // データ取得＋最低表示時間（App.tsx の SPLASH_MINIMUM_VISIBLE_MS）の両方が
+  // 完了したか。SplashScreen 自身の表示可否（isVisible、下記）はこれとは別に
+  // 内部の isSplashDismissed（タップ or 自動進行）が揃うまで確定しない
+  // （2026年9月12日、タップで進める設計に変更。詳細は SplashScreen 本体のコメント参照）。
+  isLoadComplete: boolean
 }
 
 // 起動画面テーマ（2026年9月7日、複数テーマ対応）：accent_color プリセットごとに
@@ -26,26 +30,56 @@ const SPLASH_VARIANT_BY_ACCENT: Partial<Record<string, SplashVariant>> = {
 
 // 設定画面拡張 Phase 1（2026年8月28日）：初回起動時のスプラッシュ画面。
 // App.tsx（AppShell）側でPromise.all([初回データ取得, SPLASH_MINIMUM_VISIBLE_MSの
-// タイマー])が完了した時点でisVisible=falseになり、CSS transitionでフェードアウトする。
-// visibility:hidden＋pointer-events:noneで確実に操作不能にするため、
-// フェードアウト後もDOMからのunmountはせず常時マウントのままにしている
-// （タイマー管理を増やさないための単純化・判断理由）。
+// タイマー])が完了すると isLoadComplete が true になり、CSS transitionでの
+// フェードアウトが可能な状態になる。visibility:hidden＋pointer-events:noneで
+// 確実に操作不能にするため、フェードアウト後もDOMからのunmountはせず常時
+// マウントのままにしている（タイマー管理を増やさないための単純化・判断理由）。
+//
+// 【タップで進める設計（2026年9月12日）】isLoadComplete が true になった後も、
+// 「タップ」または「6秒後の自動進行（フォールバック保険）」のどちらか早い方で
+// isSplashDismissed が true になるまでスプラッシュを表示し続ける
+// （isVisible = !(isLoadComplete && isSplashDismissed)）。フェードアウト自体は
+// 既存の300msトランジション（.fade-out、SplashScreen.css）をそのまま使う。
+// 両テーマ（ART DECO CLASSIC / AETHER-FLOW）に共通のロジックとしてこの
+// コンポーネント本体に実装しており、各バリアントのコンテンツ（下記
+// ArtDecoSplashContent / AetherFlowSplashContent）側の実装は不要。
+// タップは isLoadComplete が false の間（データ取得中）に行っても無効にはせず
+// isSplashDismissed を立てるだけにしている。これにより「読み込み中に先に
+// タップしておけば、読み込み完了と同時に即座にフェードアウトする」という
+// 自然な挙動になる（読み込み完了後に改めてタップし直す必要はない）。
 //
 // アニメーション（各バリアントとも）：リング/弧の描画 → モチーフが現れる →
 // タイトル/サブタイトルのフェードイン → データ取得未完了時のゆっくりした明滅ループ
 // → 画面ごとフェードアウト、という緩急をCSS keyframes/transitionのみで実装し、
 // タイミング制御にJSのstate/タイマーは使わない（要件通り新規ライブラリ不要）。
 // prefers-reduced-motion: reduce ではスライド・描画系を省略しフェードインのみにする。
-export function SplashScreen({ isVisible }: SplashScreenProps) {
+const SPLASH_AUTO_DISMISS_MS = 6000
+
+export function SplashScreen({ isLoadComplete }: SplashScreenProps) {
   const [variant] = useState<SplashVariant>(
     () => SPLASH_VARIANT_BY_ACCENT[readStoredAccentColor() ?? ''] ?? 'artdeco',
   )
+  const [isSplashDismissed, setIsSplashDismissed] = useState(false)
+
+  // 6秒後の自動進行はisLoadComplete=trueになってからカウントを開始する
+  // （読み込みに時間がかかっている間にタイマーを消費させないため。読み込みが
+  // 6秒を超えるケースでも、完了直後から改めて6秒間はタップの猶予を確保する）。
+  useEffect(() => {
+    if (!isLoadComplete) {
+      return
+    }
+    const timeoutId = window.setTimeout(() => setIsSplashDismissed(true), SPLASH_AUTO_DISMISS_MS)
+    return () => window.clearTimeout(timeoutId)
+  }, [isLoadComplete])
+
+  const isVisible = !(isLoadComplete && isSplashDismissed)
   const Content = SPLASH_CONTENT_BY_VARIANT[variant]
 
   return (
     <div
       className={`splash-screen splash-screen--${variant}${isVisible ? '' : ' fade-out'}`}
       aria-hidden={!isVisible}
+      onClick={() => setIsSplashDismissed(true)}
     >
       <Content />
     </div>
