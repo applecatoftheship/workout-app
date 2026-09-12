@@ -31,7 +31,7 @@
 // api/_lib/dailyCommentGeneration.tsに切り出しapi/generate-daily-comment.tsと共有する。
 //
 // 【ACWR計算のための慢性負荷ウィンドウ】calculateACWR（src/utils/acwrHelpers.ts）は
-// 対象日から遡って最大28日分の負荷データを必要とする。トレーニング・サッカー・
+// 対象日から遡って最大28日分の負荷データを必要とする。トレーニング・スポーツ・
 // ワークアウトの各データはこの28日レンジに絞って取得するが、daily_conditions
 // （体重の直近値参照、calculateDailyLoadMapのfindRecentWeightOnOrBefore用）は
 // 期間を絞らずユーザーの全履歴を取得する（src/hooks/useDailyAiComment.tsの
@@ -42,7 +42,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { calculateACWR } from '../src/utils/acwrHelpers.js'
 import { buildDailySummaryText } from '../src/utils/dailyCommentHelpers.js'
 import { generateDailyCommentViaGemini } from './_lib/dailyCommentGeneration.js'
-import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, Workout } from '../src/types.js'
+import type { DailyCondition, DateString, MealLog, SportLog, TrainingLog, Workout } from '../src/types.js'
 
 const CHRONIC_WINDOW_DAYS = 28
 
@@ -140,29 +140,8 @@ async function fetchTrainingLogsForAcwr(
   })
 }
 
-async function fetchSoccerLogsForAcwr(
-  supabase: SupabaseClient,
-  userId: string,
-  startDate: DateString,
-  endDate: DateString,
-): Promise<SoccerLog[]> {
-  const { data, error } = await supabase
-    .from('soccer_logs')
-    .select('log_date, activity_type, calories_burned')
-    .eq('user_id', userId)
-    .gte('log_date', startDate)
-    .lte('log_date', endDate)
-  if (error) throw error
-
-  return (data as unknown as { log_date: string; activity_type: string; calories_burned: number | null }[]).map((row) => ({
-    date: row.log_date as DateString,
-    activityType: row.activity_type,
-    caloriesBurned: row.calories_burned ?? undefined,
-  }))
-}
-
-// スポーツ記録機能（Tier 4-2、2026年9月12日）：fetchSoccerLogsForAcwrと同じ
-// パターンでsport_logsを取得する。
+// スポーツ記録機能（Tier 4-2、2026年9月12日）：ACWR計算・日次サマリー生成用に
+// sport_logsを取得する。
 async function fetchSportLogsForAcwr(
   supabase: SupabaseClient,
   userId: string,
@@ -352,9 +331,8 @@ export default async function handler(
 
   for (const userId of pendingUserIds) {
     try {
-      const [trainingLogs, soccerLogs, workouts, mealLogs, dailyConditions, sportLogs] = await Promise.all([
+      const [trainingLogs, workouts, mealLogs, dailyConditions, sportLogs] = await Promise.all([
         fetchTrainingLogsForAcwr(supabase, userId, chronicStartKey, targetDate),
-        fetchSoccerLogsForAcwr(supabase, userId, chronicStartKey, targetDate),
         fetchWorkoutsForAcwr(supabase, userId, chronicStartKey, targetDate),
         fetchMealLogsForDate(supabase, userId, targetDate),
         fetchAllDailyConditions(supabase, userId),
@@ -371,7 +349,6 @@ export default async function handler(
 
       const acwrResult = calculateACWR(
         trainingLogs,
-        soccerLogs,
         targetDate,
         targetCondition.muscleSorenessLevel,
         targetCondition.muscleSorenessLocation,
@@ -379,7 +356,7 @@ export default async function handler(
         dailyConditions,
         sportLogs,
       )
-      const dailySummary = buildDailySummaryText(trainingLogs, soccerLogs, workouts, mealLogs, targetDate, sportLogs)
+      const dailySummary = buildDailySummaryText(trainingLogs, workouts, mealLogs, targetDate, sportLogs)
 
       const generated = await generateDailyCommentViaGemini({
         acwr: acwrResult?.acwr ?? null,

@@ -4,11 +4,11 @@ import {
   SPORT_MET_DEFAULT,
   SPORT_MET_VALUES,
   SPORT_TYPE_PRESETS,
+  estimateCaloriesBurned,
   estimateMetFromRpe,
   resolvePresetMet,
   resolveSportMet,
 } from '../sportCalorieHelpers'
-import { estimateCaloriesBurned } from '../soccerCalorieHelpers'
 
 describe('SPORT_TYPE_PRESETS / SPORT_MET_VALUES', () => {
   it('8プリセット全てにMET値が定義されている（サッカー機能統合、2026年9月13日追加分含む）', () => {
@@ -93,7 +93,7 @@ describe('resolveSportMet（ハイブリッド方式：RPE入力があれば優�
   })
 })
 
-describe('estimateCaloriesBurned との連携（新規の式を作らず既存を再利用することの確認）', () => {
+describe('estimateCaloriesBurned との連携', () => {
   it('resolveSportMetの結果をそのままestimateCaloriesBurnedに渡して計算できる', () => {
     const met = resolveSportMet('バスケットボール', undefined) // 8.0
     // MET × 体重(kg) × 時間(h) × 1.05 = 8.0 × 70 × 1 × 1.05 = 588

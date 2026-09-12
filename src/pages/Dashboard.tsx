@@ -13,7 +13,6 @@ import { BellIcon, ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, 
 import { RestTimerModal } from '../components/timer/RestTimerModal'
 import { NotificationModal } from '../components/NotificationModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
-import { fetchSoccerLogs } from '../api/soccerLogs'
 import { fetchSportLogs } from '../api/sportLogs'
 import { fetchWorkouts } from '../api/workouts'
 import { fetchNotifications, markNotificationRead } from '../api/notifications'
@@ -31,7 +30,6 @@ import type {
   DailyCondition,
   DateString,
   MealLog,
-  SoccerLog,
   SportLog,
   TrainingLog,
   TrainingLogExercise,
@@ -176,10 +174,8 @@ export function Dashboard({
   }
 
   const [weekSchedules, setWeekSchedules] = useState<TrainingSchedule[]>([])
-  const [weekSoccerLogs, setWeekSoccerLogs] = useState<SoccerLog[]>([])
   const [weekSportLogs, setWeekSportLogs] = useState<SportLog[]>([])
   const [weekWorkouts, setWeekWorkouts] = useState<Workout[]>([])
-  const [acwrSoccerLogs, setAcwrSoccerLogs] = useState<SoccerLog[]>([])
   const [acwrSportLogs, setAcwrSportLogs] = useState<SportLog[]>([])
   // ホーム日付選択（2026年8月17日）：週間ストリップの週移動（A-1）と、
   // 日付タップによるホーム画面全体の日付コンテキスト切り替え（A-2）。
@@ -221,20 +217,18 @@ export function Dashboard({
 
     Promise.all([
       fetchTrainingSchedules(weekStartKey, weekEndKey),
-      fetchSoccerLogs(weekStartKey, weekEndKey),
       fetchWorkouts(weekStartKey, weekEndKey),
       fetchSportLogs(weekStartKey, weekEndKey),
     ])
-      .then(([scheduleData, soccerData, workoutData, sportData]) => {
+      .then(([scheduleData, workoutData, sportData]) => {
         if (isMounted) {
           setWeekSchedules(scheduleData)
-          setWeekSoccerLogs(soccerData)
           setWeekWorkouts(workoutData)
           setWeekSportLogs(sportData)
         }
       })
       .catch((error) => {
-        console.error('Supabaseから今週の予定・サッカー記録・ワークアウト記録・スポーツ記録の取得に失敗しました', error)
+        console.error('Supabaseから今週の予定・ワークアウト記録・スポーツ記録の取得に失敗しました', error)
       })
 
     return () => {
@@ -242,35 +236,17 @@ export function Dashboard({
     }
   }, [weekStartKey, weekEndKey])
 
-  // ACWR（急性:慢性負荷比、スプリント1）の慢性負荷計算に必要な直近28日分のサッカー記録。
+  // ACWR（急性:慢性負荷比、スプリント1）の慢性負荷計算に必要な直近28日分のスポーツ記録。
   // trainingLogsは既に全期間分がApp.tsxから渡されているため別途フェッチ不要だが、
-  // soccerLogsは範囲指定フェッチのみのため、週間ストリップ用（7日）とは別に取得する。
+  // sportLogsは範囲指定フェッチのみのため、週間ストリップ用（7日）とは別に取得する。
   const acwrChronicStartKey = useMemo(() => {
     const start = new Date(today)
     start.setDate(today.getDate() - 27)
     return toDateKey(start.getFullYear(), start.getMonth() + 1, start.getDate())
   }, [today])
 
-  useEffect(() => {
-    let isMounted = true
-
-    fetchSoccerLogs(acwrChronicStartKey, todayString)
-      .then((data) => {
-        if (isMounted) {
-          setAcwrSoccerLogs(data)
-        }
-      })
-      .catch((error) => {
-        console.error('Supabaseから疲労残高計算用のサッカー記録の取得に失敗しました', error)
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [acwrChronicStartKey, todayString])
-
   // スポーツ記録機能（Tier 4-2、2026年9月12日）：ACWR・ストリークへの反映用に、
-  // acwrSoccerLogsと全く同じ「直近28日・常にtoday終端」の範囲でsport_logsを取得する。
+  // 「直近28日・常にtoday終端」の範囲でsport_logsを取得する。
   useEffect(() => {
     let isMounted = true
 
@@ -290,7 +266,7 @@ export function Dashboard({
   }, [acwrChronicStartKey, todayString])
 
   // ACWR機能へのApple Health連携（2026年8月27日）：ACWRの慢性負荷計算（28日）が
-  // 必要とするため、acwrSoccerLogsと全く同じ「直近28日・常にtoday終端」の範囲で
+  // 必要とするため、acwrSportLogsと全く同じ「直近28日・常にtoday終端」の範囲で
   // workoutsを取得する（週間ストリップ用のweekWorkouts＝weekOffsetで変動する範囲
   // とは別。前回実装した単日のみのtodayWorkouts取得は、このacwrWorkouts
   // （todayを含む上位互換の範囲）に統合し廃止した。リカバリー窓機能でも同じ
@@ -371,16 +347,6 @@ export function Dashboard({
     return map
   }, [weekSchedules])
 
-  const weekSoccerLogsByDate = useMemo(() => {
-    const map = new Map<string, SoccerLog[]>()
-    weekSoccerLogs.forEach((log) => {
-      const list = map.get(log.date) ?? []
-      list.push(log)
-      map.set(log.date, list)
-    })
-    return map
-  }, [weekSoccerLogs])
-
   const weekSportLogsByDate = useMemo(() => {
     const map = new Map<string, SportLog[]>()
     weekSportLogs.forEach((log) => {
@@ -421,8 +387,8 @@ export function Dashboard({
   }, [weekWorkouts])
 
   const weekActivityByDate = useMemo(
-    () => buildActivityByDate(weekSchedulesByDate, weekSoccerLogsByDate, weekWorkoutsByDate, weekSportLogsByDate),
-    [weekSchedulesByDate, weekSoccerLogsByDate, weekWorkoutsByDate, weekSportLogsByDate],
+    () => buildActivityByDate(weekSchedulesByDate, weekWorkoutsByDate, weekSportLogsByDate),
+    [weekSchedulesByDate, weekWorkoutsByDate, weekSportLogsByDate],
   )
 
   // ACWRGaugeCard・目標ストリップは日付選択の対象外のため、常にtodayString基準の
@@ -436,7 +402,6 @@ export function Dashboard({
     () =>
       calculateACWR(
         trainingLogs,
-        acwrSoccerLogs,
         todayString,
         todayCondition?.muscleSorenessLevel,
         todayCondition?.muscleSorenessLocation,
@@ -444,18 +409,18 @@ export function Dashboard({
         dailyConditions,
         acwrSportLogs,
       ),
-    [trainingLogs, acwrSoccerLogs, todayString, todayCondition, acwrWorkouts, dailyConditions, acwrSportLogs],
+    [trainingLogs, todayString, todayCondition, acwrWorkouts, dailyConditions, acwrSportLogs],
   )
   const acwrDaysUntilAvailable = useMemo(
-    () => daysUntilACWRAvailable(trainingLogs, acwrSoccerLogs, todayString, acwrSportLogs),
-    [trainingLogs, acwrSoccerLogs, todayString, acwrSportLogs],
+    () => daysUntilACWRAvailable(trainingLogs, todayString, acwrSportLogs),
+    [trainingLogs, todayString, acwrSportLogs],
   )
   // ディロード自動提案（実装指示書Phase C、2026年8月18日）：直近3日連続で
   // 🔴警戒状態が続いている場合に警告を表示する。ACWRGaugeCard同様、日付選択の
   // 対象外でtodayString基準のまま。
   const showDeloadWarning = useMemo(
-    () => hasConsecutiveDangerDays(trainingLogs, acwrSoccerLogs, dailyConditions, todayString, 3, acwrWorkouts, acwrSportLogs),
-    [trainingLogs, acwrSoccerLogs, dailyConditions, todayString, acwrWorkouts, acwrSportLogs],
+    () => hasConsecutiveDangerDays(trainingLogs, dailyConditions, todayString, 3, acwrWorkouts, acwrSportLogs),
+    [trainingLogs, dailyConditions, todayString, acwrWorkouts, acwrSportLogs],
   )
 
   // 週次ACWRインサイト機能（2026年8月25日）：ACWRGaugeCard・目標ストリップと同じく
@@ -464,8 +429,8 @@ export function Dashboard({
   // ミニカードのスパークライン（末尾7件）・詳細モーダルのメイングラフ（全28件）の
   // 両方で使い回す（DBキャッシュせず動的計算する既存方針はACWR機能全体で踏襲）。
   const weeklyACWRSeries = useMemo(
-    () => calculateDailyACWRSeries(trainingLogs, acwrSoccerLogs, todayString, 28, acwrWorkouts, dailyConditions, acwrSportLogs),
-    [trainingLogs, acwrSoccerLogs, todayString, acwrWorkouts, dailyConditions, acwrSportLogs],
+    () => calculateDailyACWRSeries(trainingLogs, todayString, 28, acwrWorkouts, dailyConditions, acwrSportLogs),
+    [trainingLogs, todayString, acwrWorkouts, dailyConditions, acwrSportLogs],
   )
   const [isWeeklyACWRDetailOpen, setIsWeeklyACWRDetailOpen] = useState(false)
 
@@ -523,25 +488,21 @@ export function Dashboard({
   // バッジ判定はいずれも「常に本日を終端とした状態」を示す指標のため、
   // ACWRGaugeCard等と同じくselectedDateKeyの影響を受けずtodayString/today基準の
   // まま固定する。streakHelpers.calculateCurrentStreak（既存、変更なし）を再利用。
-  // soccerLogsはacwrSoccerLogs（直近28日分、ACWR計算用に既に取得済み）をそのまま
-  // 流用する——streak_30バッジ（30日連続）の判定では、対象日がsoccerLogsのみに
+  // sportLogsはacwrSportLogs（直近28日分、ACWR計算用に既に取得済み）をそのまま
+  // 流用する——streak_30バッジ（30日連続）の判定では、対象日がsportLogsのみに
   // 記録がある日かつ29〜30日前だった場合に限り、実際より最大2日ほど短く算出される
-  // 可能性がある既知の制限がある（badge判定のためだけに全期間soccerLogsを別途
+  // 可能性がある既知の制限がある（badge判定のためだけに全期間sportLogsを別途
   // 問い合わせることを避けるためのトレードオフ、詳細はPR説明に記載）。
   const currentStreak = useMemo(
-    () => calculateCurrentStreak(trainingLogs, acwrSoccerLogs, mealLogs, dailyConditions, today, acwrSportLogs),
-    [trainingLogs, acwrSoccerLogs, mealLogs, dailyConditions, today, acwrSportLogs],
+    () => calculateCurrentStreak(trainingLogs, mealLogs, dailyConditions, today, acwrSportLogs),
+    [trainingLogs, mealLogs, dailyConditions, today, acwrSportLogs],
   )
   const hasAnyRecord =
-    trainingLogs.length > 0 ||
-    acwrSoccerLogs.length > 0 ||
-    mealLogs.length > 0 ||
-    dailyConditions.length > 0 ||
-    acwrSportLogs.length > 0
+    trainingLogs.length > 0 || mealLogs.length > 0 || dailyConditions.length > 0 || acwrSportLogs.length > 0
   const todaySleepMovingAverageHours = sleepMA.length > 0 ? sleepMA[sleepMA.length - 1].movingAvg : null
   const isOptimalZoneStreak = useMemo(
-    () => hasConsecutiveOptimalDays(trainingLogs, acwrSoccerLogs, dailyConditions, todayString, 7, acwrWorkouts, acwrSportLogs),
-    [trainingLogs, acwrSoccerLogs, dailyConditions, todayString, acwrWorkouts, acwrSportLogs],
+    () => hasConsecutiveOptimalDays(trainingLogs, dailyConditions, todayString, 7, acwrWorkouts, acwrSportLogs),
+    [trainingLogs, dailyConditions, todayString, acwrWorkouts, acwrSportLogs],
   )
 
   useBadgeEvaluator({
@@ -841,7 +802,6 @@ export function Dashboard({
               hasSchedule: weekActivityByDate.get(dateKey)?.has('workout') ?? false,
               scheduleIcon: getScheduleIcon(daySchedules),
               hasTrainingLog: dayTrainingLogs.length > 0,
-              hasSoccerLog: weekActivityByDate.get(dateKey)?.has('soccer') ?? false,
               hasAppleWorkout: weekActivityByDate.get(dateKey)?.has('appleWorkout') ?? false,
               hasSportLog: weekActivityByDate.get(dateKey)?.has('sport') ?? false,
             })

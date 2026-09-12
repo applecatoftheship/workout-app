@@ -1,8 +1,12 @@
-// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：soccerCalorieHelpers.tsと
-// 同じ構造で、汎用競技（バスケットボール・テニス・バレーボール・卓球・バドミントン・
-// 野球/ソフトボール・その他）のMET値・カロリー推定を扱う。カロリー計算式自体
-// （estimateCaloriesBurned）は soccerCalorieHelpers.ts の既存関数をそのまま再利用し、
-// このファイルでは新規に定義しない。
+// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：当初はsoccerCalorieHelpers.ts
+// と同じ構造で、汎用競技（バスケットボール・テニス・バレーボール・卓球・バドミントン・
+// 野球/ソフトボール・その他）のMET値・カロリー推定を扱うファイルとして新設し、
+// カロリー計算式自体（estimateCaloriesBurned）はsoccerCalorieHelpers.tsの既存関数を
+// そのまま再利用していた。
+//
+// 【サッカー機能統合（2026年9月13日）】soccer_logs専用機能の廃止に伴い
+// soccerCalorieHelpers.ts自体を削除するため、estimateCaloriesBurnedをこのファイルへ
+// 移設した（計算式自体は無変更）。
 
 // MET値はCompendium of Physical Activities（pacompendium.com/sports、既存コードが
 // サッカー・フットサル・ワークアウトのMET値の根拠として使っている一次情報と同一出典）
@@ -26,9 +30,7 @@ export const SPORT_TYPE_PRESETS = [
 
 export const OTHER_SPORT_TYPE = 'その他'
 
-// その他（自由入力）時のデフォルトMET。soccerCalorieHelpers.tsのMET_DEFAULTと
-// 同じ値（6.0）だが、ファイルを分けて独立管理している（soccer_logsとsport_logsは
-// 別テーブル・別ドメインのため、値が同じでも定数としては独立させる判断）。
+// その他（自由入力）時のデフォルトMET。
 export const SPORT_MET_DEFAULT = 6.0
 
 export const SPORT_MET_VALUES: Record<string, number> = {
@@ -63,8 +65,8 @@ export function resolvePresetMet(sportType: string): number {
 // 申告する一般的な0/1-10スケール）に当てはめて滑らかに補間した推定値である。
 // 一次情報から直接引用した「RPE(1-10)→MET」の対応表そのものではなく、上記の
 // 公表された境界点から導出した近似モデルである（フットサル同様、一次情報が
-// 無い部分は推定である旨を明示する既存の方針を踏襲、soccerCalorieHelpers.ts
-// のフットサルMET値コメント参照）。
+// 無い部分は推定である旨を明示する既存の方針を踏襲。上記SPORT_MET_VALUESの
+// フットサルMET値コメント参照）。
 //
 // 制御点：
 //   RPE 1  → 2.0 MET（「軽度」帯の下限相当の目安）
@@ -103,4 +105,11 @@ export function resolveSportMet(sportType: string, rpe: number | undefined | nul
     return estimateMetFromRpe(rpe)
   }
   return resolvePresetMet(sportType)
+}
+
+// カロリー推定式（サッカー機能統合、2026年9月13日：soccerCalorieHelpers.tsから
+// 移設。計算式・丸め方とも無変更）。MET × 体重(kg) × 時間(h) × 1.05。
+export function estimateCaloriesBurned(met: number, durationMinutes: number, weightKg: number): number {
+  const hours = durationMinutes / 60
+  return Math.round(met * weightKg * hours * 1.05)
 }

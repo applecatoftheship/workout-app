@@ -21,7 +21,7 @@ import webpush from 'web-push'
 import { calculateACWR, getACWRInsight } from '../src/utils/acwrHelpers.js'
 import { shouldCreateNotification } from '../src/utils/notificationHelpers.js'
 import type { ACWRInsightTier } from '../src/utils/acwrHelpers.js'
-import type { DailyCondition, DateString, SoccerLog, SportLog, TrainingLog, Workout } from '../src/types.js'
+import type { DailyCondition, DateString, SportLog, TrainingLog, Workout } from '../src/types.js'
 
 function todayInJst(): DateString {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -108,23 +108,9 @@ async function fetchTrainingLogsForAcwr(supabase: SupabaseClient, userId: string
   })
 }
 
-async function fetchSoccerLogsForAcwr(supabase: SupabaseClient, userId: string): Promise<SoccerLog[]> {
-  const { data, error } = await supabase
-    .from('soccer_logs')
-    .select('log_date, activity_type, calories_burned')
-    .eq('user_id', userId)
-  if (error) throw error
-
-  return (data as unknown as { log_date: string; activity_type: string; calories_burned: number | null }[]).map((row) => ({
-    date: row.log_date as DateString,
-    activityType: row.activity_type,
-    caloriesBurned: row.calories_burned ?? undefined,
-  }))
-}
-
-// スポーツ記録機能（Tier 4-2、2026年9月12日）：fetchSoccerLogsForAcwrと同じ
-// パターンでsport_logsを取得する（api/send-reminder.tsと同一内容、両ファイルとも
-// データ取得ヘルパーを個別に持つ既存パターンを踏襲）。
+// スポーツ記録機能（Tier 4-2、2026年9月12日）：ACWR計算用のsport_logsを取得する
+// （api/send-reminder.tsと同一内容、両ファイルともデータ取得ヘルパーを個別に
+// 持つ既存パターンを踏襲）。
 async function fetchSportLogsForAcwr(supabase: SupabaseClient, userId: string): Promise<SportLog[]> {
   const { data, error } = await supabase
     .from('sport_logs')
@@ -310,9 +296,8 @@ export default async function handler(req: { headers: Record<string, string | st
   const resultByUser: Record<string, { acwr: number; tier: string } | { skipped: string }> = {}
 
   for (const [userId, subscriptions] of subscriptionsByUser) {
-    const [trainingLogs, soccerLogs, dailyConditions, workouts, sportLogs] = await Promise.all([
+    const [trainingLogs, dailyConditions, workouts, sportLogs] = await Promise.all([
       fetchTrainingLogsForAcwr(supabase, userId),
-      fetchSoccerLogsForAcwr(supabase, userId),
       fetchDailyConditions(supabase, userId),
       fetchWorkoutsForAcwr(supabase, userId),
       fetchSportLogsForAcwr(supabase, userId),
@@ -321,7 +306,6 @@ export default async function handler(req: { headers: Record<string, string | st
     const todayCondition = dailyConditions.find((condition) => condition.date === targetDate)
     const result = calculateACWR(
       trainingLogs,
-      soccerLogs,
       targetDate,
       todayCondition?.muscleSorenessLevel,
       todayCondition?.muscleSorenessLocation,

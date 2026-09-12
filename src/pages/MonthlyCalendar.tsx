@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { DailyCondition, DateString, FirstDayOfWeek, MealLog, SoccerLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../types'
+import type { DailyCondition, DateString, FirstDayOfWeek, MealLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../types'
 import './MonthlyCalendar.css'
 import '../components/calendar/CalendarForms.css'
-import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, SoccerSummary, SportSummary, WorkoutSummary } from '../components/calendar/CalendarDaySummaries'
+import { TrainingSummary, ScheduleSummary, ConditionSummary, MealSummary, SportSummary, WorkoutSummary } from '../components/calendar/CalendarDaySummaries'
 import { BulkScheduleImportModal } from '../components/calendar/BulkScheduleImportModal'
 import { DailyReportModal } from '../components/calendar/DailyReportModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
-import { fetchSoccerLogs } from '../api/soccerLogs'
 import { fetchSportLogs } from '../api/sportLogs'
 import { fetchWorkouts } from '../api/workouts'
 import {
@@ -23,8 +22,8 @@ import {
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import type { RecordModalRequest } from '../components/RecordFormModal'
 
-type DetailTab = 'training' | 'schedule' | 'condition' | 'meal' | 'soccer' | 'sport' | 'workout'
-const DETAIL_TABS: DetailTab[] = ['training', 'schedule', 'condition', 'meal', 'soccer', 'sport', 'workout']
+type DetailTab = 'training' | 'schedule' | 'condition' | 'meal' | 'sport' | 'workout'
+const DETAIL_TABS: DetailTab[] = ['training', 'schedule', 'condition', 'meal', 'sport', 'workout']
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 type MonthlyCalendarProps = {
@@ -74,7 +73,6 @@ export function MonthlyCalendar({
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
   const [isDailyReportOpen, setIsDailyReportOpen] = useState(false)
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
-  const [soccerLogs, setSoccerLogs] = useState<SoccerLog[]>([])
   const [sportLogs, setSportLogs] = useState<SportLog[]>([])
   const [workouts, setWorkouts] = useState<Workout[]>([])
 
@@ -153,29 +151,7 @@ export function MonthlyCalendar({
     return map
   }, [schedules])
 
-  useEffect(() => {
-    if (!scheduleRangeStart || !scheduleRangeEnd) {
-      return
-    }
-
-    let isMounted = true
-
-    fetchSoccerLogs(scheduleRangeStart, scheduleRangeEnd)
-      .then((data) => {
-        if (isMounted) {
-          setSoccerLogs(data)
-        }
-      })
-      .catch((error) => {
-        console.error('Supabaseからサッカー記録の取得に失敗しました', error)
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [scheduleRangeStart, scheduleRangeEnd])
-
-  // スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：soccerLogsと同じ
+  // スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：schedulesと同じ
   // 月範囲フェッチパターン。
   useEffect(() => {
     if (!scheduleRangeStart || !scheduleRangeEnd) {
@@ -200,7 +176,7 @@ export function MonthlyCalendar({
   }, [scheduleRangeStart, scheduleRangeEnd])
 
   // Apple Health連携 Task3（2026年8月27日）：読み取り専用のためRecordFormModal
-  // 経由の書き込みが無く、schedules/soccerLogsのような「モーダルを閉じたら
+  // 経由の書き込みが無く、schedules/sportLogsのような「モーダルを閉じたら
   // 再取得」の仕組みは不要（範囲変更時のみ取得すれば十分）。
   useEffect(() => {
     if (!scheduleRangeStart || !scheduleRangeEnd) {
@@ -223,16 +199,6 @@ export function MonthlyCalendar({
       isMounted = false
     }
   }, [scheduleRangeStart, scheduleRangeEnd])
-
-  const soccerLogsByDate = useMemo(() => {
-    const map = new Map<string, SoccerLog[]>()
-    soccerLogs.forEach((log) => {
-      const list = map.get(log.date) ?? []
-      list.push(log)
-      map.set(log.date, list)
-    })
-    return map
-  }, [soccerLogs])
 
   // カレンダー実績アイコン機能（日付ベース簡易マッチング方式、2026年8月20日）：
   // training_logsは種目0件の実績を「実施した実績」として扱わない
@@ -274,21 +240,9 @@ export function MonthlyCalendar({
   }, [sportLogs])
 
   const activityByDate = useMemo(
-    () => buildActivityByDate(schedulesByDate, soccerLogsByDate, workoutsByDate, sportLogsByDate),
-    [schedulesByDate, soccerLogsByDate, workoutsByDate, sportLogsByDate],
+    () => buildActivityByDate(schedulesByDate, workoutsByDate, sportLogsByDate),
+    [schedulesByDate, workoutsByDate, sportLogsByDate],
   )
-
-  const refetchSoccerLogs = () => {
-    if (!scheduleRangeStart || !scheduleRangeEnd) {
-      return
-    }
-
-    fetchSoccerLogs(scheduleRangeStart, scheduleRangeEnd)
-      .then((data) => setSoccerLogs(data))
-      .catch((error) => {
-        console.error('Supabaseからサッカー記録の再取得に失敗しました', error)
-      })
-  }
 
   const refetchSportLogs = () => {
     if (!scheduleRangeStart || !scheduleRangeEnd) {
@@ -304,7 +258,7 @@ export function MonthlyCalendar({
 
   // 有酸素運動の時間ベース記録への移行（2026年9月3日）：新規記録（トレーニングの
   // 種目選択経由）・編集・削除がモーダル内で行われるようになったため、schedules/
-  // soccerLogs と同様にモーダルを閉じたタイミングで再取得する。
+  // sportLogs と同様にモーダルを閉じたタイミングで再取得する。
   const refetchWorkouts = () => {
     if (!scheduleRangeStart || !scheduleRangeEnd) {
       return
@@ -319,13 +273,12 @@ export function MonthlyCalendar({
 
   // RecordFormModal（Phase B/C、2026年8月16日）がtraining/meal/conditionは
   // AppShell側の共有state（props経由）を直接更新するため自動的に反映されるが、
-  // schedules/soccerLogsはMonthlyCalendarが月範囲で個別に保持しているため、
+  // schedules/sportLogsはMonthlyCalendarが月範囲で個別に保持しているため、
   // モーダルが閉じたタイミングで再取得して最新化する。
   const [wasRecordModalOpen, setWasRecordModalOpen] = useState(false)
   useEffect(() => {
     if (wasRecordModalOpen && !isRecordModalOpen) {
       refetchSchedules()
-      refetchSoccerLogs()
       refetchSportLogs()
       refetchWorkouts()
     }
@@ -413,7 +366,6 @@ export function MonthlyCalendar({
             hasSchedule: activityByDate.get(day.dateKey)?.has('workout') ?? false,
             scheduleIcon: getScheduleIcon(daySchedules),
             hasTrainingLog: dayTrainingLogs.length > 0,
-            hasSoccerLog: activityByDate.get(day.dateKey)?.has('soccer') ?? false,
             hasAppleWorkout: activityByDate.get(day.dateKey)?.has('appleWorkout') ?? false,
             hasSportLog: activityByDate.get(day.dateKey)?.has('sport') ?? false,
           })
@@ -453,10 +405,10 @@ export function MonthlyCalendar({
 
         <div className="calendar-detail__group">
           {/* UI/UXレビュー修正 項目6（2026年8月25日）：横スクロール自体は既存実装
-              （Phase 4、2026年8月16日）で機能していたが、右端の「サッカー」タブが
+              （Phase 4、2026年8月16日）で機能していたが、右端のタブが
               スクロール可能であることを示す視覚的な手がかりがなく、見切れて
               壊れているように見えていた。右端にフェードグラデーションを重ねて
-              スクロール可能であることを示す（タブの構成・数自体は無変更）。 */}
+              スクロール可能であることを示す。 */}
           <div className="calendar-detail__tabs-wrap">
             <div className="calendar-detail__tabs">
               <button
@@ -486,13 +438,6 @@ export function MonthlyCalendar({
                 onClick={() => setActiveDetailTab('meal')}
               >
                 食事
-              </button>
-              <button
-                type="button"
-                className={`calendar-detail__tab ${activeDetailTab === 'soccer' ? 'calendar-detail__tab--active' : ''}`}
-                onClick={() => setActiveDetailTab('soccer')}
-              >
-                サッカー
               </button>
               <button
                 type="button"
@@ -549,15 +494,6 @@ export function MonthlyCalendar({
             />
           ) : null}
 
-          {activeDetailTab === 'soccer' ? (
-            <SoccerSummary
-              soccerLogs={soccerLogs}
-              selectedDate={selectedDate}
-              onAdd={() => openRecordModal({ type: 'soccer', date: selectedDate })}
-              onEdit={() => openRecordModal({ type: 'soccer', date: selectedDate })}
-            />
-          ) : null}
-
           {activeDetailTab === 'sport' ? (
             <SportSummary
               sportLogs={sportLogs}
@@ -596,7 +532,6 @@ export function MonthlyCalendar({
           schedules={schedules}
           dailyConditions={dailyConditions}
           mealLogs={mealLogs}
-          soccerLogs={soccerLogs}
           sportLogs={sportLogs}
           workouts={workouts}
           setDailyConditions={setDailyConditions}

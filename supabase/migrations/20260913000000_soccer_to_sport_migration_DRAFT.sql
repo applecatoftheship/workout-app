@@ -15,14 +15,19 @@
 -- 【本ファイルの構成】このチャットが本番データの実態（列構成・NULL有無・
 -- activity_type別件数）を確認してからPART 2（本移行のINSERT文）を確定させる
 -- 方針のため、2段階に分けている。
---   PART 1: preflight（読み取り専用）。この結果をチャットに報告してから
---            PART 2を書く。
+--   PART 1: preflight（読み取り専用）。
 --   PART 2: 本移行（INSERT INTO sport_logs SELECT ... FROM soccer_logs）。
---            【現時点ではまだ実装していない。PART 1の結果確認後に追記する。】
+--
+-- 【2026-09-13：PART 1実行結果を踏まえPART 2を確定】Johnさんが本番で実行した
+-- PART 1の結果：全4件（フットサル3件・練習1件）、duration_minutesは全件120で
+-- NULL/非整数なし、calories_burnedは全件NULL、notesは全件NULL/空、
+-- distance_kmは4件・sprint_count/max_speed_kmh/end_timeは3件に値あり。
+-- 「サッカー」activity_typeの実データは0件だったが、sport_type振り分けの
+-- CASE文自体は指示書通り3分岐（サッカー/フットサル/それ以外→その他）を維持する
+-- （将来的にサッカーのデータが増えても再度分岐を書き直す必要がないため）。
 --
 -- 【実行方法】Claude CodeはSupabaseへの直接アクセス手段を持たないため、
 -- このファイルの内容をJohnさんが本番Supabase SQL Editorで実行すること。
--- まずPART 1のみを実行し、結果をこのチャットに貼り付けてください。
 -- ============================================================================
 
 
@@ -80,3 +85,65 @@ select
   max(duration_minutes) as max_duration
 from soccer_logs
 where duration_minutes is not null;
+
+
+-- ============================================================================
+-- PART 2: 本移行（soccer_logs → sport_logs への1回限りのINSERT）
+-- 2026-09-12のpreflight結果（全4件：フットサル3件・練習1件、duration_minutesは
+-- 全件120でNULL/非整数なし、calories_burnedは全件NULL、notesは全件NULL/空、
+-- distance_kmは4件・sprint_count/max_speed_kmh/end_timeは3件に値あり）を
+-- 踏まえて確定。soccer_logsテーブル自体はdrop・truncateしない。
+-- ============================================================================
+
+insert into sport_logs (
+  id, user_id, log_date, sport_type, custom_sport_name,
+  duration_minutes, rpe, calories_burned, result_note, notes,
+  created_at, updated_at
+)
+select
+  s.id,
+  s.user_id,
+  s.log_date,
+  case s.activity_type
+    when 'サッカー' then 'サッカー'
+    when 'フットサル' then 'フットサル'
+    else 'その他'
+  end as sport_type,
+  case
+    when s.activity_type = '練習' then coalesce(s.training_menu, 'サッカー練習')
+    else null
+  end as custom_sport_name,
+  coalesce(s.duration_minutes, 0)::integer as duration_minutes,
+  null::integer as rpe,
+  s.calories_burned,
+  null::text as result_note,
+  case
+    when s.notes is not null and trim(s.notes) <> '' then s.notes || E'\n\n' || m.migrated_line
+    else m.migrated_line
+  end as notes,
+  s.created_at,
+  now() as updated_at
+from soccer_logs s
+cross join lateral (
+  select '［移行元データ］' || array_to_string(
+    array_remove(
+      array[
+        '活動種別: ' || s.activity_type,
+        case when s.training_menu is not null then 'トレーニングメニュー: ' || s.training_menu end,
+        case when s.distance_km is not null then '走行距離: ' || s.distance_km::text || 'km' end,
+        case when s.sprint_count is not null then 'スプリント: ' || s.sprint_count::text || '回' end,
+        case when s.max_speed_kmh is not null then '最高速度: ' || s.max_speed_kmh::text || 'km/h' end,
+        case when s.end_time is not null then '終了時刻: ' || to_char(s.end_time, 'YYYY-MM-DD HH24:MI') end
+      ],
+      null
+    ),
+    ' / '
+  ) as migrated_line
+) m;
+
+-- ----- 実行後の確認用（読み取り専用） -----
+-- 件数がsoccer_logsと一致し、sport_type・custom_sport_nameが意図通りか確認する。
+select sport_type, custom_sport_name, duration_minutes, calories_burned, notes
+from sport_logs
+where id in (select id from soccer_logs)
+order by log_date;

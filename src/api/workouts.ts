@@ -38,7 +38,7 @@ function rowToWorkout(row: WorkoutRow): Workout {
 }
 
 // workouts.start_timeはtimestamptzのため、JST基準の暦日範囲[startDate, endDate]を
-// UTC境界に変換してから絞り込む（training_schedules・soccer_logs等のlog_date
+// UTC境界に変換してから絞り込む（training_schedules・sport_logs等のlog_date
 // （dateカラム）を素直に.gte/.lteできるのとは異なる、timestamptz特有の変換）。
 function jstDateRangeToUtc(startDate: DateString, endDate: DateString): { startUtc: string; endUtc: string } {
   const startUtc = new Date(`${startDate}T00:00:00+09:00`).toISOString()
@@ -47,7 +47,7 @@ function jstDateRangeToUtc(startDate: DateString, endDate: DateString): { startU
   return { startUtc, endUtc: endUtc.toISOString() }
 }
 
-// カレンダー画面（MonthlyCalendar.tsx）が月範囲でtraining_schedules・soccer_logs等を
+// カレンダー画面（MonthlyCalendar.tsx）が月範囲でtraining_schedules・sport_logs等を
 // まとめて取得しているのと同じパターン。一覧表示は読み取り専用のため、
 // is_primary = trueの行のみを対象とする（統合済みの手動レコードはis_primary:
 // falseになっており一覧には出さない、実装指示書の要件）。

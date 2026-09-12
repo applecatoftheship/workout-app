@@ -28,7 +28,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { detectAcwrDangerNotification, detectStreakBrokenNotification, shouldCreateNotification } from '../src/utils/notificationHelpers.js'
 import type { NotificationCandidate } from '../src/utils/notificationHelpers.js'
-import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, Workout } from '../src/types.js'
+import type { DailyCondition, DateString, MealLog, SportLog, TrainingLog, Workout } from '../src/types.js'
 
 function todayInJst(): DateString {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -120,23 +120,9 @@ async function fetchTrainingLogsForAcwr(supabase: SupabaseClient, userId: string
   })
 }
 
-async function fetchSoccerLogsForAcwr(supabase: SupabaseClient, userId: string): Promise<SoccerLog[]> {
-  const { data, error } = await supabase
-    .from('soccer_logs')
-    .select('log_date, activity_type, calories_burned')
-    .eq('user_id', userId)
-  if (error) throw error
-
-  return (data as unknown as { log_date: string; activity_type: string; calories_burned: number | null }[]).map((row) => ({
-    date: row.log_date as DateString,
-    activityType: row.activity_type,
-    caloriesBurned: row.calories_burned ?? undefined,
-  }))
-}
-
-// スポーツ記録機能（Tier 4-2、2026年9月12日）：fetchSoccerLogsForAcwrと同じ
-// パターンでsport_logsを取得する（ACWR・ストリーク双方の判定に必要な範囲、
-// この関数は期間を絞らずユーザーの全履歴を取得する既存パターンを踏襲）。
+// スポーツ記録機能（Tier 4-2、2026年9月12日）：ACWR・ストリーク双方の判定に必要な
+// sport_logsを取得する（この関数は期間を絞らずユーザーの全履歴を取得する既存
+// パターンを踏襲）。
 async function fetchSportLogsForAcwr(supabase: SupabaseClient, userId: string): Promise<SportLog[]> {
   const { data, error } = await supabase
     .from('sport_logs')
@@ -327,9 +313,8 @@ export default async function handler(req: { headers: Record<string, string | st
   const sentTypesByUser: Record<string, string[]> = {}
 
   for (const [userId, subscriptions] of subscriptionsByUser) {
-    const [trainingLogs, soccerLogs, mealLogs, dailyConditions, workouts, sportLogs] = await Promise.all([
+    const [trainingLogs, mealLogs, dailyConditions, workouts, sportLogs] = await Promise.all([
       fetchTrainingLogsForAcwr(supabase, userId),
-      fetchSoccerLogsForAcwr(supabase, userId),
       fetchMealLogsForStreak(supabase, userId),
       fetchDailyConditions(supabase, userId),
       fetchWorkoutsForAcwr(supabase, userId),
@@ -341,7 +326,6 @@ export default async function handler(req: { headers: Record<string, string | st
     const candidates = [
       detectAcwrDangerNotification(
         trainingLogs,
-        soccerLogs,
         targetDate,
         todayCondition?.muscleSorenessLevel,
         todayCondition?.muscleSorenessLocation,
@@ -349,7 +333,7 @@ export default async function handler(req: { headers: Record<string, string | st
         dailyConditions,
         sportLogs,
       ),
-      detectStreakBrokenNotification(trainingLogs, soccerLogs, mealLogs, dailyConditions, targetDate, sportLogs),
+      detectStreakBrokenNotification(trainingLogs, mealLogs, dailyConditions, targetDate, sportLogs),
     ].filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
 
     if (candidates.length === 0) {

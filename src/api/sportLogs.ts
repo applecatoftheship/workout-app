@@ -103,8 +103,8 @@ export async function upsertSportLog(input: SportLogInput): Promise<SportLog> {
 }
 
 export async function deleteSportLog(id: string): Promise<void> {
-  // user_id ガード（soccer_logsのdeleteSoccerLogと同じ、誤操作防止。
-  // セキュリティ境界ではない。詳細はdeleteDailyConditionRemote参照）。
+  // user_id ガード（誤操作防止。セキュリティ境界ではない。
+  // 詳細はdeleteDailyConditionRemote参照）。
   const userId = await getCurrentUserId()
   const { error } = await supabase.from('sport_logs').delete().eq('id', id).eq('user_id', userId)
 

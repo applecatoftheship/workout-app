@@ -2,7 +2,7 @@
 // exercises.body_part = '有酸素' の種目を選んだとき、重量×回数ではなく
 // 「時間（分）」を入力し、そこから距離・消費カロリーを自動計算する。
 // MET値・想定ペースは Compendium of Physical Activities 準拠。
-// soccerCalorieHelpers.ts の MET_VALUES / AUTO_FILL_RATES / resolveMet と同一パターン。
+// sportCalorieHelpers.ts の SPORT_MET_VALUES / resolveSportMet と同一パターン。
 
 export interface CardioRates {
   met: number

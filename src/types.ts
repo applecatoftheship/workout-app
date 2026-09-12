@@ -200,27 +200,13 @@ export interface PeriodizationTarget {
   isAdjusted: boolean;
 }
 
-export interface SoccerLog extends BaseRecord {
-  userId?: string;
-  date: DateString;
-  activityType: string;
-  trainingMenu?: string;
-  durationMinutes?: number;
-  distanceKm?: number;
-  sprintCount?: number;
-  maxSpeedKmh?: number;
-  caloriesBurned?: number;
-  notes?: string;
-  // この活動の終了時刻（スプリント4 Phase 1、2026年8月21日追加。当時は
-  // リカバリー窓機能の判定に使っていたが、同機能は2026年8月30日に削除済み。
-  // 現在はSoccerLogFormの「終了時刻」表示・入力でのみ使用）。timestamptz
-  // 文字列（ISO 8601）。既存行はNULL。
-  endTime?: string;
-}
-
-// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：soccer_logsと役割は
-// 同じ（ユーザーが実施後に手入力する競技記録）だが、種目を選択式にした汎用
-// テーブル（sport_logs）に対応する型。soccer_logs自体は変更していない。
+// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日。サッカー機能統合、
+// 2026年9月13日）：ユーザーが実施後に手入力する競技記録。当初はsoccer_logs
+// （専用テーブル、活動種別・走行距離等の固有項目を持っていた）と役割を分担して
+// いたが、サッカー機能統合によりsoccer_logsは廃止し、サッカー・フットサルも
+// このsport_logs（種目を選択式にした汎用テーブル）に統合された。旧soccer_logsの
+// データはsport_logsへ移行済み（テーブル自体はdrop・truncateせず残置、
+// アプリからは参照しない）。
 export interface SportLog extends BaseRecord {
   userId?: string;
   date: DateString;

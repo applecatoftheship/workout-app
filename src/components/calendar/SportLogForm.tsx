@@ -4,8 +4,7 @@ import type { DateString, SportLog } from '../../types'
 import { upsertSportLog } from '../../api/sportLogs'
 import { fetchRecentWeight } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
-import { estimateCaloriesBurned } from '../../utils/soccerCalorieHelpers'
-import { OTHER_SPORT_TYPE, SPORT_TYPE_PRESETS, resolveSportMet } from '../../utils/sportCalorieHelpers'
+import { OTHER_SPORT_TYPE, SPORT_TYPE_PRESETS, estimateCaloriesBurned, resolveSportMet } from '../../utils/sportCalorieHelpers'
 
 // スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日。同日、追加修正で
 // 1日複数件対応に変更）：当初はSoccerLogForm.tsxと同じ「1日1件・find-by-date」

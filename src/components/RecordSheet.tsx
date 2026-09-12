@@ -1,12 +1,14 @@
 import type { ComponentType } from 'react'
 import './RecordSheet.css'
-import { ConditionIcon, DumbbellIcon, MealIcon, ScheduleIcon, SoccerIcon, TrophyIcon } from './icons'
+import { ConditionIcon, DumbbellIcon, MealIcon, ScheduleIcon, TrophyIcon } from './icons'
 
 // 'workout' は「＋記録」シートには出さず（新規の有酸素記録はトレーニングの
 // 種目選択から入る）、RecordFormModal 経由の「ワークアウト記録を編集」専用。
-// 'sport'（スポーツ記録機能、Tier 4-2、2026年9月12日追加）はsoccerと同じく
-// シートに直接出す（1日1件・その場で追加/編集する運用のため）。
-export type RecordType = 'training' | 'meal' | 'condition' | 'soccer' | 'sport' | 'schedule' | 'workout'
+// 'sport'（スポーツ記録機能、Tier 4-2、2026年9月12日追加）はその場で追加/編集する
+// 運用のためシートに直接出す。
+// サッカー機能統合（2026年9月13日）：'soccer'専用の記録タイプは廃止し、
+// サッカー・フットサルは'sport'（プリセット）に統合した。
+export type RecordType = 'training' | 'meal' | 'condition' | 'sport' | 'schedule' | 'workout'
 
 type RecordOption = {
   type: RecordType
@@ -18,7 +20,6 @@ const RECORD_OPTIONS: RecordOption[] = [
   { type: 'training', label: 'トレーニング', icon: DumbbellIcon },
   { type: 'meal', label: '食事', icon: MealIcon },
   { type: 'condition', label: '体調', icon: ConditionIcon },
-  { type: 'soccer', label: 'サッカー', icon: SoccerIcon },
   { type: 'sport', label: 'スポーツ', icon: TrophyIcon },
   { type: 'schedule', label: '予定', icon: ScheduleIcon },
 ]

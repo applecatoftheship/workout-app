@@ -58,20 +58,22 @@ function sportLogAt(offsetDaysAgo: number, caloriesBurned: number): SportLog {
   return { date: dateAt(offsetDaysAgo), sportType: 'テニス', durationMinutes: 60, caloriesBurned }
 }
 
+// サッカー機能統合（2026年9月13日）：calculateACWR等からsoccerLogs引数が廃止
+// されたため、以下すべてのテストのシグネチャもそれに合わせて更新した。
 describe('calculateACWR', () => {
   it('記録が無い場合はnull', () => {
-    expect(calculateACWR([], [], TODAY_KEY, undefined, undefined)).toBeNull()
+    expect(calculateACWR([], TODAY_KEY, undefined, undefined)).toBeNull()
   })
 
   it('記録が7日未満の期間しかない場合はnull', () => {
     // today と today-3日 の2件のみ（4日分の幅）
     const logs = [trainingLogWithVolume(0, 1000), trainingLogWithVolume(3, 1000)]
-    expect(calculateACWR(logs, [], TODAY_KEY, undefined, undefined)).toBeNull()
+    expect(calculateACWR(logs, TODAY_KEY, undefined, undefined)).toBeNull()
   })
 
   it('ちょうど7日分・同一負荷ならACWR=1で🟢sweet_spot', () => {
     const logs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 5000)) // スコア50固定
-    const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+    const result = calculateACWR(logs, TODAY_KEY, undefined, undefined)
 
     expect(result).not.toBeNull()
     expect(result!.acuteDays).toBe(7)
@@ -82,7 +84,7 @@ describe('calculateACWR', () => {
 
   it('ACWR=1でも強い張りがあれば🟡warningになる', () => {
     const logs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 5000))
-    const result = calculateACWR(logs, [], TODAY_KEY, 'severe', 'calf_l')
+    const result = calculateACWR(logs, TODAY_KEY, 'severe', 'calf_l')
 
     expect(result!.status).toBe('warning')
     expect(result!.hasSorenessWarning).toBe(true)
@@ -94,7 +96,7 @@ describe('calculateACWR', () => {
     const lowDays = Array.from({ length: 21 }, (_, i) => trainingLogWithVolume(7 + i, 1000))
     const logs = [...highDays, ...lowDays]
 
-    const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+    const result = calculateACWR(logs, TODAY_KEY, undefined, undefined)
 
     expect(result!.acuteDays).toBe(7)
     expect(result!.chronicDays).toBe(28)
@@ -110,7 +112,7 @@ describe('calculateACWR', () => {
     const highDays = Array.from({ length: 21 }, (_, i) => trainingLogWithVolume(7 + i, 10000))
     const logs = [...lowDays, ...highDays]
 
-    const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+    const result = calculateACWR(logs, TODAY_KEY, undefined, undefined)
     expect(result!.acwr).toBeLessThan(0.8)
     expect(result!.status).toBe('unload')
   })
@@ -121,13 +123,13 @@ describe('calculateACWR', () => {
     const olderDays = Array.from({ length: 21 }, (_, i) => trainingLogWithVolume(7 + i, 3000))
     const logs = [...recentDays, ...olderDays]
 
-    const withoutSoreness = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+    const withoutSoreness = calculateACWR(logs, TODAY_KEY, undefined, undefined)
     expect(withoutSoreness!.acwr).toBeGreaterThanOrEqual(1.3)
     expect(withoutSoreness!.acwr).toBeLessThan(1.5)
     expect(withoutSoreness!.status).toBe('warning')
     expect(withoutSoreness!.hasSorenessWarning).toBe(false)
 
-    const withSoreness = calculateACWR(logs, [], TODAY_KEY, 'mild', 'hamstring')
+    const withSoreness = calculateACWR(logs, TODAY_KEY, 'mild', 'hamstring')
     expect(withSoreness!.status).toBe('danger')
     expect(withSoreness!.hasSorenessWarning).toBe(true)
   })
@@ -145,50 +147,50 @@ describe('calculateACWR', () => {
 
     it('acwr=1.5ちょうどは「>1.5」に該当しないためdangerではなくwarning', () => {
       const logs = buildLogsForRatio(90, 50) // acwr = 4*90/(90+150) = 1.5
-      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      const result = calculateACWR(logs, TODAY_KEY, undefined, undefined)
       expect(result!.acwr).toBeCloseTo(1.5)
       expect(result!.status).toBe('warning')
 
-      const withSoreness = calculateACWR(logs, [], TODAY_KEY, 'mild', 'hamstring')
+      const withSoreness = calculateACWR(logs, TODAY_KEY, 'mild', 'hamstring')
       expect(withSoreness!.status).toBe('danger')
     })
 
     it('acwr=1.3ちょうどは「>=1.3」に該当しwarning（張り無し）/danger（張り有り）', () => {
       const logs = buildLogsForRatio(91, 63) // acwr = 4*91/(91+189) = 1.3
-      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      const result = calculateACWR(logs, TODAY_KEY, undefined, undefined)
       expect(result!.acwr).toBeCloseTo(1.3)
       expect(result!.status).toBe('warning')
 
-      const withSoreness = calculateACWR(logs, [], TODAY_KEY, 'severe', 'quad')
+      const withSoreness = calculateACWR(logs, TODAY_KEY, 'severe', 'quad')
       expect(withSoreness!.status).toBe('danger')
     })
 
     it('acwr=0.8ちょうどは「<0.8」に該当しないためunloadではなくsweet_spot/warning', () => {
       const logs = buildLogsForRatio(75, 100) // acwr = 4*75/(75+300) = 0.8
-      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      const result = calculateACWR(logs, TODAY_KEY, undefined, undefined)
       expect(result!.acwr).toBeCloseTo(0.8)
       expect(result!.status).toBe('sweet_spot')
 
-      const withSoreness = calculateACWR(logs, [], TODAY_KEY, 'severe', 'quad')
+      const withSoreness = calculateACWR(logs, TODAY_KEY, 'severe', 'quad')
       expect(withSoreness!.status).toBe('warning')
     })
   })
 
   describe('ワークアウト負荷（Apple Health連携、2026年8月27日追加）', () => {
-    // findEarliestDate（ひいてはcalculateACWRのnullガード）はtrainingLogs/soccerLogsに
-    // 加え、2026年9月12日からsportLogsも見るようになったが、workouts自体は
-    // 引き続きfindEarliestDateの対象外（既知の限界、下記コメント参照）。
+    // findEarliestDate（ひいてはcalculateACWRのnullガード）はtrainingLogsに加え、
+    // 2026年9月12日からsportLogsも見るようになったが、workouts自体は引き続き
+    // findEarliestDateの対象外（既知の限界、下記コメント参照）。
     // ボリューム0のトレーニング実績を「アンカー」として1件加え、7日分のデータ
     // 蓄積があることを確立した上でワークアウト負荷の計算だけを検証する。
     const anchor = trainingLogWithVolume(6, 0)
 
     it('体重記録がある場合：推定消費カロリー=体重×距離(km)×1.0、負荷=カロリー÷8', () => {
       // weight=80kg, distance=8000m(8km) -> 推定消費カロリー=80×8×1.0=640kcal
-      // -> 負荷=640/8=80（サッカーと同じ÷8換算）
+      // -> 負荷=640/8=80
       const workouts = Array.from({ length: 7 }, (_, i) => workoutAt(i, 8000))
       const dailyConditions = Array.from({ length: 7 }, (_, i) => dailyConditionAt(i, 80))
 
-      const result = calculateACWR([anchor], [], TODAY_KEY, undefined, undefined, workouts, dailyConditions)
+      const result = calculateACWR([anchor], TODAY_KEY, undefined, undefined, workouts, dailyConditions)
 
       expect(result).not.toBeNull()
       expect(result!.acuteLoad).toBeCloseTo(80)
@@ -201,7 +203,7 @@ describe('calculateACWR', () => {
       // -> 負荷=560/8=70
       const workouts = Array.from({ length: 7 }, (_, i) => workoutAt(i, 8000))
 
-      const result = calculateACWR([anchor], [], TODAY_KEY, undefined, undefined, workouts, [])
+      const result = calculateACWR([anchor], TODAY_KEY, undefined, undefined, workouts, [])
 
       expect(result).not.toBeNull()
       expect(result!.acuteLoad).toBeCloseTo(70)
@@ -214,7 +216,7 @@ describe('calculateACWR', () => {
       const workouts = [workoutAt(0, 8000)]
       const dailyConditions = [dailyConditionAt(6, 60)]
 
-      const result = calculateACWR([anchor], [], TODAY_KEY, undefined, undefined, workouts, dailyConditions)
+      const result = calculateACWR([anchor], TODAY_KEY, undefined, undefined, workouts, dailyConditions)
 
       // 60kg × 8km × 1.0 / 8 = 60 のワークアウト負荷が今日1日分だけ乗る
       // （直近7日平均）ため、acuteLoad = 60/7
@@ -225,7 +227,7 @@ describe('calculateACWR', () => {
       const workouts = Array.from({ length: 7 }, (_, i) => workoutAt(i, 8000, false))
       const dailyConditions = Array.from({ length: 7 }, (_, i) => dailyConditionAt(i, 80))
 
-      const result = calculateACWR([anchor], [], TODAY_KEY, undefined, undefined, workouts, dailyConditions)
+      const result = calculateACWR([anchor], TODAY_KEY, undefined, undefined, workouts, dailyConditions)
 
       expect(result).not.toBeNull()
       expect(result!.acuteLoad).toBe(0)
@@ -234,7 +236,7 @@ describe('calculateACWR', () => {
 
     it('workouts省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
       const logs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 5000))
-      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      const result = calculateACWR(logs, TODAY_KEY, undefined, undefined)
       expect(result!.acwr).toBeCloseTo(1)
     })
   })
@@ -242,7 +244,7 @@ describe('calculateACWR', () => {
   describe('スポーツ負荷（Tier 4-2：競技の拡張、2026年9月12日追加）', () => {
     it('負荷=消費カロリー÷8（既存のSOCCER_CALORIE_DIVISOR・MAX_SINGLE_LOAD_SCOREをそのまま使う）', () => {
       const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 400)) // 400/8=50
-      const result = calculateACWR([], [], TODAY_KEY, undefined, undefined, [], [], sportLogs)
+      const result = calculateACWR([], TODAY_KEY, undefined, undefined, [], [], sportLogs)
 
       expect(result).not.toBeNull()
       expect(result!.acuteLoad).toBeCloseTo(50)
@@ -252,30 +254,43 @@ describe('calculateACWR', () => {
 
     it('MAX_SINGLE_LOAD_SCORE(100)で頭打ちになる', () => {
       const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 10000)) // 10000/8=1250 -> 100に頭打ち
-      const result = calculateACWR([], [], TODAY_KEY, undefined, undefined, [], [], sportLogs)
+      const result = calculateACWR([], TODAY_KEY, undefined, undefined, [], [], sportLogs)
 
       expect(result!.acuteLoad).toBe(100)
     })
 
-    it('同日にトレーニング・サッカー・スポーツが重なると合算される', () => {
+    it('同日にトレーニング・スポーツが重なると合算される', () => {
       const trainingLogs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 1000)) // 1000/100=10
       const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 400)) // 400/8=50
-      const result = calculateACWR(trainingLogs, [], TODAY_KEY, undefined, undefined, [], [], sportLogs)
+      const result = calculateACWR(trainingLogs, TODAY_KEY, undefined, undefined, [], [], sportLogs)
 
       expect(result!.acuteLoad).toBeCloseTo(60)
     })
 
     it('findEarliestDateはsportLogsのみのデータ蓄積でも「データ蓄積中」を解除する', () => {
-      // trainingLogs/soccerLogsが1件も無くても、sportLogsだけで7日分あれば
-      // calculateACWRはnullを返さない（2026年9月12日、findEarliestDateへのsportLogs追加）。
+      // trainingLogsが1件も無くても、sportLogsだけで7日分あればcalculateACWRは
+      // nullを返さない（2026年9月12日、findEarliestDateへのsportLogs追加）。
       const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 80))
-      const result = calculateACWR([], [], TODAY_KEY, undefined, undefined, [], [], sportLogs)
+      const result = calculateACWR([], TODAY_KEY, undefined, undefined, [], [], sportLogs)
       expect(result).not.toBeNull()
+    })
+
+    it('サッカー機能統合後は「サッカー」「フットサル」のsportTypeでも同じ換算で負荷になる（2026年9月13日）', () => {
+      const sportLogs: SportLog[] = Array.from({ length: 7 }, (_, i) => ({
+        date: dateAt(i),
+        sportType: i % 2 === 0 ? 'サッカー' : 'フットサル',
+        durationMinutes: 60,
+        caloriesBurned: 400, // 400/8=50
+      }))
+      const result = calculateACWR([], TODAY_KEY, undefined, undefined, [], [], sportLogs)
+
+      expect(result).not.toBeNull()
+      expect(result!.acuteLoad).toBeCloseTo(50)
     })
 
     it('sportLogs省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
       const logs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 5000))
-      const result = calculateACWR(logs, [], TODAY_KEY, undefined, undefined)
+      const result = calculateACWR(logs, TODAY_KEY, undefined, undefined)
       expect(result!.acwr).toBeCloseTo(1)
     })
   })
@@ -287,31 +302,31 @@ describe('hasConsecutiveDangerDays', () => {
   const dangerLogs = [...highDays, ...lowDays]
 
   it('直近3日連続で危険状態ならtrue', () => {
-    expect(hasConsecutiveDangerDays(dangerLogs, [], [], TODAY_KEY, 3)).toBe(true)
+    expect(hasConsecutiveDangerDays(dangerLogs, [], TODAY_KEY, 3)).toBe(true)
   })
 
   it('高負荷期間の範囲内（7日）まではtrueが続く', () => {
-    expect(hasConsecutiveDangerDays(dangerLogs, [], [], TODAY_KEY, 7)).toBe(true)
+    expect(hasConsecutiveDangerDays(dangerLogs, [], TODAY_KEY, 7)).toBe(true)
   })
 
   it('高負荷期間を超える日を含めるとfalseになる', () => {
-    expect(hasConsecutiveDangerDays(dangerLogs, [], [], TODAY_KEY, 8)).toBe(false)
+    expect(hasConsecutiveDangerDays(dangerLogs, [], TODAY_KEY, 8)).toBe(false)
   })
 
   it('判定できない日（データ不足）が含まれる場合は安全側でfalse', () => {
     const shortLogs = [trainingLogWithVolume(0, 10000)]
-    expect(hasConsecutiveDangerDays(shortLogs, [], [], TODAY_KEY, 3)).toBe(false)
+    expect(hasConsecutiveDangerDays(shortLogs, [], TODAY_KEY, 3)).toBe(false)
   })
 
   it('consecutiveDays省略時は既定値3で判定する', () => {
-    expect(hasConsecutiveDangerDays(dangerLogs, [], [], TODAY_KEY)).toBe(true)
+    expect(hasConsecutiveDangerDays(dangerLogs, [], TODAY_KEY)).toBe(true)
   })
 
   it('sportLogsだけでも高負荷が続けば連続警戒と判定する（Tier 4-2、2026年9月12日追加）', () => {
     const highSportLoads = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 10000)) // 頭打ち100
     const lowSportLoads = Array.from({ length: 21 }, (_, i) => sportLogAt(7 + i, 80)) // 80/8=10
     const sportLogs = [...highSportLoads, ...lowSportLoads]
-    expect(hasConsecutiveDangerDays([], [], [], TODAY_KEY, 3, [], sportLogs)).toBe(true)
+    expect(hasConsecutiveDangerDays([], [], TODAY_KEY, 3, [], sportLogs)).toBe(true)
   })
 })
 
@@ -320,62 +335,62 @@ describe('hasConsecutiveOptimalDays', () => {
   const constantLoadLogs = Array.from({ length: 14 }, (_, i) => trainingLogWithVolume(i, 5000))
 
   it('直近7日連続でACWR適正（sweet_spot）ならtrue', () => {
-    expect(hasConsecutiveOptimalDays(constantLoadLogs, [], [], TODAY_KEY, 7)).toBe(true)
+    expect(hasConsecutiveOptimalDays(constantLoadLogs, [], TODAY_KEY, 7)).toBe(true)
   })
 
   it('consecutiveDays省略時は既定値7で判定する', () => {
-    expect(hasConsecutiveOptimalDays(constantLoadLogs, [], [], TODAY_KEY)).toBe(true)
+    expect(hasConsecutiveOptimalDays(constantLoadLogs, [], TODAY_KEY)).toBe(true)
   })
 
   it('sportLogsだけでも一定負荷が続けば適正判定になる（Tier 4-2、2026年9月12日追加）', () => {
     const constantSportLoads = Array.from({ length: 14 }, (_, i) => sportLogAt(i, 400)) // 400/8=50固定
-    expect(hasConsecutiveOptimalDays([], [], [], TODAY_KEY, 7, [], constantSportLoads)).toBe(true)
+    expect(hasConsecutiveOptimalDays([], [], TODAY_KEY, 7, [], constantSportLoads)).toBe(true)
   })
 
   it('危険状態（danger）が続く期間はfalse', () => {
     const highDays = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 10000))
     const lowDays = Array.from({ length: 21 }, (_, i) => trainingLogWithVolume(7 + i, 1000))
     const dangerLogs = [...highDays, ...lowDays]
-    expect(hasConsecutiveOptimalDays(dangerLogs, [], [], TODAY_KEY, 3)).toBe(false)
+    expect(hasConsecutiveOptimalDays(dangerLogs, [], TODAY_KEY, 3)).toBe(false)
   })
 
   it('判定できない日（データ不足）が含まれる場合は安全側でfalse', () => {
     const shortLogs = [trainingLogWithVolume(0, 5000)]
-    expect(hasConsecutiveOptimalDays(shortLogs, [], [], TODAY_KEY, 3)).toBe(false)
+    expect(hasConsecutiveOptimalDays(shortLogs, [], TODAY_KEY, 3)).toBe(false)
   })
 })
 
 describe('daysUntilACWRAvailable', () => {
   it('記録が無ければ最短所要日数(7)を返す', () => {
-    expect(daysUntilACWRAvailable([], [], TODAY_KEY)).toBe(7)
+    expect(daysUntilACWRAvailable([], TODAY_KEY)).toBe(7)
   })
 
   it('今日のみ記録がある場合はあと6日', () => {
     const logs = [trainingLogWithVolume(0, 1000)]
-    expect(daysUntilACWRAvailable(logs, [], TODAY_KEY)).toBe(6)
+    expect(daysUntilACWRAvailable(logs, TODAY_KEY)).toBe(6)
   })
 
   it('7日分のデータが揃っていれば0', () => {
     const logs = [trainingLogWithVolume(0, 1000), trainingLogWithVolume(6, 1000)]
-    expect(daysUntilACWRAvailable(logs, [], TODAY_KEY)).toBe(0)
+    expect(daysUntilACWRAvailable(logs, TODAY_KEY)).toBe(0)
   })
 
   it('sportLogsのみでも起点として認識する（Tier 4-2、2026年9月12日追加）', () => {
     const sportLogs = [sportLogAt(0, 80), sportLogAt(6, 80)]
-    expect(daysUntilACWRAvailable([], [], TODAY_KEY, sportLogs)).toBe(0)
+    expect(daysUntilACWRAvailable([], TODAY_KEY, sportLogs)).toBe(0)
   })
 })
 
 describe('calculateDailyACWRSeries', () => {
   it('記録が無ければ全日nullの系列を返す（日数分の長さは維持）', () => {
-    const series = calculateDailyACWRSeries([], [], TODAY_KEY, 28)
+    const series = calculateDailyACWRSeries([], TODAY_KEY, 28)
     expect(series).toHaveLength(28)
     expect(series.every((point) => point.acwr === null)).toBe(true)
     expect(series[series.length - 1].date).toBe(TODAY_KEY)
   })
 
   it('日付は古い順→新しい順（先頭が最も過去、末尾が本日）', () => {
-    const series = calculateDailyACWRSeries([], [], TODAY_KEY, 7)
+    const series = calculateDailyACWRSeries([], TODAY_KEY, 7)
     expect(series[0].date).toBe(dateAt(6))
     expect(series[6].date).toBe(TODAY_KEY)
   })
@@ -385,7 +400,7 @@ describe('calculateDailyACWRSeries', () => {
     // 見た場合、todayから見て7日分（today-6〜today）に達するのはtoday自身のみ
     // （today-1日を終端にすると、その時点での記録範囲はtoday-6〜today-1の6日分でまだ足りない）。
     const logs = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 5000))
-    const series = calculateDailyACWRSeries(logs, [], TODAY_KEY, 7)
+    const series = calculateDailyACWRSeries(logs, TODAY_KEY, 7)
     expect(series.slice(0, 6).every((point) => point.acwr === null)).toBe(true)
     expect(series[6].acwr).not.toBeNull()
     expect(series[6].acwr).toBeCloseTo(1)
@@ -393,7 +408,7 @@ describe('calculateDailyACWRSeries', () => {
 
   it('sportLogsもcalculateACWRへ伝播する（Tier 4-2、2026年9月12日追加）', () => {
     const sportLogs = Array.from({ length: 7 }, (_, i) => sportLogAt(i, 400)) // 400/8=50
-    const series = calculateDailyACWRSeries([], [], TODAY_KEY, 7, [], [], sportLogs)
+    const series = calculateDailyACWRSeries([], TODAY_KEY, 7, [], [], sportLogs)
     expect(series[6].acwr).toBeCloseTo(1)
   })
 })

@@ -4,7 +4,7 @@
 // streakHelpers.tsと同じく、判定ロジックのみを担当する層として分離）。
 import { calculateACWR } from './acwrHelpers.js'
 import { calculateCurrentStreak } from './streakHelpers.js'
-import type { DailyCondition, DateString, MealLog, NotificationType, SoccerLog, SportLog, TrainingLog, Workout } from '../types.js'
+import type { DailyCondition, DateString, MealLog, NotificationType, SportLog, TrainingLog, Workout } from '../types.js'
 
 export type NotificationCandidate = {
   type: NotificationType
@@ -47,9 +47,9 @@ function previousDateString(date: DateString): DateString {
 // acwrHelpers.tsのcalculateACWRをそのまま再利用し、判定式自体は複製しない
 // （4段階ステータスのうち'danger'は他の条件でも成立するため、ここでは
 // タスク指定通り「acwr > 1.5」を直接判定する）。
+// サッカー機能統合（2026年9月13日）：soccerLogs引数を廃止。
 export function detectAcwrDangerNotification(
   trainingLogs: TrainingLog[],
-  soccerLogs: SoccerLog[],
   targetDate: DateString,
   todaySorenessLevel: DailyCondition['muscleSorenessLevel'],
   todaySorenessLocation: DailyCondition['muscleSorenessLocation'],
@@ -61,7 +61,6 @@ export function detectAcwrDangerNotification(
 ): NotificationCandidate | null {
   const result = calculateACWR(
     trainingLogs,
-    soccerLogs,
     targetDate,
     todaySorenessLevel,
     todaySorenessLocation,
@@ -83,9 +82,9 @@ export function detectAcwrDangerNotification(
 // 「昨日まで継続していた記録のストリークが、今日はまだ記録が無く途切れている」
 // 状態を検知する。streakHelpers.tsのcalculateCurrentStreakを、targetDateと
 // その前日の2時点でそれぞれ呼び出して比較する（ロジック自体は複製しない）。
+// サッカー機能統合（2026年9月13日）：soccerLogs引数を廃止。
 export function detectStreakBrokenNotification(
   trainingLogs: TrainingLog[],
-  soccerLogs: SoccerLog[],
   mealLogs: MealLog[],
   dailyConditions: DailyCondition[],
   targetDate: DateString,
@@ -97,8 +96,8 @@ export function detectStreakBrokenNotification(
   const yesterday = previousDateString(targetDate)
   const yesterdayDay = new Date(`${yesterday}T00:00:00`)
 
-  const streakYesterday = calculateCurrentStreak(trainingLogs, soccerLogs, mealLogs, dailyConditions, yesterdayDay, sportLogs)
-  const streakToday = calculateCurrentStreak(trainingLogs, soccerLogs, mealLogs, dailyConditions, targetDay, sportLogs)
+  const streakYesterday = calculateCurrentStreak(trainingLogs, mealLogs, dailyConditions, yesterdayDay, sportLogs)
+  const streakToday = calculateCurrentStreak(trainingLogs, mealLogs, dailyConditions, targetDay, sportLogs)
 
   if (streakYesterday <= 0 || streakToday > 0) {
     return null

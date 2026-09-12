@@ -17,7 +17,7 @@ import {
   toJstDateKeyFromIso,
   weekDays,
 } from '../calendarHelpers'
-import type { DailyCondition, MealLog, SoccerLog, SportLog, TrainingLogExercise, TrainingSchedule, Workout } from '../../types'
+import type { DailyCondition, MealLog, SportLog, TrainingLogExercise, TrainingSchedule, Workout } from '../../types'
 
 describe('toDateKey', () => {
   it('year/month/dayをゼロ埋めしたYYYY-MM-DDにする', () => {
@@ -141,12 +141,15 @@ describe('getScheduleIcon', () => {
   })
 })
 
+// サッカー機能統合（2026年9月13日）：buildActivityByDateからsoccerLogsByDate引数
+// （'soccer'アイテム）が廃止されたため、シグネチャを
+// (schedulesByDate, workoutsByDate?, sportLogsByDate?)に合わせて更新した。
 describe('buildActivityByDate', () => {
   it('cancelled以外の予定がある日はworkoutを含む', () => {
     const schedulesByDate = new Map([
       ['2026-08-23', [{ id: '1', userId: 'u', scheduledDate: '2026-08-23', title: 'A', emoji: '🏋️', status: 'scheduled', templateId: null } as TrainingSchedule]],
     ])
-    const result = buildActivityByDate(schedulesByDate, new Map())
+    const result = buildActivityByDate(schedulesByDate)
     expect(result.get('2026-08-23')?.has('workout')).toBe(true)
   })
 
@@ -154,14 +157,8 @@ describe('buildActivityByDate', () => {
     const schedulesByDate = new Map([
       ['2026-08-23', [{ id: '1', userId: 'u', scheduledDate: '2026-08-23', title: 'A', emoji: '🏋️', status: 'cancelled', templateId: null } as TrainingSchedule]],
     ])
-    const result = buildActivityByDate(schedulesByDate, new Map())
+    const result = buildActivityByDate(schedulesByDate)
     expect(result.has('2026-08-23')).toBe(false)
-  })
-
-  it('サッカーログがある日はsoccerを含む', () => {
-    const soccerLogsByDate = new Map([['2026-08-23', [{ date: '2026-08-23', activityType: '練習' } as SoccerLog]]])
-    const result = buildActivityByDate(new Map(), soccerLogsByDate)
-    expect(result.get('2026-08-23')?.has('soccer')).toBe(true)
   })
 
   it('cancelledと非cancelledが混在する日は非cancelledの存在だけでworkoutを含む', () => {
@@ -174,19 +171,13 @@ describe('buildActivityByDate', () => {
         ],
       ],
     ])
-    const result = buildActivityByDate(schedulesByDate, new Map())
+    const result = buildActivityByDate(schedulesByDate)
     expect(result.get('2026-08-23')?.has('workout')).toBe(true)
-  })
-
-  it('サッカーログが空配列の日はsoccerを含まない', () => {
-    const soccerLogsByDate = new Map([['2026-08-23', [] as SoccerLog[]]])
-    const result = buildActivityByDate(new Map(), soccerLogsByDate)
-    expect(result.has('2026-08-23')).toBe(false)
   })
 
   it('Apple Watchワークアウトがある日はappleWorkoutを含む（2026年8月27日追加）', () => {
     const workoutsByDate = new Map([['2026-08-23', [{ activityType: 'running', startTime: '2026-08-23T10:00:00+09:00', isPrimary: true } as Workout]]])
-    const result = buildActivityByDate(new Map(), new Map(), workoutsByDate)
+    const result = buildActivityByDate(new Map(), workoutsByDate)
     expect(result.get('2026-08-23')?.has('appleWorkout')).toBe(true)
   })
 
@@ -194,7 +185,7 @@ describe('buildActivityByDate', () => {
     const schedulesByDate = new Map([
       ['2026-08-23', [{ id: '1', userId: 'u', scheduledDate: '2026-08-23', title: 'A', emoji: '🏋️', status: 'scheduled', templateId: null } as TrainingSchedule]],
     ])
-    const result = buildActivityByDate(schedulesByDate, new Map())
+    const result = buildActivityByDate(schedulesByDate)
     expect(result.get('2026-08-23')?.has('workout')).toBe(true)
     expect(result.get('2026-08-23')?.has('appleWorkout')).toBe(false)
   })
@@ -203,24 +194,38 @@ describe('buildActivityByDate', () => {
     const sportLogsByDate = new Map([
       ['2026-08-23', [{ date: '2026-08-23', sportType: 'テニス', durationMinutes: 60 } as SportLog]],
     ])
-    const result = buildActivityByDate(new Map(), new Map(), undefined, sportLogsByDate)
+    const result = buildActivityByDate(new Map(), undefined, sportLogsByDate)
+    expect(result.get('2026-08-23')?.has('sport')).toBe(true)
+  })
+
+  it('サッカー機能統合後は「サッカー」「フットサル」もsportLogsByDate経由でsportを含む（2026年9月13日）', () => {
+    const sportLogsByDate = new Map([
+      ['2026-08-23', [{ date: '2026-08-23', sportType: 'フットサル', durationMinutes: 40 } as SportLog]],
+    ])
+    const result = buildActivityByDate(new Map(), undefined, sportLogsByDate)
     expect(result.get('2026-08-23')?.has('sport')).toBe(true)
   })
 
   it('スポーツ記録が空配列の日はsportを含まない', () => {
     const sportLogsByDate = new Map([['2026-08-23', [] as SportLog[]]])
-    const result = buildActivityByDate(new Map(), new Map(), undefined, sportLogsByDate)
+    const result = buildActivityByDate(new Map(), undefined, sportLogsByDate)
     expect(result.has('2026-08-23')).toBe(false)
   })
 
   it('sportLogsByDate省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
-    const soccerLogsByDate = new Map([['2026-08-23', [{ date: '2026-08-23', activityType: '練習' } as SoccerLog]]])
-    const result = buildActivityByDate(new Map(), soccerLogsByDate)
-    expect(result.get('2026-08-23')?.has('soccer')).toBe(true)
+    const schedulesByDate = new Map([
+      ['2026-08-23', [{ id: '1', userId: 'u', scheduledDate: '2026-08-23', title: 'A', emoji: '🏋️', status: 'scheduled', templateId: null } as TrainingSchedule]],
+    ])
+    const result = buildActivityByDate(schedulesByDate)
+    expect(result.get('2026-08-23')?.has('workout')).toBe(true)
     expect(result.get('2026-08-23')?.has('sport')).toBe(false)
   })
 })
 
+// サッカー機能統合（2026年9月13日）：getCalendarCellStateからhasSoccerLog引数
+// （'soccer'アイテム）が廃止されたため、テストからも除去した（サッカー・
+// フットサルはhasSportLog経由の'sport'アイテムに統合済み、下記のスポーツ記録
+// テストで代替カバーされている）。
 describe('getCalendarCellState', () => {
   it('実績があれば予定の有無に応じてcompleted_planned/completed_unplannedを返す', () => {
     const withSchedule = getCalendarCellState({
@@ -228,7 +233,6 @@ describe('getCalendarCellState', () => {
       hasSchedule: true,
       scheduleIcon: '🏋️',
       hasTrainingLog: true,
-      hasSoccerLog: false,
     })
     expect(withSchedule).toEqual([{ type: 'workout', icon: '🏋️', status: 'completed_planned' }])
 
@@ -237,7 +241,6 @@ describe('getCalendarCellState', () => {
       hasSchedule: false,
       scheduleIcon: '🏋️',
       hasTrainingLog: true,
-      hasSoccerLog: false,
     })
     expect(withoutSchedule).toEqual([{ type: 'workout', icon: '🏋️', status: 'completed_unplanned' }])
   })
@@ -248,7 +251,6 @@ describe('getCalendarCellState', () => {
       hasSchedule: true,
       scheduleIcon: '🏋️',
       hasTrainingLog: false,
-      hasSoccerLog: false,
     })
     expect(result).toEqual([{ type: 'workout', icon: '🏋️', status: 'planned' }])
   })
@@ -259,20 +261,8 @@ describe('getCalendarCellState', () => {
       hasSchedule: true,
       scheduleIcon: '🏋️',
       hasTrainingLog: false,
-      hasSoccerLog: false,
     })
     expect(result).toEqual([])
-  })
-
-  it('サッカーログがあればworkoutと独立してsoccerアイテムが追加される', () => {
-    const result = getCalendarCellState({
-      isPast: true,
-      hasSchedule: false,
-      scheduleIcon: '🏋️',
-      hasTrainingLog: false,
-      hasSoccerLog: true,
-    })
-    expect(result).toEqual([{ type: 'soccer', icon: '⚽', status: 'completed_unplanned' }])
   })
 
   it('Apple Watchワークアウトがあれば常にcompleted_unplannedのappleWorkoutアイテムが追加される（2026年8月27日追加）', () => {
@@ -281,7 +271,6 @@ describe('getCalendarCellState', () => {
       hasSchedule: false,
       scheduleIcon: '🏋️',
       hasTrainingLog: false,
-      hasSoccerLog: false,
       hasAppleWorkout: true,
     })
     expect(result).toEqual([{ type: 'appleWorkout', icon: '🏃', status: 'completed_unplanned' }])
@@ -293,7 +282,6 @@ describe('getCalendarCellState', () => {
       hasSchedule: false,
       scheduleIcon: '🏋️',
       hasTrainingLog: false,
-      hasSoccerLog: false,
     })
     expect(result).toEqual([])
   })
@@ -304,7 +292,6 @@ describe('getCalendarCellState', () => {
       hasSchedule: false,
       scheduleIcon: '🏋️',
       hasTrainingLog: false,
-      hasSoccerLog: false,
       hasSportLog: true,
     })
     expect(result).toEqual([{ type: 'sport', icon: '🏆', status: 'completed_unplanned' }])
@@ -316,7 +303,6 @@ describe('getCalendarCellState', () => {
       hasSchedule: false,
       scheduleIcon: '🏋️',
       hasTrainingLog: false,
-      hasSoccerLog: false,
     })
     expect(result).toEqual([])
   })

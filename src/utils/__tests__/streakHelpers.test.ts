@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calculateCurrentStreak, isStreakMilestone } from '../streakHelpers'
-import type { DailyCondition, MealLog, SoccerLog, SportLog, TrainingLog } from '../../types'
+import type { DailyCondition, MealLog, SportLog, TrainingLog } from '../../types'
 
 describe('isStreakMilestone', () => {
   it('7/30/100/365日は節目', () => {
@@ -47,14 +47,13 @@ describe('isStreakMilestone', () => {
   })
 })
 
+// サッカー機能統合（2026年9月13日）：calculateCurrentStreakからsoccerLogs引数が
+// 廃止されたため、テストのsoccerLogヘルパー・OR結合ケースはsportLogに置き換えた。
 describe('calculateCurrentStreak', () => {
   const today = new Date(2026, 7, 23) // 2026-08-23
 
   function trainingLog(date: string): TrainingLog {
     return { date: date as TrainingLog['date'], exercises: [], completed: true }
-  }
-  function soccerLog(date: string): SoccerLog {
-    return { date: date as SoccerLog['date'], activityType: '練習' }
   }
   function mealLog(date: string): MealLog {
     return {
@@ -75,41 +74,41 @@ describe('calculateCurrentStreak', () => {
   }
 
   it('記録が1件も無ければ0', () => {
-    expect(calculateCurrentStreak([], [], [], [], today)).toBe(0)
+    expect(calculateCurrentStreak([], [], [], today)).toBe(0)
   })
 
   it('連続した記録日数をカウントする', () => {
     const logs = [trainingLog('2026-08-23'), trainingLog('2026-08-22'), trainingLog('2026-08-21')]
-    expect(calculateCurrentStreak(logs, [], [], [], today)).toBe(3)
+    expect(calculateCurrentStreak(logs, [], [], today)).toBe(3)
   })
 
   it('記録が途切れた時点でカウントを止める', () => {
     // 08-20が抜けている
     const logs = [trainingLog('2026-08-23'), trainingLog('2026-08-22'), trainingLog('2026-08-19')]
-    expect(calculateCurrentStreak(logs, [], [], [], today)).toBe(2)
+    expect(calculateCurrentStreak(logs, [], [], today)).toBe(2)
   })
 
-  it('4テーブルいずれかに記録があればOR結合でカウントする', () => {
+  it('3テーブル＋sportLogsいずれかに記録があればOR結合でカウントする', () => {
     const trainingLogs = [trainingLog('2026-08-23')]
-    const soccerLogs = [soccerLog('2026-08-22')]
-    const mealLogs = [mealLog('2026-08-21')]
-    const dailyConditions = [condition('2026-08-20')]
+    const mealLogs = [mealLog('2026-08-22')]
+    const dailyConditions = [condition('2026-08-21')]
+    const sportLogs = [sportLog('2026-08-20')]
 
-    expect(calculateCurrentStreak(trainingLogs, soccerLogs, mealLogs, dailyConditions, today)).toBe(4)
+    expect(calculateCurrentStreak(trainingLogs, mealLogs, dailyConditions, today, sportLogs)).toBe(4)
   })
 
   it('当日に記録が無ければ0を返す', () => {
     const logs = [trainingLog('2026-08-22'), trainingLog('2026-08-21')]
-    expect(calculateCurrentStreak(logs, [], [], [], today)).toBe(0)
+    expect(calculateCurrentStreak(logs, [], [], today)).toBe(0)
   })
 
   it('sportLogsも「記録がある日」としてOR結合される（Tier 4-2、2026年9月12日追加）', () => {
     const sportLogs = [sportLog('2026-08-23'), sportLog('2026-08-22'), sportLog('2026-08-21')]
-    expect(calculateCurrentStreak([], [], [], [], today, sportLogs)).toBe(3)
+    expect(calculateCurrentStreak([], [], [], today, sportLogs)).toBe(3)
   })
 
   it('sportLogs省略時は既存呼び出しと同じ結果になる（後方互換）', () => {
     const logs = [trainingLog('2026-08-23'), trainingLog('2026-08-22')]
-    expect(calculateCurrentStreak(logs, [], [], [], today)).toBe(2)
+    expect(calculateCurrentStreak(logs, [], [], today)).toBe(2)
   })
 })

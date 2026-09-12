@@ -1,4 +1,4 @@
-import type { DateString, MealLog, SoccerLog, SportLog, TrainingLog, Workout } from '../types'
+import type { DateString, MealLog, SportLog, TrainingLog, Workout } from '../types'
 import { formatTrainingLogItem, toJstDateKeyFromIso } from './calendarHelpers'
 import { OTHER_SPORT_TYPE } from './sportCalorieHelpers'
 
@@ -19,9 +19,10 @@ export const AI_COMMENT_PENDING_TEXT = 'AIコメントは翌日の朝に生成�
 // mealTotalsと同じ集計パターン（reduceでcalories/protein/fat/carbohydratesを
 // 合算）を踏襲する。個々の食品名は羅列せず合計のみとし、プロンプトの
 // データ量を抑える（食品名の内訳が必要なほど詳細なアドバイスは想定していない）。
+// サッカー機能統合（2026年9月13日）：soccerLogs引数を廃止（サッカー・フットサルの
+// 記録はsportLogs経由でサマリーに含まれるようになったため）。
 export function buildDailySummaryText(
   trainingLogs: TrainingLog[],
-  soccerLogs: SoccerLog[],
   workouts: Workout[],
   mealLogs: MealLog[],
   date: DateString,
@@ -34,12 +35,6 @@ export function buildDailySummaryText(
   const dayTrainingLog = trainingLogs.find((log) => log.date === date)
   if (dayTrainingLog && dayTrainingLog.exercises.length > 0) {
     parts.push(`筋トレ: ${dayTrainingLog.exercises.map((exercise) => formatTrainingLogItem(exercise)).join('、')}`)
-  }
-
-  const soccerLog = soccerLogs.find((log) => log.date === date)
-  if (soccerLog) {
-    const duration = soccerLog.durationMinutes !== undefined ? `${soccerLog.durationMinutes}分` : ''
-    parts.push(`サッカー: ${soccerLog.activityType}${duration ? `（${duration}）` : ''}`)
   }
 
   // sport_logsはmeal_logsと同じく1日複数件可（2026年9月12日追加修正）のため

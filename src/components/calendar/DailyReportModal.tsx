@@ -4,12 +4,12 @@ import { AiCommentCard } from '../AiCommentCard'
 import { useDailyAiComment } from '../../hooks/useDailyAiComment'
 import { AI_COMMENT_PENDING_TEXT } from '../../utils/dailyCommentHelpers'
 import { CloseIcon } from '../icons'
-import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
+import type { DailyCondition, DateString, MealLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
 import { OTHER_SPORT_TYPE } from '../../utils/sportCalorieHelpers'
 import './DailyReportModal.css'
 
 // カレンダー「詳細」バッジ：日次レポート機能（Phase 2、2026年8月22日）。
-// タブUI（トレーニング/予定/体調/食事/サッカー）が「1カテゴリずつ見る」ためのもの
+// タブUI（トレーニング/予定/体調/食事/スポーツ）が「1カテゴリずつ見る」ためのもの
 // なのに対し、こちらは「その日1日を全カテゴリまとめて振り返る」ための読み取り専用
 // ビュー。CalendarDaySummaries.tsx（タブ用の編集可能なサマリー）とは別コンポーネント
 // とし、記録の追加・編集ボタンは一切持たない（編集は従来通りタブUI側で行う）。
@@ -35,7 +35,6 @@ type DailyReportModalProps = {
   schedules: TrainingSchedule[]
   dailyConditions: DailyCondition[]
   mealLogs: MealLog[]
-  soccerLogs: SoccerLog[]
   sportLogs: SportLog[]
   // Apple Health連携 Task4（2026年8月27日）：workoutsテーブル新設（Task1）より
   // 後に実装された日次レポートは、当初このテーブルを参照していなかった
@@ -53,7 +52,6 @@ export function DailyReportModal({
   schedules,
   dailyConditions,
   mealLogs,
-  soccerLogs,
   sportLogs,
   workouts,
   setDailyConditions,
@@ -63,7 +61,6 @@ export function DailyReportModal({
   const daySchedules = schedules.filter((schedule) => schedule.scheduledDate === selectedDate)
   const condition = dailyConditions.find((current) => current.date === selectedDate)
   const dayMealLogs = mealLogs.filter((log) => log.date === selectedDate)
-  const soccerLog = soccerLogs.find((log) => log.date === selectedDate)
   // スポーツ記録機能（Tier 4-2、2026年9月12日追加修正：1日複数件対応）：
   // dayWorkoutsと同じfilter()による複数件列挙パターン。
   const daySportLogs = sportLogs.filter((log) => log.date === selectedDate)
@@ -199,32 +196,6 @@ export function DailyReportModal({
                   ))}
                 </div>
               </>
-            ) : (
-              <p className="daily-report__empty">記録なし</p>
-            )}
-          </section>
-
-          <section className="daily-report__section">
-            <h4>サッカー</h4>
-            {soccerLog ? (
-              <div className="daily-report__item">
-                <p>
-                  ⚽ {soccerLog.activityType}
-                  {soccerLog.trainingMenu ? `（${soccerLog.trainingMenu}）` : ''}
-                  {soccerLog.durationMinutes !== undefined ? ` / ${soccerLog.durationMinutes}分` : ''}
-                  {soccerLog.caloriesBurned !== undefined ? ` / ${soccerLog.caloriesBurned}kcal` : ''}
-                </p>
-                {soccerLog.distanceKm !== undefined ? (
-                  <p className="daily-report__note">走行距離: {soccerLog.distanceKm}km</p>
-                ) : null}
-                {soccerLog.sprintCount !== undefined ? (
-                  <p className="daily-report__note">スプリント: {soccerLog.sprintCount}回</p>
-                ) : null}
-                {soccerLog.maxSpeedKmh !== undefined ? (
-                  <p className="daily-report__note">最高速度: {soccerLog.maxSpeedKmh}km/h</p>
-                ) : null}
-                {soccerLog.notes ? <p className="daily-report__note">メモ: {soccerLog.notes}</p> : null}
-              </div>
             ) : (
               <p className="daily-report__empty">記録なし</p>
             )}

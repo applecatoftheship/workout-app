@@ -82,16 +82,6 @@ export function ConditionIcon({ strokeWidth = 2, className }: IconProps) {
   )
 }
 
-export function SoccerIcon({ strokeWidth = 2, className }: IconProps) {
-  return (
-    <svg {...base} strokeWidth={strokeWidth} className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8.2 15.4 10.7 14.1 14.6H9.9L8.6 10.7Z" />
-      <path d="M12 3.4V8.2M4.5 8.8l3.5 1M4.5 8.8 5.3 15.1M19.5 8.8l-3.5 1M19.5 8.8l-.8 6.3M9.9 14.6 6.5 18M14.1 14.6 17.5 18" />
-    </svg>
-  )
-}
-
 export function ScheduleIcon({ strokeWidth = 2, className }: IconProps) {
   return (
     <svg {...base} strokeWidth={strokeWidth} className={className}>

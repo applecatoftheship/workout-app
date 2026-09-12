@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { detectAcwrDangerNotification, detectStreakBrokenNotification, shouldCreateNotification } from '../notificationHelpers'
 import { toDateKey } from '../chartHelpers'
-import type { DailyCondition, DateString, MealLog, SoccerLog, TrainingLog } from '../../types'
+import type { DailyCondition, DateString, MealLog, SportLog, TrainingLog } from '../../types'
 
 const TODAY = new Date(2026, 7, 24) // 2026-08-24
 
@@ -34,6 +34,9 @@ describe('shouldCreateNotification', () => {
   })
 })
 
+// サッカー機能統合（2026年9月13日）：detectAcwrDangerNotification/
+// detectStreakBrokenNotificationからsoccerLogs引数が廃止されたため、
+// テストのシグネチャもそれに合わせて更新した。
 describe('detectAcwrDangerNotification', () => {
   // 負荷スコア = min(100, 総挙上量(kg) / 100) のため、weight=総挙上量・reps=1で
   // スコアを直接指定できる（acwrHelpers.test.tsと同じ手法）。
@@ -53,7 +56,7 @@ describe('detectAcwrDangerNotification', () => {
 
   it('データ不足（7日未満）ならnull', () => {
     const logs = [trainingLogWithVolume(0, 1000)]
-    expect(detectAcwrDangerNotification(logs, [], TODAY_KEY, undefined, undefined)).toBeNull()
+    expect(detectAcwrDangerNotification(logs, TODAY_KEY, undefined, undefined)).toBeNull()
   })
 
   it('ACWR=1.5ちょうどは「>1.5」に該当しないためnull（境界値）', () => {
@@ -61,7 +64,7 @@ describe('detectAcwrDangerNotification', () => {
     const recent = Array.from({ length: 7 }, (_, i) => trainingLogWithVolume(i, 9000))
     const older = Array.from({ length: 21 }, (_, i) => trainingLogWithVolume(7 + i, 5000))
     const logs = [...recent, ...older]
-    expect(detectAcwrDangerNotification(logs, [], TODAY_KEY, undefined, undefined)).toBeNull()
+    expect(detectAcwrDangerNotification(logs, TODAY_KEY, undefined, undefined)).toBeNull()
   })
 
   it('ACWR>1.5なら通知候補を返す', () => {
@@ -69,7 +72,7 @@ describe('detectAcwrDangerNotification', () => {
     const older = Array.from({ length: 21 }, (_, i) => trainingLogWithVolume(7 + i, 1000))
     const logs = [...recent, ...older]
 
-    const result = detectAcwrDangerNotification(logs, [], TODAY_KEY, undefined, undefined)
+    const result = detectAcwrDangerNotification(logs, TODAY_KEY, undefined, undefined)
     expect(result).not.toBeNull()
     expect(result!.type).toBe('acwr_danger')
     expect(result!.message).toContain('ACWR')
@@ -80,8 +83,8 @@ describe('detectStreakBrokenNotification', () => {
   function trainingLog(date: string): TrainingLog {
     return { date: date as TrainingLog['date'], exercises: [], completed: true }
   }
-  function soccerLog(date: string): SoccerLog {
-    return { date: date as SoccerLog['date'], activityType: '練習' }
+  function sportLog(date: string): SportLog {
+    return { date: date as SportLog['date'], sportType: 'テニス', durationMinutes: 60 }
   }
   function mealLog(date: string): MealLog {
     return {
@@ -100,28 +103,28 @@ describe('detectStreakBrokenNotification', () => {
 
   it('今日も記録があれば途切れていないためnull', () => {
     const logs = [trainingLog(TODAY_KEY), trainingLog(dateAt(1)), trainingLog(dateAt(2))]
-    expect(detectStreakBrokenNotification(logs, [], [], [], TODAY_KEY)).toBeNull()
+    expect(detectStreakBrokenNotification(logs, [], [], TODAY_KEY)).toBeNull()
   })
 
   it('昨日以前も記録が無ければ（ストリーク自体が0）null', () => {
-    expect(detectStreakBrokenNotification([], [], [], [], TODAY_KEY)).toBeNull()
+    expect(detectStreakBrokenNotification([], [], [], TODAY_KEY)).toBeNull()
   })
 
   it('昨日までのストリークが今日途切れていれば通知候補を返す', () => {
     const logs = [trainingLog(dateAt(1)), trainingLog(dateAt(2)), trainingLog(dateAt(3))]
-    const result = detectStreakBrokenNotification(logs, [], [], [], TODAY_KEY)
+    const result = detectStreakBrokenNotification(logs, [], [], TODAY_KEY)
 
     expect(result).not.toBeNull()
     expect(result!.type).toBe('streak_broken')
     expect(result!.message).toContain('3日間')
   })
 
-  it('4テーブルいずれかの記録でストリークが継続していればOR結合で判定する', () => {
-    const soccerLogs = [soccerLog(dateAt(1))]
-    const mealLogs = [mealLog(dateAt(2))]
-    const dailyConditions = [condition(dateAt(3))]
+  it('3テーブル＋sportLogsいずれかの記録でストリークが継続していればOR結合で判定する', () => {
+    const mealLogs = [mealLog(dateAt(1))]
+    const dailyConditions = [condition(dateAt(2))]
+    const sportLogs = [sportLog(dateAt(3))]
 
-    const result = detectStreakBrokenNotification([], soccerLogs, mealLogs, dailyConditions, TODAY_KEY)
+    const result = detectStreakBrokenNotification([], mealLogs, dailyConditions, TODAY_KEY, sportLogs)
     expect(result).not.toBeNull()
     expect(result!.type).toBe('streak_broken')
   })

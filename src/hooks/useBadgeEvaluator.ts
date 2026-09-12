@@ -6,7 +6,7 @@ import { useToast } from './useToast'
 import type { UserBadge } from '../types'
 
 export type BadgeEvaluationInput = {
-  /** training_logs・soccer_logs・meal_logs・daily_conditionsのいずれかに1件でも記録があるか */
+  /** training_logs・sport_logs・meal_logs・daily_conditionsのいずれかに1件でも記録があるか */
   hasAnyRecord: boolean
   /** streakHelpers.calculateCurrentStreakの戻り値をそのまま渡す */
   currentStreak: number
@@ -29,7 +29,7 @@ export type BadgeEvaluationInput = {
 //
 // 【評価タイミングについて】呼び出し元（Dashboard.tsx・BadgeGallery.tsx）は
 // currentStreak等の判定用の値をACWR・移動平均と同じく複数の非同期fetch
-// （acwrSoccerLogs等）から動的に組み立てているため、コンポーネントの初回
+// （acwrSportLogs等）から動的に組み立てているため、コンポーネントの初回
 // レンダリング時点ではまだ最新値が揃っていないことがある。このため評価用の
 // useEffectはinputの各値を依存配列に含め、値が変化するたび（＝後から届いた
 // データで条件が新たに満たされた場合を含め）再評価する。ただし「同じバッジを

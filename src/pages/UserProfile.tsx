@@ -54,7 +54,7 @@ export function UserProfile({ profile, setProfile, todayString }: UserProfilePro
     setAvatarValue(profile?.avatarValue)
   }, [profile])
 
-  // 体重：ConditionForm.tsx・SoccerLogForm.tsxと同じfetchRecentWeightの
+  // 体重：ConditionForm.tsx・SportLogForm.tsxと同じfetchRecentWeightの
   // プレースホルダー方式（実測値ではなく、あくまでゴーストテキストとしての提案）。
   // ここに何も入力しなければ体重は更新しない（実装指示書の「上書き入力可能」の
   // 通り、任意入力として扱う）。

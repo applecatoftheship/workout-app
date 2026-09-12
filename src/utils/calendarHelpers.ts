@@ -1,4 +1,4 @@
-import type { DateString, DailyCondition, FirstDayOfWeek, MealLog, MealType, SoccerLog, SportLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types.js'
+import type { DateString, DailyCondition, FirstDayOfWeek, MealLog, MealType, SportLog, TrainingLogExercise, TrainingSchedule, Workout } from '../types.js'
 import type { ActivityType, CalendarCellItem } from '../types/calendar.js'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from './acwrHelpers.js'
 
@@ -54,7 +54,7 @@ export function formatMonthLabel(date: Date) {
 
 // meal_time/end_time（input type="time"用のHH:MM文字列 ⇔ timestamptz用の
 // ISO文字列）の相互変換（スプリント4 Phase 1、2026年8月21日追加）。
-// MealLogWizardModal・TrainingExerciseEditModal・SoccerLogFormの3フォームで共通利用する。
+// MealLogWizardModal・TrainingExerciseEditModalの各フォームで共通利用する。
 
 export function getCurrentTimeHHMM(): string {
   const now = new Date()
@@ -90,15 +90,16 @@ export function getScheduleIcon(daySchedules: TrainingSchedule[]): string {
   return target?.emoji || '🏋️'
 }
 
-// その日に予定（cancelled以外）・実績（training_logs/soccer_logs）が
-// それぞれ存在するかを日付単位でSet集計する。MonthlyCalendar・Dashboardの
-// 週間ストリップ双方から同一ロジックを参照し、判定基準がずれないようにする。
+// その日に予定（cancelled以外）・実績（training_logs等）がそれぞれ存在するかを
+// 日付単位でSet集計する。MonthlyCalendar・Dashboardの週間ストリップ双方から
+// 同一ロジックを参照し、判定基準がずれないようにする。
+// サッカー機能統合（2026年9月13日）：soccerLogsByDate引数を廃止（サッカー・
+// フットサルの実績はsportLogsByDate経由で判定されるようになったため）。
 export function buildActivityByDate(
   schedulesByDate: Map<string, TrainingSchedule[]>,
-  soccerLogsByDate: Map<string, SoccerLog[]>,
   workoutsByDate?: Map<string, Workout[]>,
   // スポーツ記録機能（Tier 4-2、2026年9月12日）：workoutsByDateと同じく省略可能
-  // （既存の3引数呼び出し・テスト等を壊さないため）。
+  // （既存呼び出し・テスト等を壊さないため）。
   sportLogsByDate?: Map<string, SportLog[]>,
 ): Map<string, Set<ActivityType>> {
   const map = new Map<string, Set<ActivityType>>()
@@ -115,15 +116,9 @@ export function buildActivityByDate(
     }
   })
 
-  soccerLogsByDate.forEach((daySoccerLogs, dateKey) => {
-    if (daySoccerLogs.length > 0) {
-      addActivity(dateKey, 'soccer')
-    }
-  })
-
   // Apple Health連携（2026年8月27日）：workoutsByDate引数は省略可能とし、既存の
-  // buildActivityByDate(schedulesByDate, soccerLogsByDate)呼び出し（テスト等）を
-  // 壊さないようにしている。呼び出し側はis_primary = trueの行のみを渡す前提
+  // buildActivityByDate(schedulesByDate)呼び出し（テスト等）を壊さないように
+  // している。呼び出し側はis_primary = trueの行のみを渡す前提
   // （Task3で確立した既存パターン、fetchWorkoutsが既にサーバー側でフィルタ済み）。
   workoutsByDate?.forEach((dayWorkouts, dateKey) => {
     if (dayWorkouts.length > 0) {
@@ -145,7 +140,6 @@ export interface GetCellStateParams {
   hasSchedule: boolean // 当日にcancelled以外のtraining_schedulesが存在するか
   scheduleIcon: string // getScheduleIconで選定した表示絵文字
   hasTrainingLog: boolean
-  hasSoccerLog: boolean
   // Apple Health連携（2026年8月27日）：省略時はfalse扱い（既存呼び出しを壊さない）。
   hasAppleWorkout?: boolean
   // スポーツ記録機能（Tier 4-2、2026年9月12日）：省略時はfalse扱い。
@@ -156,8 +150,10 @@ export interface GetCellStateParams {
 // 判定する（日付ベース簡易マッチング方式）。「未達成の過去予定」
 // （hasSchedule && isPast && !hasTrainingLog）は意図的に何も追加しない
 // （＝missedはセル非表示）。
+// サッカー機能統合（2026年9月13日）：hasSoccerLog引数を廃止
+// （'soccer'アイテムはhasSportLog経由の'sport'アイテムに統合されたため）。
 export function getCalendarCellState(params: GetCellStateParams): CalendarCellItem[] {
-  const { isPast, hasSchedule, scheduleIcon, hasTrainingLog, hasSoccerLog, hasAppleWorkout, hasSportLog } = params
+  const { isPast, hasSchedule, scheduleIcon, hasTrainingLog, hasAppleWorkout, hasSportLog } = params
   const items: CalendarCellItem[] = []
 
   if (hasTrainingLog) {
@@ -174,20 +170,17 @@ export function getCalendarCellState(params: GetCellStateParams): CalendarCellIt
     })
   }
 
-  if (hasSoccerLog) {
-    items.push({ type: 'soccer', icon: '⚽', status: 'completed_unplanned' })
-  }
-
   // Apple Watchワークアウトには「予定」の概念が無い（training_schedulesのような
-  // 事前登録が無く、常に自動記録＝実績のみ）ため、soccerと同じくstatusは
-  // 常にcompleted_unplanned固定とする。
+  // 事前登録が無く、常に自動記録＝実績のみ）ため、statusは常に
+  // completed_unplanned固定とする。
   if (hasAppleWorkout) {
     items.push({ type: 'appleWorkout', icon: '🏃', status: 'completed_unplanned' })
   }
 
   // スポーツ記録機能（Tier 4-2、2026年9月12日）：sport_logsも予定の概念を持たない
-  // （soccer・appleWorkoutと同じ）ため、statusは常にcompleted_unplanned固定。
-  // 汎用アイコン🏆を使う（種目ごとの絵文字出し分けはしない）。
+  // （appleWorkoutと同じ）ため、statusは常にcompleted_unplanned固定。
+  // 汎用アイコン🏆を使う（種目ごとの絵文字出し分けはしない。サッカー機能統合
+  // 2026年9月13日以降、サッカー・フットサルもこのアイコンで表示される）。
   if (hasSportLog) {
     items.push({ type: 'sport', icon: '🏆', status: 'completed_unplanned' })
   }

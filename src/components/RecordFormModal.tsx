@@ -6,16 +6,14 @@ import { WorkoutEditListFlow } from './calendar/WorkoutEditListFlow'
 import { MealLogWizardModal } from './calendar/MealLogWizardModal'
 import { ConditionForm } from './calendar/ConditionForm'
 import { ScheduleForm } from './calendar/ScheduleForm'
-import { SoccerLogForm } from './calendar/SoccerLogForm'
 import { SportLogForm } from './calendar/SportLogForm'
 import { CloseIcon } from './icons'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
-import { fetchSoccerLogs } from '../api/soccerLogs'
 import { fetchSportLogs } from '../api/sportLogs'
 import { fetchWorkouts } from '../api/workouts'
 import { toDateKey } from '../utils/chartHelpers'
 import type { RecordType } from './RecordSheet'
-import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../types'
+import type { DailyCondition, DateString, MealLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../types'
 import './RecordFormModal.css'
 
 export type RecordModalRequest = {
@@ -42,7 +40,6 @@ const TITLES: Record<RecordType, string> = {
   training: 'トレーニングを記録',
   meal: '食事を記録',
   condition: '体調を記録',
-  soccer: 'サッカーを記録',
   sport: 'スポーツを記録',
   schedule: '予定を記録',
   workout: 'ワークアウト記録を編集',
@@ -71,11 +68,9 @@ export function RecordFormModal({
 }: RecordFormModalProps) {
   const [isConditionFormOpen, setIsConditionFormOpen] = useState(true)
   const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(true)
-  const [isSoccerFormOpen, setIsSoccerFormOpen] = useState(true)
 
   const [autoOpenToken, setAutoOpenToken] = useState<number | undefined>(undefined)
   const [modalSchedules, setModalSchedules] = useState<TrainingSchedule[]>([])
-  const [modalSoccerLogs, setModalSoccerLogs] = useState<SoccerLog[]>([])
   const [modalSportLogs, setModalSportLogs] = useState<SportLog[]>([])
   const [modalWorkouts, setModalWorkouts] = useState<Workout[]>([])
   const [isLoadingSideData, setIsLoadingSideData] = useState(false)
@@ -87,7 +82,6 @@ export function RecordFormModal({
 
     setIsConditionFormOpen(true)
     setIsScheduleFormOpen(true)
-    setIsSoccerFormOpen(true)
     setAutoOpenToken(undefined)
 
     if (request.type === 'schedule') {
@@ -99,20 +93,6 @@ export function RecordFormModal({
         .catch((error) => {
           console.error('Supabaseから予定の取得に失敗しました', error)
           setModalSchedules([])
-        })
-        .finally(() => {
-          setIsLoadingSideData(false)
-          setAutoOpenToken(request.requestId)
-        })
-    } else if (request.type === 'soccer') {
-      setIsLoadingSideData(true)
-      fetchSoccerLogs(request.date, request.date)
-        .then((data) => {
-          setModalSoccerLogs(data)
-        })
-        .catch((error) => {
-          console.error('Supabaseからサッカー記録の取得に失敗しました', error)
-          setModalSoccerLogs([])
         })
         .finally(() => {
           setIsLoadingSideData(false)
@@ -188,13 +168,6 @@ export function RecordFormModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isScheduleFormOpen])
-
-  useEffect(() => {
-    if (request?.type === 'soccer' && !isSoccerFormOpen) {
-      onClose()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSoccerFormOpen])
 
   if (!request) {
     return null
@@ -296,18 +269,6 @@ export function RecordFormModal({
               autoOpenToken={autoOpenToken}
               autoOpenScheduleId={request.scheduleId}
               autoSelectTemplateId={request.templateId}
-            />
-          ) : null}
-
-          {request.type === 'soccer' && !isLoadingSideData ? (
-            <SoccerLogForm
-              key={formKey}
-              soccerLogs={modalSoccerLogs}
-              setSoccerLogs={setModalSoccerLogs}
-              selectedDate={request.date}
-              isSoccerFormOpen={isSoccerFormOpen}
-              setIsSoccerFormOpen={setIsSoccerFormOpen}
-              autoOpenToken={autoOpenToken}
             />
           ) : null}
 

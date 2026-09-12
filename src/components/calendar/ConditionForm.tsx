@@ -70,7 +70,7 @@ export function ConditionForm({
   const [conditionFormSummaryError, setConditionFormSummaryError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   // UI/UXレビュー修正 項目8（2026年8月25日）：体重欄のプレースホルダーを固定例示
-  // 「64.8」から直近実測値に動的表示するため、SoccerLogForm.tsxと同じ
+  // 「64.8」から直近実測値に動的表示するため、SportLogForm.tsxと同じ
   // fetchRecentWeightパターンを踏襲する。
   const [recentWeight, setRecentWeight] = useState<number | null>(null)
 

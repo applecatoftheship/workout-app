@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
-import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
+import type { DailyCondition, DateString, MealLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
 import {
   formatConditionSummary,
   getMealTypeLabel,
@@ -330,52 +330,10 @@ export function MealSummary({ mealLogs, setMealLogs, selectedDate, onAdd, onEdit
   )
 }
 
-type SoccerSummaryProps = {
-  soccerLogs: SoccerLog[]
-  selectedDate: DateString
-  onAdd: () => void
-  onEdit: () => void
-}
-
-export function SoccerSummary({ soccerLogs, selectedDate, onAdd, onEdit }: SoccerSummaryProps) {
-  const log = soccerLogs.find((current) => current.date === selectedDate)
-
-  return (
-    <div className="calendar-detail__section">
-      <div className="calendar-detail__section-header">
-        <h4>サッカー</h4>
-        <button type="button" className="calendar-detail__secondary-button" onClick={onAdd}>
-          {log ? '記録を編集' : '記録を追加'}
-        </button>
-      </div>
-      {log ? (
-        <div className="calendar-detail__item">
-          <p>
-            ⚽ {log.activityType}
-            {log.trainingMenu ? `（${log.trainingMenu}）` : ''}
-            {log.durationMinutes !== undefined ? ` / ${log.durationMinutes}分` : ''}
-            {log.caloriesBurned !== undefined ? ` / ${log.caloriesBurned}kcal` : ''}
-          </p>
-          {log.distanceKm !== undefined ? <p className="calendar-detail__description">走行距離: {log.distanceKm}km</p> : null}
-          {log.sprintCount !== undefined ? <p className="calendar-detail__description">スプリント: {log.sprintCount}回</p> : null}
-          {log.maxSpeedKmh !== undefined ? <p className="calendar-detail__description">最高速度: {log.maxSpeedKmh}km/h</p> : null}
-          {log.notes ? <p className="calendar-detail__description">メモ: {log.notes}</p> : null}
-          <div className="calendar-detail__condition-actions">
-            <button type="button" className="calendar-detail__edit-button" onClick={onEdit}>
-              編集
-            </button>
-          </div>
-        </div>
-      ) : (
-        <p className="calendar-detail__empty">⚽ まだサッカー記録がありません</p>
-      )}
-    </div>
-  )
-}
-
 // スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日追加修正：1日複数件
-// 対応）：当初はSoccerSummaryと同じ1日1件前提のfindパターンだったが、
-// 「一般的な競技をまとめて追加」という当初の要件上、同じ日に複数の競技を
+// 対応）：当初は旧SoccerSummary（サッカー機能統合＝2026年9月13日に廃止）と同じ
+// 1日1件前提のfindパターンだったが、「一般的な競技をまとめて追加」という
+// 当初の要件上、同じ日に複数の競技を
 // 別々に記録できる必要があるため、ScheduleSummaryのfilter()による複数件
 // 列挙パターンに変更した。各カードの編集・削除はSportLogCard（leaf
 // コンポーネント自身がconfirm+API呼び出しを完結させる、MealLogCardと同じ
@@ -421,8 +379,7 @@ export function SportSummary({ sportLogs, setSportLogs, selectedDate, onAdd, onE
 // Apple Health連携 Task3（2026年8月27日）：読み取り専用のワークアウト一覧。
 // 他のSummaryと異なりonAdd/onEditを持たない（手動での追加・編集UIは今回の
 // スコープ外、api/sync-apple-health.ts経由での自動登録のみ）。1日に複数件
-// 持ちうるため、SoccerSummary（1日1件前提のfind）ではなくTrainingSummaryの
-// mapパターンを踏襲している。
+// 持ちうるため、TrainingSummaryのmapパターンを踏襲している。
 function formatJstTime(isoString: string): string {
   return new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false }).format(
     new Date(isoString),
