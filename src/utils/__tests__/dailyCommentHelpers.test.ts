@@ -29,6 +29,14 @@ describe('buildDailySummaryText', () => {
     expect(result).toContain(' / ')
   })
 
+  it('同じ日に複数のスポーツ記録がある場合は「／」区切りで全件連結される（2026年9月12日追加修正：1日複数件対応）', () => {
+    const sportLogs: SportLog[] = [
+      { id: 'sport-1', date: DATE, sportType: 'バスケットボール', durationMinutes: 60 },
+      { id: 'sport-2', date: DATE, sportType: 'テニス', durationMinutes: 30 },
+    ]
+    expect(buildDailySummaryText([], [], [], [], DATE, sportLogs)).toBe('スポーツ: バスケットボール（60分）／テニス（30分）')
+  })
+
   it('対象日以外のスポーツ記録は含まれない', () => {
     const sportLogs: SportLog[] = [{ date: '2026-09-11' as DateString, sportType: 'テニス', durationMinutes: 90 }]
     expect(buildDailySummaryText([], [], [], [], DATE, sportLogs)).toBe('運動・食事の記録なし')

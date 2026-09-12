@@ -42,11 +42,17 @@ export function buildDailySummaryText(
     parts.push(`サッカー: ${soccerLog.activityType}${duration ? `（${duration}）` : ''}`)
   }
 
-  // sport_logsは1ユーザー1日1行（soccer_logsと同じ制約）のためfindでよい。
-  const sportLog = sportLogs.find((log) => log.date === date)
-  if (sportLog) {
-    const label = sportLog.sportType === OTHER_SPORT_TYPE ? sportLog.customSportName ?? OTHER_SPORT_TYPE : sportLog.sportType
-    parts.push(`スポーツ: ${label}（${sportLog.durationMinutes}分）`)
+  // sport_logsはmeal_logsと同じく1日複数件可（2026年9月12日追加修正）のため
+  // filter()で全件列挙し、「／」区切りで連結する。
+  const daySportLogs = sportLogs.filter((log) => log.date === date)
+  if (daySportLogs.length > 0) {
+    const summary = daySportLogs
+      .map((log) => {
+        const label = log.sportType === OTHER_SPORT_TYPE ? log.customSportName ?? OTHER_SPORT_TYPE : log.sportType
+        return `${label}（${log.durationMinutes}分）`
+      })
+      .join('／')
+    parts.push(`スポーツ: ${summary}`)
   }
 
   // workouts.start_timeはtimestamptzのため、DailyReportModal.tsxと同じく

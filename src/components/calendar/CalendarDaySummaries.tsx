@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { DailyCondition, DateString, MealLog, SoccerLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
-import { OTHER_SPORT_TYPE } from '../../utils/sportCalorieHelpers'
 import {
   formatConditionSummary,
   getMealTypeLabel,
@@ -14,6 +13,7 @@ import {
 import { fetchTrainingLogs, upsertTrainingLogMeta } from '../../api/trainingLogs'
 import { TrainingExerciseCard } from './TrainingExerciseCard'
 import { MealLogCard } from './MealLogCard'
+import { SportLogCard } from './SportLogCard'
 import { useToast } from '../../hooks/useToast'
 
 /**
@@ -373,42 +373,43 @@ export function SoccerSummary({ soccerLogs, selectedDate, onAdd, onEdit }: Socce
   )
 }
 
-// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：SoccerSummaryと同じ
-// 1日1件前提のfindパターン。
+// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日追加修正：1日複数件
+// 対応）：当初はSoccerSummaryと同じ1日1件前提のfindパターンだったが、
+// 「一般的な競技をまとめて追加」という当初の要件上、同じ日に複数の競技を
+// 別々に記録できる必要があるため、ScheduleSummaryのfilter()による複数件
+// 列挙パターンに変更した。各カードの編集・削除はSportLogCard（leaf
+// コンポーネント自身がconfirm+API呼び出しを完結させる、MealLogCardと同じ
+// パターン）に委譲する。「追加」ボタンは常に新規作成（onAdd、
+// sportLogId未指定）を開く。
 type SportSummaryProps = {
   sportLogs: SportLog[]
+  setSportLogs: Dispatch<SetStateAction<SportLog[]>>
   selectedDate: DateString
   onAdd: () => void
-  onEdit: () => void
+  onEdit: (sportLogId: string) => void
 }
 
-export function SportSummary({ sportLogs, selectedDate, onAdd, onEdit }: SportSummaryProps) {
-  const log = sportLogs.find((current) => current.date === selectedDate)
-  const label = log ? (log.sportType === OTHER_SPORT_TYPE ? log.customSportName ?? OTHER_SPORT_TYPE : log.sportType) : ''
+export function SportSummary({ sportLogs, setSportLogs, selectedDate, onAdd, onEdit }: SportSummaryProps) {
+  const dayLogs = sportLogs.filter((log) => log.date === selectedDate)
 
   return (
     <div className="calendar-detail__section">
       <div className="calendar-detail__section-header">
         <h4>スポーツ</h4>
         <button type="button" className="calendar-detail__secondary-button" onClick={onAdd}>
-          {log ? '記録を編集' : '記録を追加'}
+          記録を追加
         </button>
       </div>
-      {log ? (
-        <div className="calendar-detail__item">
-          <p>
-            🏆 {label}
-            {` / ${log.durationMinutes}分`}
-            {log.rpe !== undefined ? ` / RPE${log.rpe}` : ''}
-            {log.caloriesBurned !== undefined ? ` / ${log.caloriesBurned}kcal` : ''}
-          </p>
-          {log.resultNote ? <p className="calendar-detail__description">スコア・結果: {log.resultNote}</p> : null}
-          {log.notes ? <p className="calendar-detail__description">メモ: {log.notes}</p> : null}
-          <div className="calendar-detail__condition-actions">
-            <button type="button" className="calendar-detail__edit-button" onClick={onEdit}>
-              編集
-            </button>
-          </div>
+      {dayLogs.length > 0 ? (
+        <div className="calendar-detail__log-list">
+          {dayLogs.map((log) => (
+            <SportLogCard
+              key={log.id}
+              sportLog={log}
+              setSportLogs={setSportLogs}
+              onEdit={() => log.id && onEdit(log.id)}
+            />
+          ))}
         </div>
       ) : (
         <p className="calendar-detail__empty">🏆 まだスポーツ記録がありません</p>

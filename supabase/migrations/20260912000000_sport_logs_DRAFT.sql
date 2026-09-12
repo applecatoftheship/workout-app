@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Tier 4-2：競技の拡張（汎用スポーツ記録機能） sport_logs テーブル新設
--- （2026年9月12日）
+-- （2026年9月12日。同日、追加修正で1日複数件対応に変更）
 --
 -- 【背景】consolidated-roadmap_2026-09-04.md Tier 4-2。Gemini原案（RPE×時間で
 -- 全競技のACWRを統一算出）はACWRの連続性が壊れる・入力摩擦が増えるため不採用と
@@ -10,6 +10,19 @@
 -- まとめて記録できる汎用機能として実装する（種目ごとに個別テーブルを作るのではなく、
 -- 種目を選択式にした1つの汎用テーブル）。soccer_logsと役割は同じ（ユーザーが実施後に
 -- 手入力する競技記録）だが、soccer_logs自体は変更しない。
+--
+-- 【追加修正（同日）：1日複数件対応】初版はsoccer_logsに倣い
+-- unique(user_id, log_date)（1ユーザー1日1行）としていたが、「一般的な競技を
+-- まとめて追加」という当初の要件上、同じ日に複数の競技（例：午前にバスケ、
+-- 午後にテニス）を別々に記録できる必要があるため、unique制約を削除しid単位の
+-- 複数件管理に変更した（meal_logsと同じパターン。meal_logsは1日複数件だが
+-- log_date単体・(user_id, log_date)いずれにもunique制約を持たない設計のため、
+-- sport_logsもそれに倣いunique制約自体を持たない）。user_id・log_dateでの
+-- 検索（範囲フェッチ）が多い想定のため、非ユニークの複合インデックスのみ追加する
+-- （training_schedulesのidx_training_schedules_user_date
+-- ＝1日複数件・unique制約なしのテーブルに対する既存の非ユニークインデックス
+-- パターンを踏襲。meal_logs自体には同種のインデックスが無いため、より近い
+-- 前例としてこちらを参照した）。
 --
 -- 【実行方法】Claude CodeはSupabaseへの直接アクセス手段を持たないため、
 -- このファイルの内容をJohnさんが本番Supabase SQL Editorで実行すること。
@@ -40,9 +53,10 @@
 -- ============================================================================
 
 -- ===== 1. sport_logs テーブル新規作成 =====
--- soccer_logsと同じく1ユーザー1日1行（unique(user_id, log_date)）。
--- SportLogForm.tsxがsoccer_logsと同じ「その日の記録を1件だけ持つ・upsertで
--- 追加/編集する」UIパターン（find-by-date → 追加 or 編集）を踏襲するため。
+-- 1ユーザー1日複数件可（unique制約なし。meal_logsと同じ設計）。
+-- SportLogForm.tsxがmeal_logs/MealLogWizardModal.tsxと同じ「idベースの
+-- upsert・新規作成時はフォーム側でcrypto.randomUUID()を生成」パターンで
+-- 保存する。
 create table if not exists sport_logs (
   id                  uuid primary key default gen_random_uuid(),
   user_id             uuid not null,
@@ -55,9 +69,12 @@ create table if not exists sport_logs (
   result_note         text,
   notes               text,
   created_at          timestamptz not null default now(),
-  updated_at          timestamptz not null default now(),
-  unique(user_id, log_date)
+  updated_at          timestamptz not null default now()
 );
+
+-- user_id・log_dateでの範囲フェッチ（fetchSportLogs）が頻繁なため、
+-- 非ユニークの複合インデックスを追加する（unique制約は持たせない）。
+create index if not exists idx_sport_logs_user_date on sport_logs(user_id, log_date);
 
 -- ===== 2. grant（authenticated：soccer_logsの現状と同一パターン） =====
 grant select, insert, update, delete on sport_logs to authenticated;

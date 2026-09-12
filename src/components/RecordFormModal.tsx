@@ -29,6 +29,9 @@ export type RecordModalRequest = {
   trainingEdit?: boolean
   /** 未指定の場合は新規食事エントリの追加。 */
   mealLogId?: string
+  /** スポーツ記録機能（Tier 4-2、2026年9月12日追加修正：1日複数件対応）：
+   * mealLogIdと同じ規約。未指定の場合は新規スポーツエントリの追加。 */
+  sportLogId?: string
   scheduleId?: string
   /** テンプレート管理UI（Settings.tsx）の「予定を作成」ボタンから開いた場合、
    * 新規予定フォームにこのテンプレートを事前選択する（2026年8月18日追加）。 */
@@ -69,7 +72,6 @@ export function RecordFormModal({
   const [isConditionFormOpen, setIsConditionFormOpen] = useState(true)
   const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(true)
   const [isSoccerFormOpen, setIsSoccerFormOpen] = useState(true)
-  const [isSportFormOpen, setIsSportFormOpen] = useState(true)
 
   const [autoOpenToken, setAutoOpenToken] = useState<number | undefined>(undefined)
   const [modalSchedules, setModalSchedules] = useState<TrainingSchedule[]>([])
@@ -86,7 +88,6 @@ export function RecordFormModal({
     setIsConditionFormOpen(true)
     setIsScheduleFormOpen(true)
     setIsSoccerFormOpen(true)
-    setIsSportFormOpen(true)
     setAutoOpenToken(undefined)
 
     if (request.type === 'schedule') {
@@ -194,13 +195,6 @@ export function RecordFormModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSoccerFormOpen])
-
-  useEffect(() => {
-    if (request?.type === 'sport' && !isSportFormOpen) {
-      onClose()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSportFormOpen])
 
   if (!request) {
     return null
@@ -323,9 +317,8 @@ export function RecordFormModal({
               sportLogs={modalSportLogs}
               setSportLogs={setModalSportLogs}
               selectedDate={request.date}
-              isSportFormOpen={isSportFormOpen}
-              setIsSportFormOpen={setIsSportFormOpen}
-              autoOpenToken={autoOpenToken}
+              sportLogId={request.sportLogId}
+              onClose={onClose}
             />
           ) : null}
         </div>

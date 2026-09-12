@@ -64,7 +64,9 @@ export function DailyReportModal({
   const condition = dailyConditions.find((current) => current.date === selectedDate)
   const dayMealLogs = mealLogs.filter((log) => log.date === selectedDate)
   const soccerLog = soccerLogs.find((log) => log.date === selectedDate)
-  const sportLog = sportLogs.find((log) => log.date === selectedDate)
+  // スポーツ記録機能（Tier 4-2、2026年9月12日追加修正：1日複数件対応）：
+  // dayWorkoutsと同じfilter()による複数件列挙パターン。
+  const daySportLogs = sportLogs.filter((log) => log.date === selectedDate)
   // workouts.start_timeはtimestamptzのため、CalendarDaySummaries.tsxの
   // WorkoutSummaryと同じくtoJstDateKeyFromIsoでJST暦日に変換してから絞り込む
   // （log_dateのような単純な日付カラムでの比較はできない）。
@@ -230,16 +232,20 @@ export function DailyReportModal({
 
           <section className="daily-report__section">
             <h4>スポーツ</h4>
-            {sportLog ? (
-              <div className="daily-report__item">
-                <p>
-                  🏆 {sportLog.sportType === OTHER_SPORT_TYPE ? sportLog.customSportName ?? OTHER_SPORT_TYPE : sportLog.sportType}
-                  {` / ${sportLog.durationMinutes}分`}
-                  {sportLog.rpe !== undefined ? ` / RPE${sportLog.rpe}` : ''}
-                  {sportLog.caloriesBurned !== undefined ? ` / ${sportLog.caloriesBurned}kcal` : ''}
-                </p>
-                {sportLog.resultNote ? <p className="daily-report__note">スコア・結果: {sportLog.resultNote}</p> : null}
-                {sportLog.notes ? <p className="daily-report__note">メモ: {sportLog.notes}</p> : null}
+            {daySportLogs.length > 0 ? (
+              <div className="daily-report__log-list">
+                {daySportLogs.map((sportLog, index) => (
+                  <div key={sportLog.id ?? index} className="daily-report__item">
+                    <p>
+                      🏆 {sportLog.sportType === OTHER_SPORT_TYPE ? sportLog.customSportName ?? OTHER_SPORT_TYPE : sportLog.sportType}
+                      {` / ${sportLog.durationMinutes}分`}
+                      {sportLog.rpe !== undefined ? ` / RPE${sportLog.rpe}` : ''}
+                      {sportLog.caloriesBurned !== undefined ? ` / ${sportLog.caloriesBurned}kcal` : ''}
+                    </p>
+                    {sportLog.resultNote ? <p className="daily-report__note">スコア・結果: {sportLog.resultNote}</p> : null}
+                    {sportLog.notes ? <p className="daily-report__note">メモ: {sportLog.notes}</p> : null}
+                  </div>
+                ))}
               </div>
             ) : (
               <p className="daily-report__empty">記録なし</p>

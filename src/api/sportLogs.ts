@@ -1,8 +1,12 @@
 import { getCurrentUserId, supabase } from './client'
 import type { DateString, SportLog } from '../types'
 
-// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日）：src/api/soccerLogs.ts と
-// 完全に同じパターン（1ユーザー1日1行、upsert onConflict: 'user_id,log_date'）。
+// スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日。同日、追加修正で
+// 1日複数件対応に変更）：当初はsoccer_logsと同じ「1ユーザー1日1行・
+// upsert onConflict」パターンだったが、「一般的な競技をまとめて追加」という
+// 当初の要件上、同じ日に複数の競技を別々に記録できる必要があるため、
+// meal_logs（src/api/mealLogs.ts）と同じ「idベースのupsert・新規作成時は
+// フォーム側でcrypto.randomUUID()を生成」パターンに変更した。
 
 type SportLogRow = {
   id: string
@@ -34,7 +38,10 @@ function rowToSportLog(row: SportLogRow): SportLog {
   }
 }
 
+// meal_logsのMealLogInputと同じく、idを呼び出し側（フォーム）が確定させて
+// 渡す方式（新規作成時はcrypto.randomUUID()、編集時は既存のid）。
 export type SportLogInput = {
+  id: string
   date: DateString
   sportType: string
   customSportName?: string
@@ -47,6 +54,7 @@ export type SportLogInput = {
 
 function inputToRow(input: SportLogInput, userId: string) {
   return {
+    id: input.id,
     user_id: userId,
     log_date: input.date,
     sport_type: input.sportType,
@@ -76,11 +84,14 @@ export async function fetchSportLogs(startDate: string, endDate: string): Promis
   return (data as SportLogRow[]).map(rowToSportLog)
 }
 
-export async function createOrUpdateSportLog(input: SportLogInput): Promise<SportLog> {
+// idベースのupsert（meal_logsのupsertMealLogと同じパターン。onConflictは
+// 主キーidに対する暗黙のもので、'user_id,log_date'のような複合キー指定は
+// 不要——unique制約自体を持たないテーブルのため）。
+export async function upsertSportLog(input: SportLogInput): Promise<SportLog> {
   const userId = await getCurrentUserId()
   const { data, error } = await supabase
     .from('sport_logs')
-    .upsert(inputToRow(input, userId), { onConflict: 'user_id,log_date' })
+    .upsert(inputToRow(input, userId))
     .select()
     .single()
 

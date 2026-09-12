@@ -561,9 +561,10 @@ export function MonthlyCalendar({
           {activeDetailTab === 'sport' ? (
             <SportSummary
               sportLogs={sportLogs}
+              setSportLogs={setSportLogs}
               selectedDate={selectedDate}
               onAdd={() => openRecordModal({ type: 'sport', date: selectedDate })}
-              onEdit={() => openRecordModal({ type: 'sport', date: selectedDate })}
+              onEdit={(sportLogId) => openRecordModal({ type: 'sport', date: selectedDate, sportLogId })}
             />
           ) : null}
 
