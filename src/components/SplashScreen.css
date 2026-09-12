@@ -23,7 +23,8 @@
 
 /* フェードアウト後は無限アニメーション（明滅ループ等）を止める。画面は
    visibility:hidden で見えなくなるが、常時マウントのままなので明示的に停止する。 */
-.splash-screen.fade-out .splash-dumbbell__pulse {
+.splash-screen.fade-out .splash-dumbbell__pulse,
+.splash-screen.fade-out .splash-tap-hint {
   animation-play-state: paused;
 }
 
@@ -180,9 +181,48 @@
   }
 }
 
+/* タップで進める設計（2026年9月12日）：「TAP TO START」。スマートフォンでは
+   カーソルが見えずタップ可能であることに気づく手がかりが無いため、John
+   「推奨」により、読み込み完了（isReady、SplashScreen.tsxのisLoadComplete）と
+   同時に表示する（--visibleクラスをJS側で切り替え）。フェードイン（forwards）
+   と、以降のゆっくりした明滅ループ（infinite）を splash-dumbbell__pulse と
+   同じパターンで分離している。 */
+.splash-tap-hint {
+  margin: 2px 0 0;
+  color: #94a3b8;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  opacity: 0;
+}
+
+.splash-tap-hint--visible {
+  animation:
+    splash-tap-hint-fade-in 400ms ease-out forwards,
+    splash-tap-hint-pulse 1800ms ease-in-out 500ms infinite;
+}
+
+@keyframes splash-tap-hint-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes splash-tap-hint-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 /* prefers-reduced-motion: reduce（要件通り）：スライド・描画系のアニメーションを
    すべて省略して最終状態に固定し、全体を200ms程度のシンプルなフェードインのみに
-   置き換える。 */
+   置き換える。TAP TO START は isReady 前は非表示のままにしたいため opacity:0の
+   ままにし、他の要素と違って強制的に1にはしない（後述の.splash-tap-hint--visible
+   側で表示する）。 */
 @media (prefers-reduced-motion: reduce) {
   .splash-ring__arc,
   .splash-dumbbell__plate,
@@ -193,6 +233,11 @@
     opacity: 1 !important;
     transform: none !important;
     stroke-dashoffset: 0 !important;
+  }
+
+  .splash-tap-hint--visible {
+    animation: none !important;
+    opacity: 1 !important;
   }
 
   .splash-ring__arc {
@@ -405,6 +450,40 @@
   animation: aether-fade-up 220ms ease-out 720ms forwards;
 }
 
+/* タップで進める設計（2026年9月12日）：SVGソース末尾の発光ドット＋
+   "TAP TO START"（cx=200,cy=610 の円＋y=630 のテキスト、色#94A3B8）を
+   HTML/CSSで再現。読み込み完了（isReady）と同時に --visible クラスが付き
+   フェードイン→明滅ループする（splash-tap-hint と同じ考え方）。 */
+.splash-aether__tap-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  opacity: 0;
+}
+
+.splash-aether__tap-hint--visible {
+  animation:
+    aether-fade-in 400ms ease-out forwards,
+    splash-tap-hint-pulse 1800ms ease-in-out 500ms infinite;
+}
+
+.splash-aether__tap-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c4b5fd, #6ee7b7 50%, #fca5a5);
+  box-shadow: 0 0 8px rgba(196, 181, 253, 0.7);
+}
+
+.splash-aether__tap-label {
+  color: #94a3b8;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+}
+
 @keyframes aether-fade-in {
   to {
     opacity: 1;
@@ -421,7 +500,8 @@
 /* フェードアウト後（visibility:hidden）は無限アニメーションを止めて、blur を伴う
    オーロラ背景の再ラスタライズが走り続けないようにする。 */
 .splash-screen.fade-out .splash-aether__aurora,
-.splash-screen.fade-out .splash-aether__pulse {
+.splash-screen.fade-out .splash-aether__pulse,
+.splash-screen.fade-out .splash-aether__tap-hint {
   animation-play-state: paused;
 }
 
@@ -451,6 +531,13 @@
 
   .splash-aether__arc {
     transform: rotate(-30deg) !important;
+  }
+
+  /* TAP TO START は isReady 前は非表示のままにしたいため、他の要素と違って
+     強制的に1にはしない（.splash-aether__tap-hint--visible側でのみ表示）。 */
+  .splash-aether__tap-hint--visible {
+    animation: none !important;
+    opacity: 1 !important;
   }
 
   .splash-screen--aetherflow .splash-screen__content {

@@ -81,20 +81,34 @@ export function SplashScreen({ isLoadComplete }: SplashScreenProps) {
       aria-hidden={!isVisible}
       onClick={() => setIsSplashDismissed(true)}
     >
-      <Content />
+      <Content isReady={isLoadComplete} />
     </div>
   )
+}
+
+// 各バリアントのコンテンツ（下記）に渡す共通props。isReady は isLoadComplete と
+// 同じ値で、「今タップすると300msで即座に進む」状態になったことを示す
+// （2026年9月12日追加）。スマートフォンではマウスカーソルが無くタップ可能である
+// ことに気づく手がかりが画面上に無いため、John「推奨」により「TAP TO START」の
+// 文言表示をこのタイミングで出す（AETHER-FLOWのSVGソースに元々含まれていた
+// 文言をそのまま踏襲。ART DECO CLASSIC側は元々スペックが無かったため、同じ文言・
+// 同じ「isReadyでフェードイン」ロジックで、配色のみ各テーマに合わせて追加した）。
+// isReady が false（読み込み中）の間にタップしても isSplashDismissed 自体は
+// 立つが実際の進行は起きないため、この文言は isReady になってから出す
+// （読み込み中に文言だけ見えて何も起きない状態を避けるため）。
+type SplashContentProps = {
+  isReady: boolean
 }
 
 // バリアント → 描画関数のマップ。テーマ3（BIO-LINK OS）を足すときは SplashVariant の
 // union と ACCENT_COLOR_* に加えて、ここに1行追加する（union を増やせば TS がこの
 // Record の漏れを検出するので、追加忘れがコンパイルエラーになる）。
-const SPLASH_CONTENT_BY_VARIANT: Record<SplashVariant, () => ReactElement> = {
+const SPLASH_CONTENT_BY_VARIANT: Record<SplashVariant, (props: SplashContentProps) => ReactElement> = {
   artdeco: ArtDecoSplashContent,
   aetherflow: AetherFlowSplashContent,
 }
 
-function ArtDecoSplashContent() {
+function ArtDecoSplashContent({ isReady }: SplashContentProps) {
   return (
     <div className="splash-screen__content">
       <div className="splash-screen__visual">
@@ -119,6 +133,9 @@ function ArtDecoSplashContent() {
       </div>
       <h1 className="splash-title">WORKOUT &amp; VITAL</h1>
       <p className="splash-subtitle">FITNESS CONDITION LOG</p>
+      <p className={`splash-tap-hint${isReady ? ' splash-tap-hint--visible' : ''}`} aria-hidden="true">
+        TAP TO START
+      </p>
     </div>
   )
 }
@@ -128,7 +145,7 @@ function ArtDecoSplashContent() {
 // アンビエントなオーロラの発光背景、"AETHER FLOW" のタイポグラフィ。
 // 配色はSVGソースから抽出した固定色（このスプラッシュ専用ブランドカラー。
 // ライト/ダークテーマの切り替えには連動しない、既存 artdeco スプラッシュと同方針）。
-function AetherFlowSplashContent() {
+function AetherFlowSplashContent({ isReady }: SplashContentProps) {
   return (
     <>
       {/* アンビエントなオーロラの発光背景（画面全体・ゆっくり明滅・ドリフト）。 */}
@@ -219,6 +236,13 @@ function AetherFlowSplashContent() {
         <p className="splash-aether__eyebrow">AETHER OS // VITAL HARMONY</p>
         <h1 className="splash-aether__title">AETHER FLOW</h1>
         <p className="splash-aether__subtitle">MIND &amp; BODY CONDITIONING</p>
+        {/* SVGソース末尾の発光ドット＋"TAP TO START"をHTML/CSSで再現。
+            当時は実装していなかったが、タップで進める設計（2026年9月12日）の
+            導入に合わせて追加した。 */}
+        <div className={`splash-aether__tap-hint${isReady ? ' splash-aether__tap-hint--visible' : ''}`} aria-hidden="true">
+          <span className="splash-aether__tap-dot" />
+          <span className="splash-aether__tap-label">TAP TO START</span>
+        </div>
       </div>
     </>
   )
