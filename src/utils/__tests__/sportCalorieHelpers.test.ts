@@ -11,7 +11,8 @@ import {
 import { estimateCaloriesBurned } from '../soccerCalorieHelpers'
 
 describe('SPORT_TYPE_PRESETS / SPORT_MET_VALUES', () => {
-  it('6プリセット全てにMET値が定義されている', () => {
+  it('8プリセット全てにMET値が定義されている（サッカー機能統合、2026年9月13日追加分含む）', () => {
+    expect(SPORT_TYPE_PRESETS.length).toBe(8)
     for (const preset of SPORT_TYPE_PRESETS) {
       expect(SPORT_MET_VALUES[preset]).toBeGreaterThan(0)
     }
@@ -24,6 +25,11 @@ describe('SPORT_TYPE_PRESETS / SPORT_MET_VALUES', () => {
     expect(SPORT_MET_VALUES['卓球']).toBe(4.0)
     expect(SPORT_MET_VALUES['バドミントン']).toBe(9.0)
     expect(SPORT_MET_VALUES['野球・ソフトボール']).toBe(5.0)
+  })
+
+  it('サッカー・フットサルはsoccerCalorieHelpers.tsのAUTO_FILL_RATESと同じMET値を引き継ぐ（サッカー機能統合、2026年9月13日追加）', () => {
+    expect(SPORT_MET_VALUES['サッカー']).toBe(9.5)
+    expect(SPORT_MET_VALUES['フットサル']).toBe(8.0)
   })
 })
 

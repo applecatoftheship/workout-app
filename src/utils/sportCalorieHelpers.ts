@@ -7,6 +7,12 @@
 // MET値はCompendium of Physical Activities（pacompendium.com/sports、既存コードが
 // サッカー・フットサル・ワークアウトのMET値の根拠として使っている一次情報と同一出典）
 // で確認済みの値。
+// サッカー機能統合（2026年9月13日）：soccer_logs専用機能の廃止に伴い、
+// 「サッカー」「フットサル」をプリセットに統合した（既存のsoccer_logs専用項目
+// ＝活動種別/練習メニュー/走行距離/スプリント回数/最高速度は、汎用フォームの
+// 実施時間・RPE・カロリー・スコア/メモに簡略化される）。MET値は
+// soccerCalorieHelpers.tsのAUTO_FILL_RATESに定義済みだった値・出典コメントを
+// そのまま踏襲する。
 export const SPORT_TYPE_PRESETS = [
   'バスケットボール',
   'テニス',
@@ -14,6 +20,8 @@ export const SPORT_TYPE_PRESETS = [
   '卓球',
   'バドミントン',
   '野球・ソフトボール',
+  'サッカー',
+  'フットサル',
 ] as const
 
 export const OTHER_SPORT_TYPE = 'その他'
@@ -34,6 +42,10 @@ export const SPORT_MET_VALUES: Record<string, number> = {
   卓球: 4.0, // Table tennis, ping pong
   バドミントン: 9.0, // Badminton, competitive, match play
   '野球・ソフトボール': 5.0, // Softball or baseball, general, moderate effort
+  // サッカー機能統合（2026年9月13日）：soccerCalorieHelpers.tsのAUTO_FILL_RATESに
+  // 定義済みだったMET値・出典コメントをそのまま踏襲。
+  サッカー: 9.5, // Compendium: soccer, competitive
+  フットサル: 8.0, // Compendiumに直接記載なし。練習とサッカーの中間値として推定
 }
 
 // プリセットのMETを返す。プリセットに無い（＝「その他」）場合はSPORT_MET_DEFAULT。
