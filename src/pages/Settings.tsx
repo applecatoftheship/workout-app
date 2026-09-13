@@ -13,7 +13,9 @@ import { useToast } from '../hooks/useToast'
 import { useAuth } from '../hooks/useAuth'
 import { ChevronRightIcon } from '../components/icons'
 import { fetchProfile, upsertProfile } from '../api/profiles'
+import { buildUserDataExport } from '../api/dataExport'
 import { ACCENT_COLOR_IDS, ACCENT_COLOR_LABELS, DEFAULT_ACCENT_COLOR } from '../utils/accentColor'
+import { buildExportFilename } from '../utils/dataExportHelpers'
 import { formatSyncedAt } from '../utils/dateFormatHelpers'
 import {
   APPLE_HEALTH_SYNC_SHORTCUT_NAME,
@@ -92,6 +94,37 @@ export function Settings({
 
   // 設定画面拡張 Phase 2（2026年8月28日）：Apple Health連携ステータス（案内）
   const [isAppleHealthGuideOpen, setIsAppleHealthGuideOpen] = useState(false)
+
+  // データエクスポート機能（2026年9月13日新設）：本番DBへの書き込みは一切発生しない
+  // 読み取り専用機能。取得中は多重クリックを防ぐためボタンを無効化する。
+  const [isExporting, setIsExporting] = useState(false)
+
+  const handleExportData = async () => {
+    setIsExporting(true)
+    try {
+      const payload = await buildUserDataExport()
+      const filename = buildExportFilename()
+      // Blob + URL.createObjectURL + 一時的な<a download>要素によるクライアント
+      // 完結のダウンロード（サーバー側にファイルを生成しない）。
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      showToast('データをエクスポートしました', 'success')
+    } catch (error) {
+      // いずれかのテーブル取得に失敗した場合はbuildUserDataExport自体がthrowするため、
+      // ここに到達した時点で部分的なファイルは一切生成されていない。
+      console.error('データのエクスポートに失敗しました', error)
+      showToast('データのエクスポートに失敗しました。もう一度お試しください', 'error')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   // 「今すぐ同期」ボタン（2026年9月5日）：iOS以外では意味がないため非表示にする。
   // navigatorはブラウザ実行時のみ参照するSPAのため、レンダーごとの再計算コストは無視できる。
@@ -393,6 +426,21 @@ export function Settings({
             </ol>
           </div>
         )}
+      </section>
+
+      <section className="panel-card">
+        <h3 className="settings-section__title">データのエクスポート</h3>
+        <div className="settings-row">
+          <div>
+            <p className="settings-row__label">全データをダウンロード</p>
+            <p className="settings-row__description">
+              トレーニング・食事・体調等、あなたの記録データをJSON形式の単一ファイルでダウンロードします
+            </p>
+          </div>
+          <button type="button" className="btn-secondary" onClick={() => void handleExportData()} disabled={isExporting}>
+            {isExporting ? '準備中...' : 'データをエクスポート'}
+          </button>
+        </div>
       </section>
 
       <section className="panel-card">
