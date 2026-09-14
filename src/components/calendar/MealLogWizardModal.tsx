@@ -363,11 +363,6 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
       return
     }
 
-    const confirmed = await confirm('記録しますか？', { confirmLabel: 'はい', cancelLabel: 'いいえ' })
-    if (!confirmed) {
-      return
-    }
-
     const id = mealLogId ?? crypto.randomUUID()
     const inputItems = items
       .map((item) => {
@@ -387,6 +382,37 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
         }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
+
+    // validate()のitems.length===0チェックは選択操作の件数（items state）のみを
+    // 見ており、選択後に対象の食材が論理削除される等でfoodItemsから解決できなく
+    // なったケースを検知できない（例：GenreFoodPickerの「削除する食材」で選択済み
+    // 食材自身を削除した場合）。その場合items.length>=1のままvalidate()を通過して
+    // しまうため、実際にAPIへ送るinputItemsの件数を別途ここで検査する
+    // （0kcal空レコードがmeal_logsに保存されてしまう不具合の修正、2026年9月14日）。
+    // 全件不一致（inputItems.length===0）だけでなく、一部のみ不一致（選択した
+    // うちの一部だけが解決できない）の場合も、黙って残りだけで保存せず同じ導線で
+    // ブロックする（2026年9月14日、部分欠落ケースへの対応拡張）。
+    if (inputItems.length !== items.length) {
+      setErrors((current) => ({
+        ...current,
+        items:
+          inputItems.length === 0
+            ? '選択した食材が見つかりません（削除された可能性があります）。選び直してください'
+            : '選択した食材の一部が見つかりませんでした。再度選び直してください',
+      }))
+      setSummaryError(
+        inputItems.length === 0
+          ? '選択した食材が見つかりません。食材を選び直してください'
+          : '選択した食材の一部が見つかりませんでした。食材を選び直してください',
+      )
+      setStep(2)
+      return
+    }
+
+    const confirmed = await confirm('記録しますか？', { confirmLabel: 'はい', cancelLabel: 'いいえ' })
+    if (!confirmed) {
+      return
+    }
 
     const input: MealLogInput = {
       id,
@@ -716,7 +742,12 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
           ) : null}
 
           {step === 3 ? (
-            <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving}>
+            <button
+              type="button"
+              className="calendar-detail__button"
+              onClick={handleSave}
+              disabled={isSaving || items.length === 0}
+            >
               {isSaving ? '保存中...' : '保存する'}
             </button>
           ) : null}
