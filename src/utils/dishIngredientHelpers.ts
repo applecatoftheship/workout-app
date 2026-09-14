@@ -74,7 +74,9 @@ export function buildDishIngredientPrompt(dishName: string): string {
   ].join('\n')
 }
 
-function coercePositiveNumber(value: unknown): number | null {
+// Gemini画像解析（食事写真・栄養成分ラベル、2026年9月14日）からも同じ数値パース
+// ロジックを再利用するため、内部専用だった2関数をexportした（挙動は無変更）。
+export function coercePositiveNumber(value: unknown): number | null {
   if (typeof value === 'number') {
     return Number.isFinite(value) && value > 0 ? value : null
   }
@@ -90,7 +92,7 @@ function coercePositiveNumber(value: unknown): number | null {
 }
 
 // 栄養成分用（0 を許容する。水など protein=0 の食材があるため）。負・非数値・欠落は null。
-function coerceNonNegativeNumber(value: unknown): number | null {
+export function coerceNonNegativeNumber(value: unknown): number | null {
   if (typeof value === 'number') {
     return Number.isFinite(value) && value >= 0 ? value : null
   }
@@ -104,38 +106,12 @@ function coerceNonNegativeNumber(value: unknown): number | null {
   return null
 }
 
-// Gemini のテキストレスポンスを解析して材料候補の配列を返す。
-// - コードブロック（```json ... ```）で囲まれていても剥がす
-// - JSON配列としてパースできなければ null（＝呼び出し元は「解析失敗」として扱う）
-// - パースはできたが有効な項目が1つも無ければ空配列
-export function parseDishIngredientSuggestions(rawText: string): DishIngredientSuggestion[] | null {
-  if (typeof rawText !== 'string') {
-    return null
-  }
-  let text = rawText.trim()
-  if (!text) {
-    return null
-  }
-
-  // ```json ... ``` / ``` ... ``` のフェンスを剥がす
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
-  if (fenceMatch) {
-    text = fenceMatch[1].trim()
-  }
-
-  // 前後に説明文が付いていても最初の "[" 〜 最後の "]" を取り出す
-  const firstBracket = text.indexOf('[')
-  const lastBracket = text.lastIndexOf(']')
-  if (firstBracket !== -1 && lastBracket > firstBracket) {
-    text = text.slice(firstBracket, lastBracket + 1)
-  }
-
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    return null
-  }
+// parseDishIngredientSuggestions の中核（JSON配列として既にパース済みのものを
+// DishIngredientSuggestion[]へ変換する部分）を切り出したもの。Gemini画像解析
+// （mealPhotoHelpers.ts）でも、写真解析レスポンスの一部（dish.items）に対して
+// 同じ変換ロジックを再利用するためexportしている（2026年9月14日、車輪の再発明を
+// 避ける判断）。挙動は元のparseDishIngredientSuggestions内ループと同一。
+export function parseDishIngredientEntries(parsed: unknown): DishIngredientSuggestion[] | null {
   if (!Array.isArray(parsed)) {
     return null
   }
@@ -177,6 +153,41 @@ export function parseDishIngredientSuggestions(rawText: string): DishIngredientS
     })
   }
   return result
+}
+
+// Gemini のテキストレスポンスを解析して材料候補の配列を返す。
+// - コードブロック（```json ... ```）で囲まれていても剥がす
+// - JSON配列としてパースできなければ null（＝呼び出し元は「解析失敗」として扱う）
+// - パースはできたが有効な項目が1つも無ければ空配列
+export function parseDishIngredientSuggestions(rawText: string): DishIngredientSuggestion[] | null {
+  if (typeof rawText !== 'string') {
+    return null
+  }
+  let text = rawText.trim()
+  if (!text) {
+    return null
+  }
+
+  // ```json ... ``` / ``` ... ``` のフェンスを剥がす
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+  if (fenceMatch) {
+    text = fenceMatch[1].trim()
+  }
+
+  // 前後に説明文が付いていても最初の "[" 〜 最後の "]" を取り出す
+  const firstBracket = text.indexOf('[')
+  const lastBracket = text.lastIndexOf(']')
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    text = text.slice(firstBracket, lastBracket + 1)
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return null
+  }
+  return parseDishIngredientEntries(parsed)
 }
 
 // food_items へ自動登録するための入力（DishFormModal 側が createFoodItem に渡す）。

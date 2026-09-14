@@ -164,3 +164,25 @@
 .meal-wizard__added-row > button {
   flex-shrink: 0;
 }
+
+/* Gemini画像解析による食事入力（指示書2026-09-14）：写真から検出したが
+   food_itemsマスタに一致・類似候補が無い未解決食材の行。DishFormModal.cssの
+   .dish-form-modal__meal-item--unlinked / .dish-form-modal__unlinked-actions と
+   同じ警告トーンを踏襲。 */
+.meal-wizard__pending-row {
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.meal-wizard__pending-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.meal-wizard__pending-actions > button {
+  align-self: flex-start;
+}

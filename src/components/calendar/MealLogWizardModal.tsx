@@ -7,14 +7,19 @@ import {
   upsertMealLog,
 } from '../../api/mealLogs'
 import type { MealLogInput } from '../../api/mealLogs'
-import { fetchFoodItems } from '../../api/foodItems'
+import { createFoodItem, fetchFoodItems } from '../../api/foodItems'
 import { deleteDish, fetchDishesWithDetails, fetchMealSizes } from '../../api/dishes'
 import { getCurrentTimeHHMM, combineDateAndTimeToISO, extractTimeHHMMFromISO } from '../../utils/calendarHelpers'
+import { matchDishIngredientSuggestions, resolveDraftAmount } from '../../utils/dishIngredientHelpers'
+import type { DishIngredientSuggestion } from '../../utils/dishIngredientHelpers'
+import { findMostSimilarName, matchByNameWithFallback } from '../../utils/nameMatching'
+import type { MealPhotoAnalysisResult, MealPhotoLabelDraft } from '../../utils/mealPhotoHelpers'
 import { GenreFoodPicker } from './GenreFoodPicker'
 import { DishFormModal } from './DishFormModal'
 import { FoodItemFormModal } from './FoodItemFormModal'
 import { MealFoodItemCard } from './MealFoodItemCard'
 import type { MealFoodItemCardValue } from './MealFoodItemCard'
+import { MealPhotoAnalyzeSection } from './MealPhotoAnalyzeSection'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import { DISH_CATEGORIES } from '../../types'
@@ -74,6 +79,18 @@ type FormErrors = {
   items?: string
 }
 
+// Gemini画像解析による食事入力（指示書2026-09-14）：写真解析結果のうち、
+// food_itemsマスタに一致も類似候補も無く、有効な栄養成分による自動登録もできな
+// かった食材（DishFormModalの「manual」disposition相当）。MealFoodItemCardValue
+// （itemsステート）はfoodItemIdが必ず有効な食材を指す前提の設計のため、未解決の
+// ままitemsへは入れず、この専用リストで保持し手動解決（紐付け／新規登録）される
+// までstep2に留める。
+type PendingPhotoIngredient = {
+  key: string
+  suggestedName: string
+  grams: number
+}
+
 type MealLogWizardModalProps = {
   mealLogs: MealLog[]
   setMealLogs: Dispatch<SetStateAction<MealLog[]>>
@@ -112,6 +129,12 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   const [editingDish, setEditingDish] = useState<DishWithDetails | null>(null)
   const [isDeletingDish, setIsDeletingDish] = useState(false)
   const [isFoodItemModalOpen, setIsFoodItemModalOpen] = useState(false)
+  // Gemini画像解析による食事入力（指示書2026-09-14）
+  const [pendingPhotoIngredients, setPendingPhotoIngredients] = useState<PendingPhotoIngredient[]>([])
+  // 未解決の写真食材から「新規食材として登録」した際、初期名をプリフィルするための
+  // 専用FoodItemFormModalインスタンス（＋新しい食材を登録ボタンのisFoodItemModalOpen
+  // とは独立。両者は同時に開かない前提だが、状態を混ぜるとどちらの操作か曖昧になるため分離した）。
+  const [photoFoodItemModalInitialName, setPhotoFoodItemModalInitialName] = useState<string | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -211,6 +234,136 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
 
   const handleAmountChange = (key: string, value: string) => {
     setItems((current) => current.map((item) => (item.key === key ? { ...item, amount: value } : item)))
+  }
+
+  // Gemini画像解析による食事入力（指示書2026-09-14）：写真1枚から検出した食材候補
+  // （料理写真＝複数食材、栄養成分ラベル＝1食材）を、DishFormModal.handleSuggestIngredients
+  // と同じ4分岐ロジック（matchDishIngredientSuggestions）でfood_itemsマスタと照合する。
+  //   - 完全一致／類似候補あり／有効な栄養成分での自動登録 … 確認なしでitemsへ追加
+  //   - 一致・類似・有効な栄養成分いずれも無い … pendingPhotoIngredientsへ回し、
+  //     下部の「未登録の食材（要確認）」で手動解決されるまでitemsには入れない
+  //     （0kcal空レコード保存バグの再発防止として2026年9月14日に確立した
+  //     「itemsは常に解決済みのfoodItemIdのみを持つ」という不変条件を維持するため）。
+  const addResolvedPhotoItem = (foodItem: FoodItem, grams: number) => {
+    ensurePreviousAmountLoaded(foodItem.id as string)
+    setItems((current) => [
+      ...current,
+      { key: createItemKey(), foodItemId: foodItem.id as string, amount: String(resolveDraftAmount(foodItem, grams)) },
+    ])
+  }
+
+  const handleMealPhotoDishItems = async (suggestions: DishIngredientSuggestion[]) => {
+    const matched = matchDishIngredientSuggestions(suggestions, foodItems)
+    const newPending: PendingPhotoIngredient[] = []
+    let addedCount = 0
+    let autoLinkedCount = 0
+    let autoCreatedCount = 0
+    let manualCount = 0
+
+    for (const m of matched) {
+      if (m.disposition === 'matched' && m.linkTo) {
+        addResolvedPhotoItem(m.linkTo, m.grams)
+        addedCount += 1
+        continue
+      }
+      if (m.disposition === 'auto-link-similar' && m.linkTo) {
+        addResolvedPhotoItem(m.linkTo, m.grams)
+        autoLinkedCount += 1
+        continue
+      }
+      if (m.disposition === 'auto-create' && m.foodItemDraft) {
+        try {
+          const created = await createFoodItem(m.foodItemDraft)
+          loadFoodItems()
+          addResolvedPhotoItem(created, m.grams)
+          autoCreatedCount += 1
+        } catch (createError) {
+          console.error('AI写真解析の食材自動登録に失敗しました', createError)
+          newPending.push({ key: createItemKey(), suggestedName: m.suggestedName, grams: m.grams })
+          manualCount += 1
+        }
+        continue
+      }
+      // disposition === 'manual'（一致・類似・有効な栄養成分いずれも無し）
+      newPending.push({ key: createItemKey(), suggestedName: m.suggestedName, grams: m.grams })
+      manualCount += 1
+    }
+
+    if (newPending.length > 0) {
+      setPendingPhotoIngredients((current) => [...current, ...newPending])
+    }
+    setErrors((current) => ({ ...current, items: undefined }))
+
+    const infoParts: string[] = []
+    if (addedCount > 0) infoParts.push(`${addedCount}件を追加`)
+    if (autoLinkedCount > 0) infoParts.push(`${autoLinkedCount}件を類似食材に自動紐付け`)
+    if (autoCreatedCount > 0) infoParts.push(`${autoCreatedCount}件を新規食材として自動登録`)
+    if (manualCount > 0) infoParts.push(`${manualCount}件は要確認（下部で紐付けてください）`)
+    showToast(
+      infoParts.length > 0 ? `写真から${infoParts.join('／')}` : '写真から食材を検出できませんでした',
+      infoParts.length > 0 ? 'success' : 'error',
+    )
+  }
+
+  // 栄養成分ラベルの写真は1食材分のみ返るため、DishIngredientSuggestion（100gあたり
+  // 基準）へは変換せず、ラベル自体の基準量をそのまま使う専用の4分岐を行う
+  // （auto-createでfood_itemsへ登録する際もservingAmount:100固定にはしない）。
+  const handleMealPhotoLabelItem = async (draft: MealPhotoLabelDraft) => {
+    const exact = matchByNameWithFallback(foodItems, draft.name)
+    if (exact) {
+      addResolvedPhotoItem(exact, draft.servingAmount)
+      showToast(`写真から「${exact.name}」を追加しました`, 'success')
+      return
+    }
+    const similar = findMostSimilarName(foodItems, draft.name)
+    if (similar) {
+      addResolvedPhotoItem(similar.item, draft.servingAmount)
+      showToast(`写真から類似食材「${similar.item.name}」に自動紐付けしました`, 'success')
+      return
+    }
+    try {
+      const created = await createFoodItem({
+        name: draft.name,
+        servingAmount: draft.servingAmount,
+        servingUnit: draft.servingUnit,
+        calories: draft.calories,
+        protein: draft.protein,
+        fat: draft.fat,
+        carbohydrates: draft.carbohydrates,
+        category: draft.category,
+      })
+      loadFoodItems()
+      addResolvedPhotoItem(created, draft.servingAmount)
+      showToast(`写真から「${created.name}」を新規食材として登録しました`, 'success')
+    } catch (createError) {
+      console.error('AI写真解析（ラベル）の食材自動登録に失敗しました', createError)
+      setPendingPhotoIngredients((current) => [
+        ...current,
+        { key: createItemKey(), suggestedName: draft.name, grams: draft.servingAmount },
+      ])
+      showToast('食材の自動登録に失敗しました。下部で手動登録してください', 'error')
+    }
+  }
+
+  const handleMealPhotoResult = (result: MealPhotoAnalysisResult) => {
+    if (result.type === 'dish') {
+      void handleMealPhotoDishItems(result.items)
+      return
+    }
+    void handleMealPhotoLabelItem(result.draft)
+  }
+
+  const resolvePendingPhotoIngredient = (key: string, foodItemId: string, grams: number) => {
+    const foodItem = foodItems.find((food) => food.id === foodItemId)
+    if (!foodItem) {
+      return
+    }
+    addResolvedPhotoItem(foodItem, grams)
+    setPendingPhotoIngredients((current) => current.filter((pending) => pending.key !== key))
+  }
+
+  const removePendingPhotoIngredient = (key: string) => {
+    setPendingPhotoIngredients((current) => current.filter((pending) => pending.key !== key))
   }
 
   // 料理マスタ大幅拡充（2026年9月3日）：122件運用のためカテゴリで絞り込む。
@@ -502,6 +655,10 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
 
             {inputMode === 'food' ? (
               <>
+                <MealPhotoAnalyzeSection
+                  description="料理の写真や栄養成分表示ラベルを撮影すると、AIが食材候補を下書き追加します。内容を確認してから保存してください。"
+                  onResult={handleMealPhotoResult}
+                />
                 <GenreFoodPicker foodItems={foodItems} onSelect={addFoodSelection} onFoodItemDeleted={loadFoodItems} />
                 <button
                   type="button"
@@ -670,6 +827,59 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
               {Math.round(previewTotals.fat)}g C{Math.round(previewTotals.carbohydrates)}g
             </div>
           </div>
+
+          {/* Gemini画像解析による食事入力（指示書2026-09-14）：写真から検出したが
+              food_itemsマスタに一致・類似候補が無く、有効な栄養成分での自動登録も
+              できなかった食材。手動で紐付け／新規登録するまでitemsには入らない
+              （合計プレビュー・保存対象のどちらにも含まれない）。 */}
+          {pendingPhotoIngredients.length > 0 ? (
+            <div className="calendar-detail__exercise-form">
+              <span>⚠️ 写真から検出した未登録の食材（要確認）</span>
+              <div className="meal-wizard__added-list">
+                {pendingPhotoIngredients.map((pending) => (
+                  <div key={pending.key} className="meal-wizard__pending-row">
+                    <div className="calendar-detail__meal-head">
+                      <span>{pending.suggestedName}（約{pending.grams}g）</span>
+                      <button
+                        type="button"
+                        className="calendar-detail__delete-button"
+                        onClick={() => removePendingPhotoIngredient(pending.key)}
+                      >
+                        削除
+                      </button>
+                    </div>
+                    <div className="meal-wizard__pending-actions">
+                      <label className="calendar-detail__field">
+                        <span>食材を選んで紐付け</span>
+                        <select
+                          value=""
+                          onChange={(event) => {
+                            if (event.target.value) {
+                              resolvePendingPhotoIngredient(pending.key, event.target.value, pending.grams)
+                            }
+                          }}
+                        >
+                          <option value="">選択してください</option>
+                          {foodItems.map((food) => (
+                            <option key={food.id} value={food.id}>
+                              {food.emoji ?? '🍽️'} {food.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        className="calendar-detail__secondary-button"
+                        onClick={() => setPhotoFoodItemModalInitialName(pending.suggestedName)}
+                      >
+                        新規食材として登録
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </>
       ) : null}
 
@@ -787,6 +997,21 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
         onSaved={() => {
           loadFoodItems()
           setIsFoodItemModalOpen(false)
+        }}
+        foodItems={foodItems}
+      />
+
+      {/* Gemini画像解析による食事入力（指示書2026-09-14）：未登録の写真食材の
+          「新規食材として登録」用。DishFormModal.tsxの既存パターンと同じく、
+          登録直後は自動紐付けせず（foodItems propがまだ古いため）、
+          ユーザーが上の「食材を選んで紐付け」で改めて選ぶ。 */}
+      <FoodItemFormModal
+        isOpen={photoFoodItemModalInitialName !== null}
+        initialName={photoFoodItemModalInitialName ?? ''}
+        onClose={() => setPhotoFoodItemModalInitialName(null)}
+        onSaved={() => {
+          loadFoodItems()
+          setPhotoFoodItemModalInitialName(null)
         }}
         foodItems={foodItems}
       />

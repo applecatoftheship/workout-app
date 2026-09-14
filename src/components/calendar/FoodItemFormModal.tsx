@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { createFoodItem } from '../../api/foodItems'
 import { findMostSimilarName } from '../../utils/nameMatching'
+import { toFoodItemDraftFromMealPhotoResult } from '../../utils/mealPhotoHelpers'
+import type { MealPhotoAnalysisResult } from '../../utils/mealPhotoHelpers'
 import { useToast } from '../../hooks/useToast'
+import { MealPhotoAnalyzeSection } from './MealPhotoAnalyzeSection'
 import type { FoodItem } from '../../types'
 import './FoodItemFormModal.css'
 
@@ -173,6 +176,32 @@ export function FoodItemFormModal({ isOpen, onClose, onSaved, foodItems, initial
     await performCreate()
   }
 
+  // Gemini画像解析による食事入力（指示書2026-09-14）：栄養成分表示ラベルの写真から
+  // AIが読み取った数値をフォームへ下書きとして反映する。DBには書き込まず、あくまで
+  // ユーザーが確認・編集してから「この食材を登録する」を押すまでは未確定のまま
+  // （既存のAI材料提案機能と同じ設計方針）。絵文字はユーザーが既に選んでいれば
+  // 上書きしない。
+  const handlePhotoResult = (result: MealPhotoAnalysisResult) => {
+    const draft = toFoodItemDraftFromMealPhotoResult(result)
+    if (!draft) {
+      setErrors((current) => ({ ...current, name: 'AIが栄養成分を読み取れませんでした。手動で入力してください' }))
+      return
+    }
+    setDuplicateFoodSuggestion(null)
+    setErrors({})
+    setNewFood((current) => ({
+      ...current,
+      name: draft.name,
+      servingAmount: String(draft.servingAmount),
+      servingUnit: draft.servingUnit,
+      calories: String(draft.calories),
+      protein: String(draft.protein),
+      fat: String(draft.fat),
+      carbohydrates: String(draft.carbohydrates),
+      category: draft.category ?? current.category,
+    }))
+  }
+
   const handleUseSimilarFoodItem = () => {
     // DishFormModal.tsxと同じ設計：このモーダルは食材マスタの新規作成のみを
     // 担当し、食事記録への追加は行わない。「いいえ」は「新規登録しない」の
@@ -199,6 +228,16 @@ export function FoodItemFormModal({ isOpen, onClose, onSaved, foodItems, initial
         </div>
 
         <div className="food-item-form-modal__body">
+          {/* Gemini画像解析による食事入力（指示書2026-09-14）：栄養成分表示ラベルの
+              写真から各フィールドを下書き入力する。失敗してもエラー表示のみで、
+              下の手入力フォームはそのまま使える。 */}
+          <MealPhotoAnalyzeSection
+            hint="label"
+            buttonLabel="📷 栄養成分表示ラベルを撮影"
+            description="パッケージの栄養成分表示ラベルを撮影すると、AIが数値を自動入力します。内容を確認してから登録してください。"
+            onResult={handlePhotoResult}
+          />
+
           <label className="calendar-detail__field">
             <span>食材名</span>
             <input
