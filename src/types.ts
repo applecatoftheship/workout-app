@@ -153,7 +153,13 @@ export interface DailyCondition extends BaseRecord {
   date: DateString;
   weight: number;
   sleepHours: number;
-  fatigue: FatigueLevel;
+  // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：FatigueLevelの真ん中の値(3)が
+  // 「未記録」のデフォルト値と完全に一致してしまうため、weight/sleepHoursのような
+  // 数値センチネル方式（>0判定）では実測の3と未記録を区別できない。このため
+  // fatigueはoptionalとし、未記録の日はundefinedのまま伝播させることで区別する
+  // （src/api/dailyConditions.tsのrowToDailyCondition参照。DBにはnullとして
+  // 保存済みで、架空の値へは変換しない）。
+  fatigue?: FatigueLevel;
   notes?: string;
   muscleSorenessLocation?: MuscleLocation;
   muscleSorenessLevel?: SorenessLevel;

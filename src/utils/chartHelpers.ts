@@ -1,3 +1,5 @@
+import type { FatigueLevel } from '../types'
+
 export type Period = 'week' | 'month' | 'quarter' | 'all'
 
 export const CHART_WIDTH = 300
@@ -197,6 +199,106 @@ export function buildDisplayWeightSeries(
     const carried = resolveWeightOnOrBefore(sortedConditions, condition.date)
     if (carried != null) {
       result.push({ date: condition.date, weight: carried, isActual: false })
+    }
+  }
+  return result
+}
+
+// 睡眠時間0時間表示バグ対応（Phase 1-2、2026年9月14日。体重0kg表示バグ（2026年9月3日、
+// resolveWeightOnOrBefore・buildDisplayWeightSeries参照）と同型のバグを横展開）：
+// daily_conditions.sleep_hours は null 許容で、「体調は記録したが睡眠時間は未入力」の日や、
+// 部分列upsert（upsertWeightOnly・Apple Health同期のhandleSleep以外の専用upsert等）が
+// 作った行は sleep_hours が 0 になる（rowToDailyCondition で null→0）。トレンド表示では
+// その日を0時間として描かず「その日以前で直近の実測睡眠時間」をそのまま引き継ぐ。
+// DBには架空の行を作らず、表示ロジック側でのみ補完する。
+// 【既知の制限】weightの0kgは物理的にあり得ない値のため安全な判定基準になるが、
+// 睡眠時間はConditionForm.tsxのバリデーションが0以上を許容しており（徹夜等の正当な
+// 入力として0時間もあり得る）、0を「未記録」とみなす本判定は理論上の誤判定余地が残る。
+// 実運用上の発生頻度は極めて低いと判断し、weightと同じ判定方式を踏襲する（判断理由、
+// ユーザー確認済み）。
+export function resolveSleepHoursOnOrBefore(
+  conditions: { date: string; sleepHours: number }[],
+  dateKey: string,
+): number | null {
+  let best: { date: string; sleepHours: number } | null = null
+  for (const condition of conditions) {
+    if (condition.sleepHours > 0 && condition.date <= dateKey && (best === null || condition.date > best.date)) {
+      best = condition
+    }
+  }
+  return best ? best.sleepHours : null
+}
+
+export type DisplaySleepHoursPoint = { date: string; sleepHours: number; isActual: boolean }
+
+// 指定期間の各体調記録日について、睡眠時間を「その日の実測値（>0）」または
+// 「その日以前の直近実測値の引き継ぎ」で解決した系列を返す。引き継ぐべき実測が
+// 一度も存在しない先頭の日（carried が null）は系列から除外する
+// （buildDisplayWeightSeriesと同型のロジック）。
+export function buildDisplaySleepHoursSeries(
+  sortedConditions: { date: string; sleepHours: number }[],
+  periodStartKey: string,
+  periodEndKey: string,
+): DisplaySleepHoursPoint[] {
+  const result: DisplaySleepHoursPoint[] = []
+  for (const condition of sortedConditions) {
+    if (condition.date < periodStartKey || condition.date > periodEndKey) {
+      continue
+    }
+    if (condition.sleepHours > 0) {
+      result.push({ date: condition.date, sleepHours: condition.sleepHours, isActual: true })
+      continue
+    }
+    const carried = resolveSleepHoursOnOrBefore(sortedConditions, condition.date)
+    if (carried != null) {
+      result.push({ date: condition.date, sleepHours: carried, isActual: false })
+    }
+  }
+  return result
+}
+
+// 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：weight/sleepHoursと異なり、
+// FatigueLevel（1〜5）の真ん中の値である3は、ConditionForm.tsxの5択チップの1つとして
+// 実際に選択されうる正当な値のため、数値センチネル方式（>0判定）では「実測の3」と
+// 「未記録（旧実装ではnull→3にデフォルト変換されていた）」を区別できない
+// （ユーザー確認済みの判断）。このためsrc/api/dailyConditions.tsのrowToDailyConditionは
+// null→3への変換を行わず、DailyCondition.fatigueをFatigueLevel | undefinedとして
+// 未記録をそのままundefinedで伝播させる。ここでは「undefined = 未記録」を判定基準にする。
+export function resolveFatigueOnOrBefore(
+  conditions: { date: string; fatigue: FatigueLevel | undefined }[],
+  dateKey: string,
+): FatigueLevel | null {
+  let best: { date: string; fatigue: FatigueLevel } | null = null
+  for (const condition of conditions) {
+    if (condition.fatigue !== undefined && condition.date <= dateKey && (best === null || condition.date > best.date)) {
+      best = { date: condition.date, fatigue: condition.fatigue }
+    }
+  }
+  return best ? best.fatigue : null
+}
+
+export type DisplayFatiguePoint = { date: string; fatigue: FatigueLevel; isActual: boolean }
+
+// 指定期間の各体調記録日について、疲労度を「その日の実測値（undefinedでない）」または
+// 「その日以前の直近実測値の引き継ぎ」で解決した系列を返す。引き継ぐべき実測が
+// 一度も存在しない先頭の日（carried が null）は系列から除外する。
+export function buildDisplayFatigueSeries(
+  sortedConditions: { date: string; fatigue: FatigueLevel | undefined }[],
+  periodStartKey: string,
+  periodEndKey: string,
+): DisplayFatiguePoint[] {
+  const result: DisplayFatiguePoint[] = []
+  for (const condition of sortedConditions) {
+    if (condition.date < periodStartKey || condition.date > periodEndKey) {
+      continue
+    }
+    if (condition.fatigue !== undefined) {
+      result.push({ date: condition.date, fatigue: condition.fatigue, isActual: true })
+      continue
+    }
+    const carried = resolveFatigueOnOrBefore(sortedConditions, condition.date)
+    if (carried != null) {
+      result.push({ date: condition.date, fatigue: carried, isActual: false })
     }
   }
   return result

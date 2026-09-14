@@ -62,10 +62,13 @@ export function useDailyAiComment(params: {
       const chronicStartKey = toDateKey(chronicStart.getFullYear(), chronicStart.getMonth() + 1, chronicStart.getDate())
 
       // 体調記録が無い日でも生成できるようにするためのデフォルト値
-      // （src/api/dailyConditions.ts の rowToDailyCondition と同じ既定：
-      // 睡眠0h・疲労度3・局所疲労なし）。
+      // （src/api/dailyConditions.ts の rowToDailyCondition と同じ既定：睡眠0h・
+      // 局所疲労なし）。疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：
+      // 疲労度は1〜3のデフォルト補完をせず、未記録ならundefinedのまま
+      // generateDailyCommentへ渡す（AIプロンプト側で「疲労度未記録」として
+      // 表示され、実測3と誤って解釈されないようにするため）。
       const sleepHours = condition?.sleepHours ?? 0
-      const fatigueLevel = condition?.fatigue ?? 3
+      const fatigueLevel = condition?.fatigue
       const sorenessLevel = condition?.muscleSorenessLevel ?? 'none'
       const sorenessLocation = condition?.muscleSorenessLocation ?? 'none'
 

@@ -22,7 +22,10 @@ export type DailyCommentPromptInput = {
   acwr: number | null
   acwrStatus: ACWRResult['status'] | null
   sleepHours: number
-  fatigueLevel: FatigueLevel
+  // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：FatigueLevel（1〜5）の
+  // 真ん中の値3は実測でも起こり得るため、未記録をデフォルト値3で穴埋めせず
+  // undefinedのまま受け取る（buildDailyCommentPromptで「未記録」と表示する）。
+  fatigueLevel: FatigueLevel | undefined
   dailySummary: string
 }
 
@@ -46,7 +49,7 @@ export function buildDailyCommentPrompt(input: DailyCommentPromptInput): string 
     '',
     `ACWR（急性:慢性負荷比）: ${acwrText}`,
     `睡眠時間: ${input.sleepHours}時間`,
-    `疲労度（1〜5、5が最も疲労）: ${input.fatigueLevel}`,
+    `疲労度（1〜5、5が最も疲労）: ${input.fatigueLevel !== undefined ? input.fatigueLevel : '未記録'}`,
     `今日の運動・食事の記録: ${input.dailySummary}`,
   ].join('\n')
 }

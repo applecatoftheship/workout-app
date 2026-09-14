@@ -21,7 +21,11 @@ function rowToDailyCondition(row: DailyConditionRow): DailyCondition {
     date: row.log_date as DateString,
     weight: row.weight ?? 0,
     sleepHours: row.sleep_hours ?? 0,
-    fatigue: (row.fatigue ?? 3) as FatigueLevel,
+    // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：weight/sleepHoursと異なり、
+    // FatigueLevelの真ん中の値(3)は実際にConditionForm.tsxのチップで選択されうる
+    // 正当な値のため、null→3のデフォルト変換は行わない（undefinedのまま伝播させ、
+    // 「未記録」と「実測3」を型レベルで区別できるようにする）。
+    fatigue: row.fatigue != null ? (row.fatigue as FatigueLevel) : undefined,
     notes: row.notes ?? undefined,
     muscleSorenessLocation: (row.muscle_soreness_location ?? 'none') as MuscleLocation,
     muscleSorenessLevel: (row.muscle_soreness_level ?? 'none') as SorenessLevel,
@@ -82,7 +86,10 @@ export async function upsertDailyCondition(condition: DailyCondition): Promise<v
         log_date: condition.date,
         weight: condition.weight,
         sleep_hours: condition.sleepHours,
-        fatigue: condition.fatigue,
+        // fatigueがundefined（疲労度0値表示バグ対応、2026年9月14日）の場合はDBへ
+        // 明示的にnullを書く（undefinedをそのまま渡すとPostgRESTが列自体を
+        // upsertペイロードから除外してしまい、既存行の更新時に古い値が残ってしまう）。
+        fatigue: condition.fatigue ?? null,
         notes: condition.notes ?? null,
         muscle_soreness_location: condition.muscleSorenessLocation ?? 'none',
         muscle_soreness_level: condition.muscleSorenessLevel ?? 'none',

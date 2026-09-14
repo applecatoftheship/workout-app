@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import type { DailyCondition } from '../../types'
-import type { MAPoint } from '../../utils/chartHelpers'
+import type { DisplayFatiguePoint, MAPoint } from '../../utils/chartHelpers'
 import {
   CHART_HEIGHT,
   CHART_WIDTH,
@@ -15,20 +14,24 @@ import {
 } from '../../utils/chartHelpers'
 
 type FatigueChartProps = {
-  periodConditions: DailyCondition[]
+  // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日。WeightChart.tsxの
+  // periodWeightSeriesと同型）：体調記録はあるが疲労度未選択の日を実測3として
+  // 描かないよう、ProgressGraph側で「その日の実測値、なければ直近実測値の引き継ぎ」に
+  // 解決済みの系列を受け取る（buildDisplayFatigueSeries）。
+  periodFatigueSeries: DisplayFatiguePoint[]
   periodFatigueMA: MAPoint[]
 }
 
-export function FatigueChart({ periodConditions, periodFatigueMA }: FatigueChartProps) {
+export function FatigueChart({ periodFatigueSeries, periodFatigueMA }: FatigueChartProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
-  if (periodConditions.length === 0) {
+  if (periodFatigueSeries.length === 0) {
     return <p className="progress-graph__empty">データがありません</p>
   }
 
   const maByDate = new Map(periodFatigueMA.map((point) => [point.date, point.movingAvg]))
-  const fatigueValues = periodConditions.map((condition) => condition.fatigue)
-  const maValues = periodConditions.map((condition) => maByDate.get(condition.date) ?? condition.fatigue)
+  const fatigueValues = periodFatigueSeries.map((point) => point.fatigue)
+  const maValues = periodFatigueSeries.map((point) => maByDate.get(point.date) ?? point.fatigue)
 
   const { min, range } = computeScale([1, 5, ...fatigueValues, ...maValues])
   const actualPoints = pointsFor(fatigueValues, min, range)
@@ -39,7 +42,7 @@ export function FatigueChart({ periodConditions, periodFatigueMA }: FatigueChart
   const previousMA = maValues.length > 1 ? maValues[maValues.length - 2] : null
   const maDiff = previousMA != null ? latestMA - previousMA : null
 
-  const selectedCondition = selectedDate ? periodConditions.find((condition) => condition.date === selectedDate) : null
+  const selectedPoint = selectedDate ? periodFatigueSeries.find((point) => point.date === selectedDate) : null
   const selectedMA = selectedDate ? maByDate.get(selectedDate) : null
 
   return (
@@ -74,14 +77,17 @@ export function FatigueChart({ periodConditions, periodFatigueMA }: FatigueChart
         <polyline points={maPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--ma-fatigue" />
         {actualPoints.map((point, index) => {
           const [cx, cy] = point.split(',').map(Number)
+          const seriesPoint = periodFatigueSeries[index]
           return (
             <circle
-              key={`actual-${periodConditions[index].date}`}
+              key={`actual-${seriesPoint.date}`}
               cx={cx}
               cy={cy}
               r="3"
-              className="progress-graph__dot progress-graph__dot--actual"
-              onClick={() => setSelectedDate(periodConditions[index].date)}
+              className={`progress-graph__dot progress-graph__dot--actual${
+                seriesPoint.isActual ? '' : ' progress-graph__dot--carried'
+              }`}
+              onClick={() => setSelectedDate(seriesPoint.date)}
             />
           )
         })}
@@ -89,12 +95,12 @@ export function FatigueChart({ periodConditions, periodFatigueMA }: FatigueChart
           const [cx, cy] = point.split(',').map(Number)
           return (
             <circle
-              key={`ma-${periodConditions[index].date}`}
+              key={`ma-${periodFatigueSeries[index].date}`}
               cx={cx}
               cy={cy}
               r="4"
               className="progress-graph__dot progress-graph__dot--ma-fatigue"
-              onClick={() => setSelectedDate(periodConditions[index].date)}
+              onClick={() => setSelectedDate(periodFatigueSeries[index].date)}
             />
           )
         })}
@@ -103,16 +109,16 @@ export function FatigueChart({ periodConditions, periodFatigueMA }: FatigueChart
         <span className="progress-graph__legend-item"><span className="progress-graph__legend-dot progress-graph__legend-dot--actual" />実測</span>
         <span className="progress-graph__legend-item"><span className="progress-graph__legend-dot progress-graph__legend-dot--ma-fatigue" />7日移動平均</span>
       </div>
-      {selectedCondition ? (
+      {selectedPoint ? (
         <p className="chart-card__tooltip">
-          {selectedCondition.date.replace(/-/g, '/')}｜実測: {selectedCondition.fatigue}/5
+          {selectedPoint.date.replace(/-/g, '/')}｜{selectedPoint.isActual ? '実測' : '直近値'}: {selectedPoint.fatigue}/5
           {selectedMA != null ? ` / 7日平均: ${selectedMA.toFixed(1)}/5` : ''}
         </p>
       ) : null}
       <div className="progress-graph__labels">
-        {periodConditions.map((condition, index) =>
-          shouldShowLabel(index, periodConditions.length) ? (
-            <span key={condition.date}>{formatShortDate(condition.date)}</span>
+        {periodFatigueSeries.map((point, index) =>
+          shouldShowLabel(index, periodFatigueSeries.length) ? (
+            <span key={point.date}>{formatShortDate(point.date)}</span>
           ) : null,
         )}
       </div>

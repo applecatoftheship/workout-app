@@ -12,6 +12,8 @@ import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
 import {
   buildDateList,
+  buildDisplayFatigueSeries,
+  buildDisplaySleepHoursSeries,
   buildDisplayWeightSeries,
   calculateDenseMovingAverage,
   calculateMovingAverage,
@@ -116,11 +118,6 @@ export function ProgressGraph({
     [dailyConditions],
   )
 
-  const periodConditions = useMemo(
-    () => sortedConditions.filter((condition) => condition.date >= periodStartKey && condition.date <= periodEndKey),
-    [sortedConditions, periodStartKey, periodEndKey],
-  )
-
   // 7日移動平均（スプリント2、2026年8月17日）は、選択期間の先頭付近でも正しい直近7日分を
   // 参照できるよう、期間で絞り込む前の全期間データ（sortedConditions）から算出し、
   // 表示のタイミングで期間内の日付だけに絞り込む。
@@ -151,6 +148,27 @@ export function ProgressGraph({
   const periodFatigueMA = useMemo(
     () => fatigueMA.filter((point) => point.date >= periodStartKey && point.date <= periodEndKey),
     [fatigueMA, periodStartKey, periodEndKey],
+  )
+  // 睡眠時間0時間・疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：体重と同じく
+  // 未記録の日を0時間／デフォルト値として描かず「その日以前の直近実測値」を
+  // 引き継いだ系列にする。引き継ぎ元は期間外も含む全履歴（sortedConditions）から解決する。
+  const periodSleepSeries = useMemo(
+    () =>
+      buildDisplaySleepHoursSeries(
+        sortedConditions.map((condition) => ({ date: condition.date, sleepHours: condition.sleepHours })),
+        periodStartKey,
+        periodEndKey,
+      ),
+    [sortedConditions, periodStartKey, periodEndKey],
+  )
+  const periodFatigueSeries = useMemo(
+    () =>
+      buildDisplayFatigueSeries(
+        sortedConditions.map((condition) => ({ date: condition.date, fatigue: condition.fatigue })),
+        periodStartKey,
+        periodEndKey,
+      ),
+    [sortedConditions, periodStartKey, periodEndKey],
   )
 
   const trainingByDate = useMemo(() => {
@@ -359,10 +377,10 @@ export function ProgressGraph({
           />
         ) : null}
         {selectedChart === 'sleep' ? (
-          <SleepChart periodConditions={periodConditions} periodSleepMA={periodSleepMA} targetSleepHours={targetSleepHours} />
+          <SleepChart periodSleepSeries={periodSleepSeries} periodSleepMA={periodSleepMA} targetSleepHours={targetSleepHours} />
         ) : null}
         {selectedChart === 'fatigue' ? (
-          <FatigueChart periodConditions={periodConditions} periodFatigueMA={periodFatigueMA} />
+          <FatigueChart periodFatigueSeries={periodFatigueSeries} periodFatigueMA={periodFatigueMA} />
         ) : null}
       </div>
     </section>

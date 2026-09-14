@@ -42,7 +42,10 @@ type RequestBody = {
   acwr: number | null
   acwrStatus: ACWRResult['status'] | null
   sleepHours: number
-  fatigueLevel: FatigueLevel
+  // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：クライアント
+  // （src/hooks/useDailyAiComment.ts）は未記録の日をundefinedのまま送る
+  // （3への補完をしない）。
+  fatigueLevel: FatigueLevel | undefined
   // 2026年8月28日、食事データを含む1日全体の要約に拡張したためworkoutSummaryから
   // dailySummaryへ改名（src/utils/dailyCommentHelpers.tsのbuildDailySummaryText参照）。
   dailySummary: string
@@ -70,8 +73,11 @@ function validateBody(payload: Record<string, unknown>): asserts payload is Requ
   if (typeof payload.sleepHours !== 'number' || !Number.isFinite(payload.sleepHours)) {
     throw new ValidationError('sleepHours must be a number')
   }
-  if (typeof payload.fatigueLevel !== 'number' || !FATIGUE_LEVELS.includes(payload.fatigueLevel)) {
-    throw new ValidationError('fatigueLevel must be a number between 1 and 5')
+  // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：fatigueLevelは未記録の日を
+  // 表すためundefinedを許容する（省略時=undefinedも許容）。値が存在する場合のみ
+  // 1〜5の範囲を検証する。
+  if (payload.fatigueLevel !== undefined && (typeof payload.fatigueLevel !== 'number' || !FATIGUE_LEVELS.includes(payload.fatigueLevel))) {
+    throw new ValidationError('fatigueLevel must be a number between 1 and 5, or omitted')
   }
   if (typeof payload.dailySummary !== 'string') {
     throw new ValidationError('dailySummary must be a string')

@@ -14,7 +14,9 @@ export type GenerateDailyCommentInput = {
   acwr: number | null
   acwrStatus: ACWRResult['status'] | null
   sleepHours: number
-  fatigueLevel: FatigueLevel
+  // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：未記録の日はundefinedのまま
+  // サーバー側（api/generate-daily-comment.ts）へ渡す。
+  fatigueLevel: FatigueLevel | undefined
   dailySummary: string
   // 手動再生成ボタン（DailyReportModal.tsx）専用。未指定時はfalse相当。
   forceRegenerate?: boolean

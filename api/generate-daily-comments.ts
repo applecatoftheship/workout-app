@@ -42,7 +42,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { calculateACWR } from '../src/utils/acwrHelpers.js'
 import { buildDailySummaryText } from '../src/utils/dailyCommentHelpers.js'
 import { generateDailyCommentViaGemini } from './_lib/dailyCommentGeneration.js'
-import type { DailyCondition, DateString, MealLog, SportLog, TrainingLog, Workout } from '../src/types.js'
+import type { BodyPart, DailyCondition, DateString, MealLog, SportLog, TrainingLog, Workout } from '../src/types.js'
 
 const CHRONIC_WINDOW_DAYS = 28
 
@@ -87,8 +87,16 @@ async function fetchPendingUserIds(supabase: SupabaseClient, targetDate: DateStr
 }
 
 type TrainingSetRow = { training_log_exercise_id: string; weight: number | null; reps: number | null }
-type TrainingLogExerciseRow = { id: string; training_log_id: string }
+// 種目名「不明な種目」表示バグ対応（Phase 1-4、2026年9月14日）：exercise_idを
+// 取得していなかったため、AIコメント生成のプロンプト内で種目名が常に
+// 「不明な種目」になっていた（formatTrainingLogItem、src/utils/calendarHelpers.ts
+// 参照）。exercise_id・order_indexを追加取得し、exercisesテーブルから名前を
+// 解決する。ACWR・PR判定・ストリーク計算はexerciseId・orderIndex・種目名の
+// いずれも参照しない（weight×reps・dateのみで計算する）ため、この変更による
+// 数値計算への影響はない。
+type TrainingLogExerciseRow = { id: string; training_log_id: string; exercise_id: string; order_index: number }
 type TrainingLogRow = { id: string; log_date: string }
+type ExerciseMasterRow = { id: string; name: string; body_part: string; is_preset: boolean }
 
 async function fetchTrainingLogsForAcwr(
   supabase: SupabaseClient,
@@ -112,7 +120,7 @@ async function fetchTrainingLogsForAcwr(
 
   const { data: exerciseRows, error: exerciseError } = await supabase
     .from('training_log_exercises')
-    .select('id, training_log_id')
+    .select('id, training_log_id, exercise_id, order_index')
     .in('training_log_id', logIds)
   if (exerciseError) throw exerciseError
 
@@ -126,16 +134,41 @@ async function fetchTrainingLogsForAcwr(
 
   const sets = setRows as unknown as TrainingSetRow[]
 
+  // 種目マスタからの名前解決（Phase 1-4）。論理削除済み（is_deleted=true）の種目も
+  // 過去の記録の種目名表示には含める必要があるため、is_deletedでの絞り込みは
+  // 行わない（src/api/trainingLogs.tsのfetchExercisesのincludeDeletedオプションと
+  // 同じ考え方、CLAUDE.md「2026年8月18日の変更点」参照）。
+  const exerciseMasterIds = Array.from(new Set(exercises.map((exercise) => exercise.exercise_id)))
+  const { data: exerciseMasterRows, error: exerciseMasterError } = exerciseMasterIds.length
+    ? await supabase.from('exercises').select('id, name, body_part, is_preset').in('id', exerciseMasterIds)
+    : { data: [] as ExerciseMasterRow[], error: null }
+  if (exerciseMasterError) throw exerciseMasterError
+
+  const exerciseMasterById = new Map(
+    (exerciseMasterRows as unknown as ExerciseMasterRow[]).map((row) => [row.id, row]),
+  )
+
   return logs.map((log) => {
-    const logExerciseIds = exercises.filter((exercise) => exercise.training_log_id === log.id).map((exercise) => exercise.id)
-    const logSets = sets
-      .filter((set) => logExerciseIds.includes(set.training_log_exercise_id))
-      .map((set, index) => ({ setNumber: index + 1, weight: set.weight ?? undefined, reps: set.reps ?? undefined, isWarmup: false }))
+    const logExercises = exercises.filter((exercise) => exercise.training_log_id === log.id)
 
     return {
       date: log.log_date as DateString,
       completed: true,
-      exercises: [{ exerciseId: '', orderIndex: 0, sets: logSets }],
+      exercises: logExercises.map((exercise) => {
+        const exerciseSets = sets
+          .filter((set) => set.training_log_exercise_id === exercise.id)
+          .map((set, index) => ({ setNumber: index + 1, weight: set.weight ?? undefined, reps: set.reps ?? undefined, isWarmup: false }))
+        const master = exerciseMasterById.get(exercise.exercise_id)
+
+        return {
+          exerciseId: exercise.exercise_id,
+          orderIndex: exercise.order_index,
+          sets: exerciseSets,
+          exercise: master
+            ? { name: master.name, bodyPart: master.body_part as BodyPart, isPreset: master.is_preset }
+            : undefined,
+        }
+      }),
     }
   })
 }
@@ -228,7 +261,10 @@ async function fetchAllDailyConditions(supabase: SupabaseClient, userId: string)
     date: row.log_date as DateString,
     weight: row.weight ?? 0,
     sleepHours: row.sleep_hours ?? 0,
-    fatigue: (row.fatigue ?? 3) as DailyCondition['fatigue'],
+    // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：null→3への補完をせず、
+    // 未記録はundefinedのまま伝播させる（src/api/dailyConditions.tsの
+    // rowToDailyConditionと同じ方針）。
+    fatigue: row.fatigue != null ? (row.fatigue as DailyCondition['fatigue']) : undefined,
     muscleSorenessLevel: row.muscle_soreness_level ?? 'none',
     muscleSorenessLocation: row.muscle_soreness_location ?? 'none',
   }))

@@ -104,9 +104,15 @@ export function GoalPanel({ goals, setGoals, trainingLogs, dailyConditions, toda
 
   const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   const currentMonthConditions = dailyConditions.filter((condition) => condition.date.startsWith(currentMonthKey))
+  // 睡眠時間0時間表示バグ対応（Phase 1-2、2026年9月14日。体重0kg表示バグ
+  // （2026年9月3日、下記latestWeight参照）と同型のバグを横展開）：体調記録は
+  // あるが睡眠時間未入力の日（sleepHours=0）を平均計算に含めてしまうと、実際の
+  // 平均より低い値が表示されてしまう。weight>0と同様にsleepHours>0の日のみを
+  // 対象に平均を算出する。
+  const recordedSleepConditions = currentMonthConditions.filter((condition) => condition.sleepHours > 0)
   const averageSleepHours =
-    currentMonthConditions.length > 0
-      ? currentMonthConditions.reduce((sum, condition) => sum + condition.sleepHours, 0) / currentMonthConditions.length
+    recordedSleepConditions.length > 0
+      ? recordedSleepConditions.reduce((sum, condition) => sum + condition.sleepHours, 0) / recordedSleepConditions.length
       : null
 
   // 体重0kg表示バグ対応（2026年9月3日）：体調記録はあるが体重未入力の日

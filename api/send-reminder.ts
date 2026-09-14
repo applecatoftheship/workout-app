@@ -201,7 +201,11 @@ async function fetchDailyConditions(supabase: SupabaseClient, userId: string): P
     date: row.log_date as DateString,
     weight: row.weight ?? 0,
     sleepHours: row.sleep_hours ?? 0,
-    fatigue: (row.fatigue ?? 3) as DailyCondition['fatigue'],
+    // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：null→3への補完をせず、
+    // 未記録はundefinedのまま伝播させる（このファイルではACWR・ストリーク計算の
+    // いずれもfatigueを参照しないため実害は無いが、他ファイルとの一貫性のため
+    // 統一する）。
+    fatigue: row.fatigue != null ? (row.fatigue as DailyCondition['fatigue']) : undefined,
     muscleSorenessLevel: row.muscle_soreness_level ?? 'none',
     muscleSorenessLocation: row.muscle_soreness_location ?? 'none',
   }))

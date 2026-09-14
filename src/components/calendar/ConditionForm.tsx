@@ -121,7 +121,10 @@ export function ConditionForm({
         ? {
             weight: String(existingCondition.weight),
             sleepHours: String(existingCondition.sleepHours),
-            fatigue: existingCondition.fatigue,
+            // 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：fatigueが
+            // undefined（未記録）の場合は編集フォームも「未選択」状態で開き、
+            // 3（普通）を勝手に補完しない（保存には改めて選択が必須）。
+            fatigue: existingCondition.fatigue ?? '',
             notes: existingCondition.notes ?? '',
             muscleSorenessLocation: existingCondition.muscleSorenessLocation ?? 'none',
             muscleSorenessLevel: existingCondition.muscleSorenessLevel ?? 'none',

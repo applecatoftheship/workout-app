@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import type { DailyCondition } from '../../types'
-import type { MAPoint } from '../../utils/chartHelpers'
+import type { DisplaySleepHoursPoint, MAPoint } from '../../utils/chartHelpers'
 import {
   CHART_HEIGHT,
   CHART_WIDTH,
@@ -16,21 +15,25 @@ import {
 } from '../../utils/chartHelpers'
 
 type SleepChartProps = {
-  periodConditions: DailyCondition[]
+  // 睡眠時間0時間表示バグ対応（Phase 1-2、2026年9月14日。WeightChart.tsxの
+  // periodWeightSeriesと同型）：体調記録はあるが睡眠時間未入力の日を0時間として
+  // 描かないよう、ProgressGraph側で「その日の実測値、なければ直近実測値の引き継ぎ」に
+  // 解決済みの系列を受け取る（buildDisplaySleepHoursSeries）。
+  periodSleepSeries: DisplaySleepHoursPoint[]
   periodSleepMA: MAPoint[]
   targetSleepHours: number
 }
 
-export function SleepChart({ periodConditions, periodSleepMA, targetSleepHours }: SleepChartProps) {
+export function SleepChart({ periodSleepSeries, periodSleepMA, targetSleepHours }: SleepChartProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
-  if (periodConditions.length === 0) {
+  if (periodSleepSeries.length === 0) {
     return <p className="progress-graph__empty">データがありません</p>
   }
 
   const maByDate = new Map(periodSleepMA.map((point) => [point.date, point.movingAvg]))
-  const sleepValues = periodConditions.map((condition) => condition.sleepHours)
-  const maValues = periodConditions.map((condition) => maByDate.get(condition.date) ?? condition.sleepHours)
+  const sleepValues = periodSleepSeries.map((point) => point.sleepHours)
+  const maValues = periodSleepSeries.map((point) => maByDate.get(point.date) ?? point.sleepHours)
 
   const { min, range } = computeScale([...sleepValues, ...maValues, targetSleepHours])
   const actualPoints = pointsFor(sleepValues, min, range)
@@ -42,7 +45,7 @@ export function SleepChart({ periodConditions, periodSleepMA, targetSleepHours }
   const previousMA = maValues.length > 1 ? maValues[maValues.length - 2] : null
   const maDiff = previousMA != null ? latestMA - previousMA : null
 
-  const selectedCondition = selectedDate ? periodConditions.find((condition) => condition.date === selectedDate) : null
+  const selectedPoint = selectedDate ? periodSleepSeries.find((point) => point.date === selectedDate) : null
   const selectedMA = selectedDate ? maByDate.get(selectedDate) : null
 
   return (
@@ -85,14 +88,17 @@ export function SleepChart({ periodConditions, periodSleepMA, targetSleepHours }
         <polyline points={maPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--ma-sleep" />
         {actualPoints.map((point, index) => {
           const [cx, cy] = point.split(',').map(Number)
+          const seriesPoint = periodSleepSeries[index]
           return (
             <circle
-              key={`actual-${periodConditions[index].date}`}
+              key={`actual-${seriesPoint.date}`}
               cx={cx}
               cy={cy}
               r="3"
-              className="progress-graph__dot progress-graph__dot--actual"
-              onClick={() => setSelectedDate(periodConditions[index].date)}
+              className={`progress-graph__dot progress-graph__dot--actual${
+                seriesPoint.isActual ? '' : ' progress-graph__dot--carried'
+              }`}
+              onClick={() => setSelectedDate(seriesPoint.date)}
             />
           )
         })}
@@ -100,12 +106,12 @@ export function SleepChart({ periodConditions, periodSleepMA, targetSleepHours }
           const [cx, cy] = point.split(',').map(Number)
           return (
             <circle
-              key={`ma-${periodConditions[index].date}`}
+              key={`ma-${periodSleepSeries[index].date}`}
               cx={cx}
               cy={cy}
               r="4"
               className="progress-graph__dot progress-graph__dot--ma-sleep"
-              onClick={() => setSelectedDate(periodConditions[index].date)}
+              onClick={() => setSelectedDate(periodSleepSeries[index].date)}
             />
           )
         })}
@@ -115,16 +121,16 @@ export function SleepChart({ periodConditions, periodSleepMA, targetSleepHours }
         <span className="progress-graph__legend-item"><span className="progress-graph__legend-dot progress-graph__legend-dot--ma-sleep" />7日移動平均</span>
         <span className="progress-graph__legend-item"><span className="progress-graph__legend-dot progress-graph__legend-dot--target" />目標</span>
       </div>
-      {selectedCondition ? (
+      {selectedPoint ? (
         <p className="chart-card__tooltip">
-          {selectedCondition.date.replace(/-/g, '/')}｜実測: {selectedCondition.sleepHours.toFixed(1)}時間
+          {selectedPoint.date.replace(/-/g, '/')}｜{selectedPoint.isActual ? '実測' : '直近値'}: {selectedPoint.sleepHours.toFixed(1)}時間
           {selectedMA != null ? ` / 7日平均: ${selectedMA.toFixed(1)}時間` : ''}
         </p>
       ) : null}
       <div className="progress-graph__labels">
-        {periodConditions.map((condition, index) =>
-          shouldShowLabel(index, periodConditions.length) ? (
-            <span key={condition.date}>{formatShortDate(condition.date)}</span>
+        {periodSleepSeries.map((point, index) =>
+          shouldShowLabel(index, periodSleepSeries.length) ? (
+            <span key={point.date}>{formatShortDate(point.date)}</span>
           ) : null,
         )}
       </div>

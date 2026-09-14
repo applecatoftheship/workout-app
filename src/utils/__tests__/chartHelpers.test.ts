@@ -3,6 +3,8 @@ import {
   areaPathFor,
   buildAxisTicks,
   buildDateList,
+  buildDisplayFatigueSeries,
+  buildDisplaySleepHoursSeries,
   buildDisplayWeightSeries,
   calculateDenseMovingAverage,
   calculateMovingAverage,
@@ -16,6 +18,8 @@ import {
   MARGIN_LEFT,
   MARGIN_TOP,
   pointsFor,
+  resolveFatigueOnOrBefore,
+  resolveSleepHoursOnOrBefore,
   resolveWeightOnOrBefore,
   shouldShowLabel,
   toDateKey,
@@ -278,6 +282,129 @@ describe('buildDisplayWeightSeries', () => {
   it('期間外の記録は引き継ぎ元として使うが系列には含めない', () => {
     const result = buildDisplayWeightSeries(conditions, '2026-08-05', '2026-08-06')
     expect(result).toEqual([{ date: '2026-08-06', weight: 69, isActual: false }])
+  })
+})
+
+// 睡眠時間0時間表示バグ対応（Phase 1-2、2026年9月14日）：resolveWeightOnOrBefore・
+// buildDisplayWeightSeriesと同型のテスト構成を横展開。
+describe('resolveSleepHoursOnOrBefore', () => {
+  const conditions = [
+    { date: '2026-08-01', sleepHours: 7 },
+    { date: '2026-08-03', sleepHours: 0 }, // 睡眠時間未入力の日
+    { date: '2026-08-05', sleepHours: 6.5 },
+    { date: '2026-08-07', sleepHours: 0 },
+  ]
+
+  it('対象日に実測があればその値を返す', () => {
+    expect(resolveSleepHoursOnOrBefore(conditions, '2026-08-05')).toBe(6.5)
+  })
+
+  it('対象日に実測がなければ直近過去の実測値を引き継ぐ', () => {
+    expect(resolveSleepHoursOnOrBefore(conditions, '2026-08-07')).toBe(6.5)
+    expect(resolveSleepHoursOnOrBefore(conditions, '2026-08-03')).toBe(7)
+  })
+
+  it('対象日以降の実測は参照しない', () => {
+    expect(resolveSleepHoursOnOrBefore(conditions, '2026-07-31')).toBeNull()
+  })
+
+  it('実測が1件もなければnull', () => {
+    expect(resolveSleepHoursOnOrBefore([{ date: '2026-08-01', sleepHours: 0 }], '2026-08-10')).toBeNull()
+  })
+})
+
+describe('buildDisplaySleepHoursSeries', () => {
+  const conditions = [
+    { date: '2026-08-01', sleepHours: 7 },
+    { date: '2026-08-02', sleepHours: 0 }, // 睡眠時間未入力 → 08-01を引き継ぐ
+    { date: '2026-08-04', sleepHours: 6 },
+    { date: '2026-08-06', sleepHours: 0 }, // → 08-04を引き継ぐ
+  ]
+
+  it('期間内の各記録日を実測または直近引き継ぎで解決する', () => {
+    const result = buildDisplaySleepHoursSeries(conditions, '2026-08-01', '2026-08-06')
+    expect(result).toEqual([
+      { date: '2026-08-01', sleepHours: 7, isActual: true },
+      { date: '2026-08-02', sleepHours: 7, isActual: false },
+      { date: '2026-08-04', sleepHours: 6, isActual: true },
+      { date: '2026-08-06', sleepHours: 6, isActual: false },
+    ])
+  })
+
+  it('引き継ぐ実測がまだ無い先頭の日は系列から除外する', () => {
+    const withLeadingGap = [
+      { date: '2026-08-01', sleepHours: 0 },
+      { date: '2026-08-02', sleepHours: 8 },
+    ]
+    const result = buildDisplaySleepHoursSeries(withLeadingGap, '2026-08-01', '2026-08-02')
+    expect(result).toEqual([{ date: '2026-08-02', sleepHours: 8, isActual: true }])
+  })
+
+  it('期間外の記録は引き継ぎ元として使うが系列には含めない', () => {
+    const result = buildDisplaySleepHoursSeries(conditions, '2026-08-05', '2026-08-06')
+    expect(result).toEqual([{ date: '2026-08-06', sleepHours: 6, isActual: false }])
+  })
+})
+
+// 疲労度0値表示バグ対応（Phase 1-2、2026年9月14日）：FatigueLevelの真ん中の値(3)は
+// 実測でも起こり得るため、数値センチネルではなくundefinedを「未記録」の判定基準にする
+// （weight/sleepHoursの>0判定とは異なる点に注意）。
+describe('resolveFatigueOnOrBefore', () => {
+  const conditions: { date: string; fatigue: 1 | 2 | 3 | 4 | 5 | undefined }[] = [
+    { date: '2026-08-01', fatigue: 2 },
+    { date: '2026-08-03', fatigue: undefined }, // 疲労度未記録の日
+    { date: '2026-08-05', fatigue: 3 }, // 実測3（デフォルト値と同じ値だが実測扱い）
+    { date: '2026-08-07', fatigue: undefined },
+  ]
+
+  it('対象日に実測があればその値を返す（実測3も正しく実測として扱う）', () => {
+    expect(resolveFatigueOnOrBefore(conditions, '2026-08-05')).toBe(3)
+  })
+
+  it('対象日に実測がなければ直近過去の実測値を引き継ぐ', () => {
+    expect(resolveFatigueOnOrBefore(conditions, '2026-08-07')).toBe(3)
+    expect(resolveFatigueOnOrBefore(conditions, '2026-08-03')).toBe(2)
+  })
+
+  it('対象日以降の実測は参照しない', () => {
+    expect(resolveFatigueOnOrBefore(conditions, '2026-07-31')).toBeNull()
+  })
+
+  it('実測が1件もなければnull', () => {
+    expect(resolveFatigueOnOrBefore([{ date: '2026-08-01', fatigue: undefined }], '2026-08-10')).toBeNull()
+  })
+})
+
+describe('buildDisplayFatigueSeries', () => {
+  const conditions: { date: string; fatigue: 1 | 2 | 3 | 4 | 5 | undefined }[] = [
+    { date: '2026-08-01', fatigue: 2 },
+    { date: '2026-08-02', fatigue: undefined }, // 疲労度未記録 → 08-01を引き継ぐ
+    { date: '2026-08-04', fatigue: 3 },
+    { date: '2026-08-06', fatigue: undefined }, // → 08-04を引き継ぐ
+  ]
+
+  it('期間内の各記録日を実測または直近引き継ぎで解決する', () => {
+    const result = buildDisplayFatigueSeries(conditions, '2026-08-01', '2026-08-06')
+    expect(result).toEqual([
+      { date: '2026-08-01', fatigue: 2, isActual: true },
+      { date: '2026-08-02', fatigue: 2, isActual: false },
+      { date: '2026-08-04', fatigue: 3, isActual: true },
+      { date: '2026-08-06', fatigue: 3, isActual: false },
+    ])
+  })
+
+  it('引き継ぐ実測がまだ無い先頭の日は系列から除外する', () => {
+    const withLeadingGap: { date: string; fatigue: 1 | 2 | 3 | 4 | 5 | undefined }[] = [
+      { date: '2026-08-01', fatigue: undefined },
+      { date: '2026-08-02', fatigue: 4 },
+    ]
+    const result = buildDisplayFatigueSeries(withLeadingGap, '2026-08-01', '2026-08-02')
+    expect(result).toEqual([{ date: '2026-08-02', fatigue: 4, isActual: true }])
+  })
+
+  it('期間外の記録は引き継ぎ元として使うが系列には含めない', () => {
+    const result = buildDisplayFatigueSeries(conditions, '2026-08-05', '2026-08-06')
+    expect(result).toEqual([{ date: '2026-08-06', fatigue: 3, isActual: false }])
   })
 })
 

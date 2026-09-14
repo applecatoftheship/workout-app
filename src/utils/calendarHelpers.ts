@@ -218,12 +218,16 @@ export function formatTrainingLogItem(exercise: TrainingLogExercise) {
 }
 
 export function formatConditionSummary(condition: DailyCondition) {
-  // 体重0kg表示バグ対応（2026年9月3日）：その日に体重を入力していない
-  // （weight=0）場合は「0.0kg」ではなく「体重未記録」と表示する。この関数は
-  // 特定日の記録内容の要約のため、トレンド系（WeightChart等）のような直近値の
-  // 引き継ぎは行わず、未記録である事実をそのまま示す。
+  // 体重0kg表示バグ対応（2026年9月3日）・睡眠時間0時間/疲労度0値表示バグ対応
+  // （Phase 1-2、2026年9月14日、同型のバグを横展開）：その日に値を入力していない
+  // （weight=0・sleepHours=0・fatigue=undefined）場合は数値をそのまま表示せず
+  // 「未記録」と表示する。この関数は特定日の記録内容の要約のため、トレンド系
+  // （WeightChart等）のような直近値の引き継ぎは行わず、未記録である事実を
+  // そのまま示す。
   const weightText = condition.weight > 0 ? `${condition.weight.toFixed(1)}kg` : '体重未記録'
-  const base = `${weightText} / ${condition.sleepHours.toFixed(1)}時間 / 疲労度${condition.fatigue}/5`
+  const sleepText = condition.sleepHours > 0 ? `${condition.sleepHours.toFixed(1)}時間` : '睡眠時間未記録'
+  const fatigueText = condition.fatigue !== undefined ? `疲労度${condition.fatigue}/5` : '疲労度未記録'
+  const base = `${weightText} / ${sleepText} / ${fatigueText}`
 
   const level = condition.muscleSorenessLevel
   if (!level || level === 'none') {

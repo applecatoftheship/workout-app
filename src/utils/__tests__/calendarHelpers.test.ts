@@ -343,6 +343,19 @@ describe('formatConditionSummary', () => {
   it('体重未入力（weight=0）の日は「0.0kg」ではなく「体重未記録」と表示する', () => {
     expect(formatConditionSummary({ ...base, weight: 0 })).toBe('体重未記録 / 7.2時間 / 疲労度3/5')
   })
+
+  // 睡眠時間0時間/疲労度0値表示バグ対応（Phase 1-2、2026年9月14日、同型のバグを横展開）
+  it('睡眠時間未入力（sleepHours=0）の日は「0.0時間」ではなく「睡眠時間未記録」と表示する', () => {
+    expect(formatConditionSummary({ ...base, sleepHours: 0 })).toBe('70.4kg / 睡眠時間未記録 / 疲労度3/5')
+  })
+
+  it('疲労度未記録（fatigue=undefined）の日は「疲労度undefined/5」ではなく「疲労度未記録」と表示する', () => {
+    expect(formatConditionSummary({ ...base, fatigue: undefined })).toBe('70.4kg / 7.2時間 / 疲労度未記録')
+  })
+
+  it('実測の疲労度3は「疲労度未記録」ではなく「疲労度3/5」のまま表示する（センチネル値との混同なし）', () => {
+    expect(formatConditionSummary({ ...base, fatigue: 3 })).toBe('70.4kg / 7.2時間 / 疲労度3/5')
+  })
 })
 
 describe('getMealTypeLabel', () => {

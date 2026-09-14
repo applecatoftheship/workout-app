@@ -833,6 +833,13 @@ export function Dashboard({
 
       <section className="panel-card stats-card">
         <h2 className="panel-card__title">体調・記録</h2>
+        {/* 「実測」注記の0値/未記録表示バグ対応（Phase 1-2、2026年9月14日）：
+            selectedConditionは「その日にdaily_conditions行が存在するか」のみを
+            表す（例：体重だけ入力した部分upsert行にはsleepHours=0・
+            fatigue=undefinedのまま存在しうる）。weight>0の実装（2026年9月3日、
+            体重0kg表示バグ対応）は既にあったが、sleepHours・fatigueの「実測」
+            注記には同種のガードが漏れていたため、3項目とも実測時のみ表示する
+            よう統一した（今回の作業で発見・修正）。 */}
         <div className="stats-grid">
           {isViewingToday || latestWeightMA ? (
             <article className="stat-card">
@@ -844,7 +851,7 @@ export function Dashboard({
               <strong className="stat-card__value metric-value">
                 {latestWeightMA ? `${latestWeightMA.movingAvg.toFixed(1)}kg` : '記録なし'}
               </strong>
-              {selectedCondition ? (
+              {selectedCondition && selectedCondition.weight > 0 ? (
                 <span className="stat-card__note">
                   {isViewingToday ? '本日実測' : '実測'}: {selectedCondition.weight.toFixed(1)}kg
                 </span>
@@ -862,7 +869,7 @@ export function Dashboard({
               <strong className="stat-card__value metric-value">
                 {latestSleepMA ? `${latestSleepMA.movingAvg.toFixed(1)}h` : '記録なし'}
               </strong>
-              {selectedCondition ? (
+              {selectedCondition && selectedCondition.sleepHours > 0 ? (
                 <span className="stat-card__note">
                   {isViewingToday ? '本日実測' : '実測'}: {selectedCondition.sleepHours.toFixed(1)}h
                 </span>
@@ -880,7 +887,7 @@ export function Dashboard({
               <strong className="stat-card__value metric-value">
                 {latestFatigueMA ? `${latestFatigueMA.movingAvg.toFixed(1)}/5` : '記録なし'}
               </strong>
-              {selectedCondition ? (
+              {selectedCondition && selectedCondition.fatigue !== undefined ? (
                 <span className="stat-card__note">
                   {isViewingToday ? '本日実測' : '実測'}: {selectedCondition.fatigue}/5
                 </span>
