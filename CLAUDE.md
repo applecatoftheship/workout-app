@@ -74,14 +74,33 @@ training_schedulesからの直接取得に置き換え済み（下記参照）�
 
 - 新規テーブルを作ったら、必ず先に grant とRLSポリシーを設定してから動作確認する。
   後付けにすると 401 / 42501 エラーの原因調査に時間がかかる。
-- 新規テーブルを作成するマイグレーションには、必ず
-  `revoke all on <table> from service_role;` → `grant <必要な操作> on <table> to service_role;`
-  の順で書く。Supabaseは新規テーブルに REFERENCES/TRIGGER/TRUNCATE を自動付与するため、
-  grant だけでは過剰権限が残る（2026年9月4日、health_metrics新設時の調査で判明。
-  2026年8月29日の過剰権限監査ではsoccer_logsのみ是正し、その後新設した
-  workouts・profiles・user_badgesには再び自動付与されたまま運用されている
-  （health_metricsは新設時に本ルールに沿って是正済み）。実害があるのはTRUNCATEの
-  みで緊急性は低いため、workouts・profiles・user_badgesの一括是正はバックログとする）。
+- 新規テーブルを作成するマイグレーションには、**anon・authenticated・service_role
+  の3ロールそれぞれについて**、必ず`revoke all on <table> from <role>;` →
+  `grant <実際にそのロールが必要とする操作のみ> on <table> to <role>;`の順で書く
+  （2026年9月13日、全23テーブルのanon/authenticated/service_role権限監査で
+  service_role以外にも同様の過剰権限問題があることが判明し、対象ロールを拡大）。
+  Supabaseは新規テーブルに REFERENCES/TRIGGER/TRUNCATE を自動付与するため、
+  grant だけでは過剰権限が残る（2026年9月4日、health_metrics新設時の調査で判明）。
+  ロールごとの原則：
+  - **anon**（未ログインでも到達するクライアント）は、実際にRLSで守られた
+    anon経由のアクセスパターンが存在しない限りゼロ権限とする（例外：push通知の
+    既読化のようにログインセッションを持たないコンテキスト＝Service Workerから
+    device_idベースのRLSで守られたアクセスをする場合のみ、必要な操作を個別に
+    許可する。src/sw.tsのnotifications既読化が現状唯一の例）。
+  - **authenticated**は、ブラウザ側のAPIファイル（src/api/配下）が実際に呼んで
+    いるselect/insert/update/delete操作のみを付与する。UPDATE/DELETEに`.eq()`等の
+    WHERE条件を伴う場合はSELECT権限も併せて必要になる点に注意する
+    （PostgreSQLの標準仕様。単純な`.upsert(row, {onConflict: '...'})`のみの
+    操作はSELECT不要）。
+  - **service_role**は、api/配下のサーバーレス関数が実際に呼んでいる操作のみを
+    付与する。
+  （2026年8月29日の過剰権限監査ではservice_roleのsoccer_logsのみ是正し、
+  その後新設したworkouts・profiles・user_badgesには再び自動付与されたまま
+  運用されていた（health_metricsは新設時に本ルールに沿って是正済み）。
+  2026年9月13日、anon/authenticated/service_role全ロール・全23テーブルを対象と
+  した是正マイグレーション（`20260913010000_anon_authenticated_service_role_
+  grants_audit_DRAFT.sql`）をドラフト作成済みだが、本ファイル作成時点では
+  未実行）。
 - スキーマ変更は Supabase の SQL Editor で実行する。Claude Codeから直接
   Supabaseへは接続していないため、SQLは必ず人間が手動で実行する。
 - 本番と開発が同一プロジェクトのため、スキーマ変更は即座に本番へ反映される。
