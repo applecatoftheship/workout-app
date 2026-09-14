@@ -34,7 +34,12 @@ function determineCharacterStatus(
     }
   }
 
-  if ((fatigue != null && fatigue >= 4) || (sleepHours != null && sleepHours < 6)) {
+  // sleepHours=0は「未記録」センチネル値（chartHelpers.ts・calendarHelpers.ts・
+  // GoalPanel.tsx・Dashboard.tsxのstat-cardと同じ「>0のときのみ実測とみなす」
+  // 判定を踏襲、Phase 1-2バグ修正2026年9月14日）。未記録の日を睡眠不足による
+  // 「疲労」判定に混入させず、fatigue（体調記録があれば別途判定される）や
+  // 下記のACWR条件にフォールバックさせる。
+  if ((fatigue != null && fatigue >= 4) || (sleepHours != null && sleepHours > 0 && sleepHours < 6)) {
     return {
       tier: 'fatigued',
       emoji: '😴',
