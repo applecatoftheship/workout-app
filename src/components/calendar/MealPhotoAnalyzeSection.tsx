@@ -63,7 +63,6 @@ export function MealPhotoAnalyzeSection({
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelected}
         className="meal-photo-analyze__input"
         aria-hidden="true"
