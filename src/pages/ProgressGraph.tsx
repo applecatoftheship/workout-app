@@ -7,6 +7,8 @@ import { TrainingVolumeChart } from '../components/graphs/TrainingVolumeChart'
 import { TrainingBodyPartDonut } from '../components/graphs/TrainingBodyPartDonut'
 import { TrainingBodyPartList } from '../components/graphs/TrainingBodyPartList'
 import type { BodyPartVolumeEntry } from '../components/graphs/TrainingBodyPartList'
+import { OneRepMaxChart } from '../components/graphs/OneRepMaxChart'
+import { PersonalBestList } from '../components/graphs/PersonalBestList'
 import { WeightChart } from '../components/graphs/WeightChart'
 import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
@@ -22,6 +24,13 @@ import {
   toDateKey,
 } from '../utils/chartHelpers'
 import type { Period } from '../utils/chartHelpers'
+// 推定1RM・自己ベスト（PR）のビジュアル化（指示書2026-09-15）：Epley式1RM計算・
+// 全履歴からの自己ベスト算出はprHelpers.tsの既存関数（保存時PR演出機能と共用）を
+// 再利用する。calculateOneRepMaxTrend等の新規ヘルパーはoneRepMaxHelpers.ts側で
+// 内部的にprHelpers.calculateEstimated1RMを呼ぶのみで、1RM計算式・PR判定ロジック
+// 自体はこのファイル・oneRepMaxHelpers.tsのどちらにも再実装していない。
+import { calculateMaxEstimated1RM } from '../utils/prHelpers'
+import { calculateOneRepMaxTrend, calculatePersonalBests, listLoggedExercises } from '../utils/oneRepMaxHelpers'
 
 // トレーニンググラフ刷新（2026年8月17日）：部位別ボリュームの識別色。
 // types.tsのBodyPart型（胸/肩/腕/背/脚/腹/有酸素/その他）に対応する固定色を
@@ -99,6 +108,9 @@ export function ProgressGraph({
 }) {
   const [selectedChart, setSelectedChart] = useState<ChartType>('training')
   const [period, setPeriod] = useState<Period>('week')
+  // 推定1RM推移の種目セレクタ（指示書2026-09-15）：未選択時は「直近に実施した種目」
+  // をデフォルトにする（loggedExercisesはlistLoggedExercisesが直近実施日の降順で返す）。
+  const [selectedExerciseId, setSelectedExerciseId] = useState('')
 
   const today = useMemo(() => new Date(), [])
 
@@ -198,6 +210,30 @@ export function ProgressGraph({
       })),
     [periodDates, trainingByDate],
   )
+
+  // 推定1RM推移・自己ベスト（PR）一覧（指示書2026-09-15）：
+  // - 種目一覧（loggedExercises）・自己ベスト一覧（personalBests）は期間タブに
+  //   連動させず、常に全履歴（trainingLogs）から算出する。ACWRGaugeCardや
+  //   目標ストリップが「常に本日を示すべき指標」として期間選択の対象外に
+  //   されている（Dashboard.tsx既存方針）のと同じ考え方で、「今のベストは何か」
+  //   は選択中の期間に関わらず一定であるべきという判断。
+  // - 1RM推移グラフの折れ線自体（oneRepMaxPoints）は他の3セクション
+  //   （総ボリューム・部位バランス・部位別詳細）と同じく選択中の期間タブに従う。
+  const loggedExercises = useMemo(() => listLoggedExercises(trainingLogs), [trainingLogs])
+  const effectiveExerciseId = selectedExerciseId || loggedExercises[0]?.exerciseId || ''
+  const periodLogs = useMemo(
+    () => trainingLogs.filter((log) => log.date >= periodStartKey && log.date <= periodEndKey),
+    [trainingLogs, periodStartKey, periodEndKey],
+  )
+  const oneRepMaxPoints = useMemo(
+    () => (effectiveExerciseId ? calculateOneRepMaxTrend(periodLogs, effectiveExerciseId) : []),
+    [periodLogs, effectiveExerciseId],
+  )
+  const allTimeBest1RM = useMemo(
+    () => (effectiveExerciseId ? calculateMaxEstimated1RM(trainingLogs, effectiveExerciseId) : 0),
+    [trainingLogs, effectiveExerciseId],
+  )
+  const personalBests = useMemo(() => calculatePersonalBests(trainingLogs), [trainingLogs])
 
   // 総ボリューム推移（トレーニング画面刷新v2、2026年8月18日）：7日移動平均は
   // 選択期間の先頭付近でも正しい直近7日分を参照できるよう、履歴の最初の記録日から
@@ -365,6 +401,14 @@ export function ProgressGraph({
             />
             <TrainingBodyPartDonut bodyPartVolume={bodyPartVolume} />
             <TrainingBodyPartList bodyPartVolume={bodyPartVolume} />
+            <OneRepMaxChart
+              exercises={loggedExercises}
+              selectedExerciseId={effectiveExerciseId}
+              onSelectExercise={setSelectedExerciseId}
+              points={oneRepMaxPoints}
+              allTimeBest={allTimeBest1RM}
+            />
+            <PersonalBestList personalBests={personalBests} />
           </>
         ) : null}
         {selectedChart === 'weight' ? (

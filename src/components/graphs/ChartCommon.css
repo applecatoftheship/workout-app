@@ -446,3 +446,77 @@
 .body-part-volume__drilldown {
   padding: 0 16px 16px;
 }
+
+/* 推定1RM推移の種目セレクタ（指示書「推定1RM・PR・総挙上重量のビジュアル化」2026-09-15） */
+
+.one-rep-max-chart__exercise-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.one-rep-max-chart__exercise-select select {
+  /* グリッド/フレックス+数値系子要素のオーバーフロー既知パターン対策として、
+     幅の広いselectでもカードからはみ出さないようflex-basisを明示的に0起点にする。 */
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+/* 自己ベスト（PR）一覧（指示書「推定1RM・PR・総挙上重量のビジュアル化」2026-09-15） */
+
+.personal-best-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.personal-best-list__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+}
+
+.personal-best-list__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-primary);
+}
+
+.personal-best-list__value {
+  font-size: var(--font-size-body);
+  font-weight: 700;
+  color: var(--color-accent-text);
+  white-space: nowrap;
+}
+
+.personal-best-list__date {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.personal-best-list__toggle {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}

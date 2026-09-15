@@ -9,7 +9,17 @@ import { EcgDivider } from '../components/EcgDivider'
 import { WeeklyACWRTrendCard } from '../components/WeeklyACWRTrendCard'
 import { WeeklyACWRDetailModal } from '../components/WeeklyACWRDetailModal'
 import { CharacterStatusCard } from '../components/CharacterStatusCard'
-import { BellIcon, ChevronLeftIcon, ChevronRightIcon, FatigueIcon, HistoryIcon, SleepIcon, TimerIcon, WeightIcon } from '../components/icons'
+import {
+  BellIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DumbbellIcon,
+  FatigueIcon,
+  HistoryIcon,
+  SleepIcon,
+  TimerIcon,
+  WeightIcon,
+} from '../components/icons'
 import { RestTimerModal } from '../components/timer/RestTimerModal'
 import { NotificationModal } from '../components/NotificationModal'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
@@ -18,6 +28,10 @@ import { fetchWorkouts } from '../api/workouts'
 import { fetchNotifications, markNotificationRead } from '../api/notifications'
 import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, toJstDateKeyFromIso, weekDays } from '../utils/calendarHelpers'
 import { APP_VIEW_PATHS } from '../utils/appViewPaths'
+// 総挙上重量サマリー（指示書「推定1RM・PR・総挙上重量のビジュアル化」2026-09-15）：
+// ACWRGaugeCard・目標ストリップと同じく「常に今週を示すべき指標」として、
+// 週送りストリップのweekOffsetには連動させない（下記currentWeek*参照）。
+import { calculateTotalVolume, formatTrainingVolume } from '../utils/trainingVolumeSummaryHelpers'
 import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, hasConsecutiveDangerDays, hasConsecutiveOptimalDays } from '../utils/acwrHelpers'
 import { calculateAdjustedGoals, getMatchDayStatus } from '../utils/periodizationHelpers'
 import { calculateCurrentStreak } from '../utils/streakHelpers'
@@ -211,6 +225,28 @@ export function Dashboard({
 
   const weekStartKey = weekDates[0]?.dateKey ?? todayString
   const weekEndKey = weekDates[6]?.dateKey ?? todayString
+
+  // 総挙上重量サマリー（指示書2026-09-15）：weekStart/weekDatesはweekOffsetで
+  // 動く週送りストリップ用のため、そのまま使うと「先週」等を見ている間は
+  // 今週以外の合計が表示されてしまう。ACWRGaugeCard等と同じ「常に今週」方針の
+  // ため、weekOffsetを含めない現在週（日曜始まり）の範囲を別途算出する。
+  const currentWeekRange = useMemo(() => {
+    const start = new Date(today)
+    start.setDate(today.getDate() - today.getDay())
+    const startKey = toDateKey(start.getFullYear(), start.getMonth() + 1, start.getDate())
+    const end = new Date(start)
+    end.setDate(start.getDate() + 6)
+    const endKey = toDateKey(end.getFullYear(), end.getMonth() + 1, end.getDate())
+    return { startKey, endKey }
+  }, [today])
+
+  const weekTotalVolume = useMemo(
+    () =>
+      calculateTotalVolume(
+        trainingLogs.filter((log) => log.date >= currentWeekRange.startKey && log.date <= currentWeekRange.endKey),
+      ),
+    [trainingLogs, currentWeekRange],
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -902,6 +938,20 @@ export function Dashboard({
             <span className="stat-card__label">直近の記録</span>
             <strong className="stat-card__value">{mostRecentRecord ? mostRecentRecord.label : '記録なし'}</strong>
             {mostRecentRecordDaysText ? <span className="stat-card__note">{mostRecentRecordDaysText}</span> : null}
+          </article>
+
+          {/* 総挙上重量サマリー（指示書2026-09-15）：ACWRGaugeCard・目標ストリップと
+              同じく常に今週（weekOffset非依存）の値を示す。日付選択カード群
+              （体重・睡眠・疲労度）とは異なりisViewingToday等の出し分けはしない。 */}
+          <article className="stat-card">
+            <div className="stat-card__header">
+              <DumbbellIcon className="stat-card__icon" strokeWidth={1.8} />
+            </div>
+            <span className="stat-card__label">今週の総挙上重量</span>
+            <strong className="stat-card__value metric-value">{formatTrainingVolume(weekTotalVolume)}</strong>
+            {weekTotalVolume > 0 ? (
+              <span className="stat-card__note">{Math.round(weekTotalVolume).toLocaleString()}kg</span>
+            ) : null}
           </article>
         </div>
       </section>
