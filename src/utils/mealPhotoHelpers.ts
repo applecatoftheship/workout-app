@@ -43,8 +43,9 @@ export function buildMealPhotoPrompt(hint?: MealPhotoHint): string {
     '前後に説明文・コードブロックの記号（```）を付けず、JSONオブジェクトのみを出力してください。',
     '',
     '(A)の場合の形式:',
-    '{"type": "dish", "dish": {"items": [{"name": "食材名", "grams": 数値, "caloriesPer100g": 数値, "proteinPer100g": 数値, "fatPer100g": 数値, "carbohydratesPer100g": 数値, "category": "カテゴリ"}, ...]}}',
-    '- name は日本語の一般的な食材名（例: "鶏もも肉", "白米", "味噌汁"）。',
+    '{"type": "dish", "dish": {"name": "料理名（推定できる場合のみ）", "items": [{"name": "食材名", "grams": 数値, "caloriesPer100g": 数値, "proteinPer100g": 数値, "fatPer100g": 数値, "carbohydratesPer100g": 数値, "category": "カテゴリ"}, ...]}}',
+    '- dish.name は写真全体から推定できる料理・献立名（例: "鶏の唐揚げ定食", "カレーライス"）。複数の料理が写っている場合はまとめて表す名前にしてください。確信が持てない場合は省略して構いません。',
+    '- items[].name は日本語の一般的な食材名（例: "鶏もも肉", "白米", "味噌汁"）。',
     '- grams は写真から推定できる1人前あたりの概算グラム数（0より大きい数値）。',
     '- caloriesPer100g / proteinPer100g / fatPer100g / carbohydratesPer100g は、その食材の一般的な100gあたりの概算栄養成分（0以上の数値）。',
     `- category は次のいずれか一つ（判断が付かなければ「その他・未分類」）：${AI_FOOD_ITEM_CATEGORIES.join('／')}`,
@@ -73,7 +74,7 @@ export type MealPhotoLabelDraft = {
 }
 
 export type MealPhotoAnalysisResult =
-  | { type: 'dish'; items: DishIngredientSuggestion[] }
+  | { type: 'dish'; name?: string; items: DishIngredientSuggestion[] }
   | { type: 'label'; draft: MealPhotoLabelDraft }
 
 function parseLabelRecord(record: Record<string, unknown>): MealPhotoLabelDraft | null {
@@ -167,13 +168,20 @@ export function parseMealPhotoAnalysis(rawText: string): MealPhotoAnalysisResult
     // （下記へ続行）。
   }
 
-  const dishItemsSource =
+  // 料理記録に料理名を表示できるようにする（指示書2026-09-15）：dish.items に加えて
+  // dish.name（推定される料理・献立名、任意）も一緒にパースする。dishSourceが無い
+  // フォールバック（record.itemsを直接使う既存の緩い互換パス）の場合は、料理名も
+  // トップレベルのrecord.name等から拾う（無ければundefinedのまま＝下書き欄は空欄）。
+  const dishSource =
     record.dish && typeof record.dish === 'object' && !Array.isArray(record.dish)
-      ? (record.dish as Record<string, unknown>).items
-      : record.items
-  const items = parseDishIngredientEntries(dishItemsSource)
+      ? (record.dish as Record<string, unknown>)
+      : null
+  const items = parseDishIngredientEntries(dishSource ? dishSource.items : record.items)
   if (items && items.length > 0) {
-    return { type: 'dish', items }
+    const dishNameSource = dishSource ?? record
+    const dishNameRaw = dishNameSource.name ?? dishNameSource.dishName ?? dishNameSource.dish_name
+    const dishName = typeof dishNameRaw === 'string' ? dishNameRaw.trim() : ''
+    return { type: 'dish', items, ...(dishName ? { name: dishName } : {}) }
   }
 
   return null

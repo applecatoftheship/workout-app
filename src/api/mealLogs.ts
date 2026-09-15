@@ -20,6 +20,9 @@ export type MealLogInput = {
   // この食事をとった時刻（ISO 8601、timestamptz。スプリント4 Phase 1追加）。
   // 未指定の場合はNULLのまま保存する。
   mealTime?: string
+  // 料理名の表示機能（2026年9月15日追加）：任意項目。未指定・空文字の場合は
+  // NULLのまま保存する（食材ベースの既存記録方式は変更しない）。
+  dishName?: string
 }
 
 type MealLogRow = {
@@ -28,6 +31,7 @@ type MealLogRow = {
   meal_type: string
   notes: string | null
   meal_time: string | null
+  dish_name: string | null
   created_at: string
   updated_at: string
 }
@@ -88,6 +92,7 @@ export async function fetchMealLogs(): Promise<MealLog[]> {
       carbohydrates: Math.round(totals.carbohydrates),
       notes: row.notes ?? undefined,
       mealTime: row.meal_time ?? undefined,
+      dishName: row.dish_name ?? undefined,
       createdAt: row.created_at as DateString,
       updatedAt: row.updated_at as DateString,
     }
@@ -103,6 +108,7 @@ export async function upsertMealLog(input: MealLogInput): Promise<void> {
     meal_type: input.mealType,
     notes: input.notes ?? null,
     meal_time: input.mealTime ?? null,
+    dish_name: input.dishName?.trim() || null,
   })
 
   if (logError) {

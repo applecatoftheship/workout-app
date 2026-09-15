@@ -29,6 +29,11 @@ describe('buildMealPhotoPrompt', () => {
     const prompt = buildMealPhotoPrompt('dish')
     expect(prompt).toContain('調理済みの料理・食品そのものである可能性が高いです')
   })
+
+  it('料理名（dish.name）の推定を要求する（指示書2026-09-15）', () => {
+    const prompt = buildMealPhotoPrompt()
+    expect(prompt).toContain('dish.name')
+  })
 })
 
 describe('parseMealPhotoAnalysis', () => {
@@ -119,6 +124,52 @@ describe('parseMealPhotoAnalysis', () => {
   it('typeが未指定でもitemsがあればdishとして扱う', () => {
     const raw = JSON.stringify({ items: [{ name: '食パン', grams: 60, caloriesPer100g: 260, proteinPer100g: 9, fatPer100g: 4, carbohydratesPer100g: 47 }] })
     expect(parseMealPhotoAnalysis(raw)?.type).toBe('dish')
+  })
+
+  it('dish.nameが指定されていればnameフィールドに含める（料理名の表示機能、2026-09-15）', () => {
+    const raw = JSON.stringify({
+      type: 'dish',
+      dish: {
+        name: '鶏の唐揚げ定食',
+        items: [{ name: '白米', grams: 150, caloriesPer100g: 168, proteinPer100g: 2.5, fatPer100g: 0.3, carbohydratesPer100g: 37 }],
+      },
+    })
+    const result = parseMealPhotoAnalysis(raw)
+    expect(result?.type).toBe('dish')
+    expect(result?.type === 'dish' && result.name).toBe('鶏の唐揚げ定食')
+  })
+
+  it('dish.nameが前後空白付きでもtrimして格納する', () => {
+    const raw = JSON.stringify({
+      type: 'dish',
+      dish: {
+        name: '  カレーライス  ',
+        items: [{ name: '白米', grams: 150, caloriesPer100g: 168, proteinPer100g: 2.5, fatPer100g: 0.3, carbohydratesPer100g: 37 }],
+      },
+    })
+    const result = parseMealPhotoAnalysis(raw)
+    expect(result?.type === 'dish' && result.name).toBe('カレーライス')
+  })
+
+  it('dish.nameが未指定・空文字の場合はnameフィールド自体を含めない', () => {
+    const raw = JSON.stringify({
+      type: 'dish',
+      dish: {
+        items: [{ name: '白米', grams: 150, caloriesPer100g: 168, proteinPer100g: 2.5, fatPer100g: 0.3, carbohydratesPer100g: 37 }],
+      },
+    })
+    const result = parseMealPhotoAnalysis(raw)
+    expect(result?.type === 'dish' && 'name' in result).toBe(false)
+
+    const rawEmptyName = JSON.stringify({
+      type: 'dish',
+      dish: {
+        name: '   ',
+        items: [{ name: '白米', grams: 150, caloriesPer100g: 168, proteinPer100g: 2.5, fatPer100g: 0.3, carbohydratesPer100g: 37 }],
+      },
+    })
+    const resultEmptyName = parseMealPhotoAnalysis(rawEmptyName)
+    expect(resultEmptyName?.type === 'dish' && 'name' in resultEmptyName).toBe(false)
   })
 
   it('dish.itemsが空配列ならnull', () => {

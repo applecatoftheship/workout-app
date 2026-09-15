@@ -27,7 +27,10 @@ export function MealLogCard({ mealLog, setMealLogs, onEdit }: MealLogCardProps) 
       return
     }
 
-    const foodsSummary = mealLog.foods.length > 0 ? mealLog.foods.join('・') : '記録なし'
+    // 料理名の表示機能（2026年9月15日追加）：削除確認ダイアログの対象特定文言は
+    // 料理名があればそちらを優先する（CLAUDE.mdの「削除確認ダイアログの文言改善」
+    // 方針＝対象を特定できる文言、を料理名がある場合はより簡潔に満たせるため）。
+    const foodsSummary = mealLog.dishName || (mealLog.foods.length > 0 ? mealLog.foods.join('・') : '記録なし')
     const confirmed = await confirm(`${mealLog.date}の食事記録（${foodsSummary}）を削除しますか？`)
     if (!confirmed) {
       return
@@ -57,7 +60,19 @@ export function MealLogCard({ mealLog, setMealLogs, onEdit }: MealLogCardProps) 
           </button>
         </div>
       </div>
-      <p className="meal-log-card__foods">{mealLog.foods.length > 0 ? mealLog.foods.join('・') : '記録なし'}</p>
+      {/* 料理名の表示機能（2026年9月15日追加）：料理名があれば主表示、食材の内訳
+          （既存の・区切り表示）はその下に副次表示する。料理名が無い場合は
+          従来通り食材の内訳のみを主表示のまま維持する（リグレッションなし）。 */}
+      {mealLog.dishName ? (
+        <>
+          <p className="meal-log-card__dish-name">{mealLog.dishName}</p>
+          <p className="meal-log-card__foods meal-log-card__foods--secondary">
+            {mealLog.foods.length > 0 ? mealLog.foods.join('・') : '記録なし'}
+          </p>
+        </>
+      ) : (
+        <p className="meal-log-card__foods">{mealLog.foods.length > 0 ? mealLog.foods.join('・') : '記録なし'}</p>
+      )}
       <p className="meal-log-card__totals">
         {mealLog.calories}kcal / P{mealLog.protein}g F{mealLog.fat}g C{mealLog.carbohydrates}g
       </p>

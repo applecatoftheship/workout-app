@@ -110,6 +110,15 @@
   margin-bottom: 4px !important;
 }
 
+/* 料理名の表示機能（2026年9月15日追加） */
+.daily-report__dish-name {
+  font-weight: 600;
+}
+
+.daily-report__meal-foods--secondary {
+  color: var(--color-text-secondary) !important;
+}
+
 .daily-report__exercise-list {
   margin: 6px 0 0 14px;
   padding: 0;

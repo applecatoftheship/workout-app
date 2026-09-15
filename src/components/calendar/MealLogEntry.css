@@ -58,6 +58,20 @@
   font-size: var(--font-size-body);
 }
 
+/* 料理名の表示機能（2026年9月15日追加）：料理名を主表示にする場合、食材の内訳は
+   このmodifierで副次表示（小さめ・secondaryカラー）に落とす。 */
+.meal-log-card__dish-name {
+  margin: 0 0 2px;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-weight: 700;
+}
+
+.meal-log-card__foods--secondary {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
 .meal-log-card__totals {
   margin: 0;
   color: var(--color-text-secondary);

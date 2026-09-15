@@ -187,7 +187,17 @@ export function DailyReportModal({
                   {dayMealLogs.map((log, index) => (
                     <div key={log.id ?? index} className="daily-report__item">
                       <p className="daily-report__item-head">{getMealTypeLabel(log.mealType)}</p>
-                      <p>内容: {log.foods.join('・')}</p>
+                      {/* 料理名の表示機能（2026年9月15日追加）：MealLogCard.tsxと同じく
+                          料理名があれば主表示（強調）、食材の内訳は副次表示にする。
+                          料理名が無い場合は従来通りの表示のまま。 */}
+                      {log.dishName ? (
+                        <>
+                          <p className="daily-report__dish-name">{log.dishName}</p>
+                          <p className="daily-report__meal-foods--secondary">内容: {log.foods.join('・')}</p>
+                        </>
+                      ) : (
+                        <p>内容: {log.foods.join('・')}</p>
+                      )}
                       <p>
                         カロリー: {log.calories}kcal / P{log.protein}g F{log.fat}g C{log.carbohydrates}g
                       </p>

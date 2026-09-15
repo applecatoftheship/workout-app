@@ -77,6 +77,11 @@ export interface MealLog extends BaseRecord {
   // 現在はMealLogCardでの時刻表示、MealSummaryの食事タイミング別グルーピング
   // 内でのソートに使用）。timestamptz文字列（ISO 8601）。既存行はNULL。
   mealTime?: string;
+  // 料理名の表示機能（2026年9月15日追加）：任意項目。料理プリセット選択時の
+  // 自動セット・手動入力・Gemini画像解析の下書きのいずれかで埋まる想定。
+  // 栄養計算のソースオブトゥルースは引き続きmeal_log_food_items（食材ベース）で、
+  // この列はあくまで表示用のラベル。既存行はNULL。
+  dishName?: string;
 }
 
 export interface FoodItem extends BaseRecord {

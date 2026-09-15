@@ -113,6 +113,11 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   const [mealType, setMealType] = useState<MealType | ''>('')
   const [mealTime, setMealTime] = useState(getCurrentTimeHHMM())
   const [notes, setNotes] = useState('')
+  // 料理名の表示機能（2026年9月15日追加）：任意入力。料理プリセット選択時の自動
+  // セット・Gemini画像解析（料理写真）の下書き反映・手動入力のいずれでも埋まる。
+  // 栄養計算のソースオブトゥルースは引き続きitems（食材ベース）のまま、これは
+  // あくまで表示用ラベル。
+  const [dishName, setDishName] = useState('')
   const [items, setItems] = useState<MealFoodItemCardValue[]>([])
   const [previousAmounts, setPreviousAmounts] = useState<Record<string, number | null>>({})
   const [inputMode, setInputMode] = useState<'food' | 'dish'>('food')
@@ -202,6 +207,7 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
 
     setMealType(existing.mealType)
     setNotes(existing.notes ?? '')
+    setDishName(existing.dishName ?? '')
     setMealTime(existing.mealTime ? extractTimeHHMMFromISO(existing.mealTime) : getCurrentTimeHHMM())
 
     fetchMealLogItems(mealLogId)
@@ -347,6 +353,13 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
 
   const handleMealPhotoResult = (result: MealPhotoAnalysisResult) => {
     if (result.type === 'dish') {
+      // 料理名の表示機能（2026年9月15日追加）：Geminiが料理名を推定できていれば
+      // 料理名欄へ編集可能な下書きとして反映する（DBには保存ボタンを押すまで
+      // 書き込まれない。既存のAI提案の設計方針を踏襲）。推定できなかった場合
+      // （result.name未指定）は既存の入力内容を上書きしない。
+      if (result.name) {
+        setDishName(result.name)
+      }
       void handleMealPhotoDishItems(result.items)
       return
     }
@@ -407,6 +420,10 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
         }
       })
     setItems((current) => [...current, ...newItems])
+    // 料理名の表示機能（2026年9月15日追加）：料理プリセット選択時に料理名欄へ
+    // 自動セットする（保存前にユーザーが編集・クリア可能な通常の入力欄。複数の
+    // 料理を続けて選んだ場合は指示書の判断通り上書きでよい）。
+    setDishName(selectedDish.name)
     setSelectedDishId('')
     setErrors((current) => ({ ...current, items: undefined }))
   }
@@ -573,6 +590,7 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
       mealType: mealType as MealType,
       notes: notes.trim() || undefined,
       mealTime: mealTime ? combineDateAndTimeToISO(selectedDate, mealTime) : undefined,
+      dishName: dishName.trim() || undefined,
       items: inputItems,
     }
 
@@ -786,6 +804,23 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
                 </div>
               </>
             )}
+          </div>
+
+          {/* 料理名の表示機能（2026年9月15日追加）：任意入力。料理プリセット選択時
+              （handleAddDishToSelections）・Gemini画像解析の下書き反映
+              （handleMealPhotoResult）のどちらでも自動セットされるが、ここで
+              いつでも編集・クリアできる通常の入力欄。food/dishどちらのタブでも
+              共通して見えるよう、タブ切り替えの外に置く。 */}
+          <div className="calendar-detail__exercise-form">
+            <label className="calendar-detail__field calendar-detail__field--full">
+              <span>料理名（任意）</span>
+              <input
+                type="text"
+                value={dishName}
+                onChange={(event) => setDishName(event.target.value)}
+                placeholder="例: 鶏の唐揚げ定食"
+              />
+            </label>
           </div>
 
           <div className="calendar-detail__exercise-form">
