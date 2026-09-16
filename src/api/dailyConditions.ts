@@ -61,13 +61,28 @@ export async function fetchRecentWeight(beforeDate: DateString): Promise<number 
   return rows[0]?.weight ?? null
 }
 
-export async function fetchDailyConditions(): Promise<DailyCondition[]> {
+// パフォーマンス改善フェーズ2（2026年9月16日）：trainingLogs.ts/mealLogs.tsの
+// fetchTrainingLogs/fetchMealLogsと同じ理由・同じ方針でstartDate/endDateを
+// optionalにしてある（ACWR・移動平均・BadgeGalleryの連続記録バッジが全履歴を
+// 前提にするため、App.tsx側のグローバル初回取得は引数省略＝全件取得のまま維持）。
+// daily_conditionsは子テーブルを持たないフラットな構造のため、日付レンジの
+// 有無に関わらずこの関数単独の修正で完結する。
+export async function fetchDailyConditions(startDate?: DateString, endDate?: DateString): Promise<DailyCondition[]> {
   const userId = await getCurrentUserId()
-  const { data, error } = await supabase
+  let query = supabase
     .from('daily_conditions')
     .select('*')
     .eq('user_id', userId)
     .order('log_date', { ascending: true })
+
+  if (startDate) {
+    query = query.gte('log_date', startDate)
+  }
+  if (endDate) {
+    query = query.lte('log_date', endDate)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     throw error

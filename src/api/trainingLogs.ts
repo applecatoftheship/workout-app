@@ -157,29 +157,61 @@ function rowToTrainingLog(row: TrainingLogRow, exercises: TrainingLogExercise[])
   }
 }
 
-export async function fetchTrainingLogs(): Promise<TrainingLog[]> {
+// パフォーマンス改善フェーズ2（2026年9月16日）：startDate/endDateは
+// fetchWorkouts/fetchSportLogsと同じ`log_date`範囲指定だが、あちらと異なり
+// 両方ともoptionalにしてある。App.tsx側のグローバル初回取得はACWR（直近28日）・
+// 移動平均（過去週にも遡る7日窓）・ProgressGraphの「全期間」タブ・1RM/PR機能の
+// 自己ベスト（生涯記録）・BadgeGalleryの連続記録バッジ等、全履歴を前提にした
+// 既存機能が複数依存しているため、引数省略時＝全件取得という従来の挙動を
+// 維持する必要がある（調査・ユーザー確認の結果、App.tsx側の呼び出しは
+// 今回スコープ化しない判断とした）。一方で子テーブル（training_log_exercises・
+// training_sets）は、親であるtraining_logsの取得結果（絞り込み済みならその
+// IDのみ、絞り込み無しなら全件のID）にin()でスコープする形に修正した。
+// 従来は子テーブルを無条件で全件取得しており、技術的負債2番（他ユーザーの
+// 生データが一度クライアントに送信される）の一因になっていたため、
+// 日付レンジの有無に関わらずこの部分は常に安全側に是正している。
+export async function fetchTrainingLogs(startDate?: DateString, endDate?: DateString): Promise<TrainingLog[]> {
   const userId = await getCurrentUserId()
-  const { data: logRows, error: logError } = await supabase
+  let logQuery = supabase
     .from('training_logs')
     .select('*')
     .eq('user_id', userId)
     .order('log_date', { ascending: true })
 
+  if (startDate) {
+    logQuery = logQuery.gte('log_date', startDate)
+  }
+  if (endDate) {
+    logQuery = logQuery.lte('log_date', endDate)
+  }
+
+  const { data: logRows, error: logError } = await logQuery
+
   if (logError) {
     throw logError
+  }
+
+  const logIds = (logRows as TrainingLogRow[]).map((row) => row.id)
+
+  if (logIds.length === 0) {
+    return []
   }
 
   const { data: exerciseRows, error: exerciseError } = await supabase
     .from('training_log_exercises')
     .select('*')
+    .in('training_log_id', logIds)
 
   if (exerciseError) {
     throw exerciseError
   }
 
-  const { data: setRows, error: setError } = await supabase
-    .from('training_sets')
-    .select('*')
+  const exerciseIds = (exerciseRows as TrainingLogExerciseRow[]).map((row) => row.id)
+
+  const { data: setRows, error: setError } =
+    exerciseIds.length > 0
+      ? await supabase.from('training_sets').select('*').in('training_log_exercise_id', exerciseIds)
+      : { data: [] as TrainingSetRow[], error: null }
 
   if (setError) {
     throw setError

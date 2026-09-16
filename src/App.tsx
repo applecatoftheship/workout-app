@@ -1,20 +1,14 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import './App.css'
-import { MonthlyCalendar } from './pages/MonthlyCalendar'
-import { ProgressGraph } from './pages/ProgressGraph'
-import { Dashboard } from './pages/Dashboard'
-import { Settings } from './pages/Settings'
 import { BottomNav } from './components/BottomNav'
 import { RecordSheet } from './components/RecordSheet'
-import { RecordFormModal } from './components/RecordFormModal'
 import type { RecordModalRequest } from './components/RecordFormModal'
 import { fetchDailyConditions } from './api/dailyConditions'
 import { fetchGoalsByMonth } from './api/goals'
 import { fetchTrainingLogs } from './api/trainingLogs'
 import { fetchMealLogs } from './api/mealLogs'
 import { fetchProfile } from './api/profiles'
-import { UserProfile } from './pages/UserProfile'
 import { useTheme } from './hooks/useTheme'
 import { ToastProvider, useToast } from './hooks/useToast'
 import { ConfirmProvider } from './hooks/useConfirm'
@@ -26,6 +20,21 @@ import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import type { Goals } from './api/goals'
 import type { DateString, DailyCondition, MealLog, Profile, TrainingLog } from './types'
+
+// パフォーマンス改善フェーズ2（2026年9月16日）：ルート単位のコード分割。
+// Dashboard・MonthlyCalendar・ProgressGraph・Settings・UserProfileはBottomNav経由の
+// 画面遷移でのみ必要になるため、初回バンドルから分離する。RecordFormModal（「＋」タップ時
+// にのみ必要、MealLogWizardModal等の大型フォームを内包し単体でも重い）も同様に分割対象と
+// した。Login/Signupは未ログイン時の初回表示に必須のため分割対象から除外している
+// （分割してもAuthGate側に別途Suspense境界が必要になるだけでメリットが薄いため）。
+const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })))
+const MonthlyCalendar = lazy(() => import('./pages/MonthlyCalendar').then((m) => ({ default: m.MonthlyCalendar })))
+const ProgressGraph = lazy(() => import('./pages/ProgressGraph').then((m) => ({ default: m.ProgressGraph })))
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
+const UserProfile = lazy(() => import('./pages/UserProfile').then((m) => ({ default: m.UserProfile })))
+const RecordFormModal = lazy(() =>
+  import('./components/RecordFormModal').then((m) => ({ default: m.RecordFormModal })),
+)
 
 // アプリ起動演出刷新（ART DECO CLASSICテーマ、2026年8月28日）：SplashScreen.tsxの
 // CSSアニメーション一式（リング描画→ダンベルスライドイン→心拍ライン描画→
@@ -186,6 +195,7 @@ function AppShell() {
       <SplashScreen isLoadComplete={isInitialLoadComplete} />
 
       <main className="app-shell">
+        <Suspense fallback={null}>
         <Routes>
           <Route
             path="/"
@@ -258,6 +268,7 @@ function AppShell() {
             element={<UserProfile profile={profile} setProfile={setProfile} todayString={todayString} />}
           />
         </Routes>
+        </Suspense>
       </main>
 
       <BottomNav onOpenRecordSheet={() => setIsRecordSheetOpen(true)} />
@@ -274,16 +285,27 @@ function AppShell() {
         }}
       />
 
-      <RecordFormModal
-        request={recordModalRequest}
-        onClose={() => setRecordModalRequest(null)}
-        trainingLogs={trainingLogs}
-        setTrainingLogs={setTrainingLogs}
-        mealLogs={mealLogs}
-        setMealLogs={setMealLogs}
-        dailyConditions={dailyConditions}
-        setDailyConditions={setDailyConditions}
-      />
+      {/* コード分割（2026年9月16日）：RecordFormModal自体は元々request===null時にnullを
+          返すのみでアンマウント時の退場アニメーション等の状態は持たないため
+          （内部useEffectもrequestの変化のたびに毎回状態を作り直す設計）、
+          request!==nullの時だけ条件付きマウントに変更しても挙動は変わらない。
+          こうすることで「＋」タップ（＝recordModalRequestが初めてnullでなくなる瞬間）
+          まで実際にチャンクのダウンロードを遅延できる（常時マウントのままだと
+          Suspense境界があってもチャンク取得自体は初回描画時に走ってしまうため）。 */}
+      {recordModalRequest !== null ? (
+        <Suspense fallback={null}>
+          <RecordFormModal
+            request={recordModalRequest}
+            onClose={() => setRecordModalRequest(null)}
+            trainingLogs={trainingLogs}
+            setTrainingLogs={setTrainingLogs}
+            mealLogs={mealLogs}
+            setMealLogs={setMealLogs}
+            dailyConditions={dailyConditions}
+            setDailyConditions={setDailyConditions}
+          />
+        </Suspense>
+      ) : null}
     </>
   )
 }

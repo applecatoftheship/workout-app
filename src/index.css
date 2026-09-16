@@ -1,7 +1,23 @@
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/500.css';
-@import '@fontsource/inter/600.css';
-@import '@fontsource/inter/700.css';
+/* フォントサブセットの絞り込み（パフォーマンス改善フェーズ2、2026年9月16日）：
+   従来は各ウェイトの combined 版（400.css等）をimportしており、cyrillic/
+   cyrillic-ext/greek/greek-ext/vietnameseの5サブセット（約400KB）も含めて
+   PWAのprecacheマニフェストに乗っていた。--font-baseのフォントスタック
+   （'Inter', -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
+   sans-serif、src/styles/tokens.css）が示す通り、Interは元々CJKグリフを
+   持たないため日本語表示はシステムフォールバックに委ねられており、Inter自体は
+   ラテン文字表示にのみ使われている。調査の結果、srcツリー内にキリル文字・
+   ギリシャ文字・ベトナム語の拡張ラテン文字（結合分音記号付き文字）を含む
+   テキストは存在せず、イタリック体（font-style: italic）の使用箇所も無い
+   ことを確認済み。このためlatin・latin-extサブセットの標準体（normal）のみに
+   絞り込む。 */
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-ext-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-ext-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-ext-600.css';
+@import '@fontsource/inter/latin-700.css';
+@import '@fontsource/inter/latin-ext-700.css';
 @import './styles/tokens.css';
 @import './styles/buttons.css';
 

@@ -16,57 +16,86 @@
 - PWA：vite-plugin-pwa
 - リポジトリ：applecatoftheship/workout-app
 
-## 現在のファイル構成（2026年8月18日時点）
+## 現在のファイル構成（2026年9月16日時点）
 
 画面（pages）・フォーム/グラフ部品（components）・API層（api）・
 ユーティリティ（utils）・型定義（types.ts）に分離済み。
 
 ```
 src/
-  api/            client.ts, dailyConditions.ts, dishes.ts, goals.ts,
-                  trainingLogs.ts（種目マスタ・実績・DEFAULT_USER_ID）,
-                  trainingTemplates.ts, trainingSchedules.ts, foodItems.ts, mealLogs.ts,
-                  soccerLogs.ts
-  utils/          calendarHelpers.ts,
-                  chartHelpers.ts（calculateMovingAverage・TREND_DIRECTION・getTrendTone、
-                  2026年8月17日追加）, soccerCalorieHelpers.ts,
-                  acwrHelpers.ts（ACWR疲労残高計算、2026年8月16〜17日新設）
-  hooks/          useTheme.ts（ダーク/ライト切替、UIブラッシュアップPhase 1）
-  styles/         tokens.css（デザイントークン本体、UIブラッシュアップPhase 1。
-                  --color-ma-weight/-sleep/-fatigue等を2026年8月17日、
-                  部位別ボリューム表示用の--color-bp-*8色を2026年8月17日追加）
-  pages/          Dashboard(.css)（週移動・日付選択の閲覧専用モードを2026年8月17日追加）,
-                  MonthlyCalendar(.css), ProgressGraph(.css)（部位別ボリューム表示・
-                  ドリルダウン対応を2026年8月17日追加）, Settings(.css)
-                  （UIブラッシュアップPhase 2で新規）
+  api/            client.ts（Supabase Authセッション経由のgetCurrentUserId）,
+                  dailyConditions.ts, dishes.ts, dishIngredients.ts, goals.ts,
+                  trainingLogs.ts（種目マスタ・実績）, trainingTemplates.ts,
+                  trainingSchedules.ts, foodItems.ts, mealLogs.ts,
+                  mealPhotoAnalysis.ts（Gemini画像解析、2026年9月14日）,
+                  sportLogs.ts（soccer_logsの後継、2026年9月13日）,
+                  workouts.ts（Apple Health連携）, profiles.ts, badges.ts,
+                  dailyComment.ts, dataExport.ts, notifications.ts,
+                  pushSubscriptions.ts
+  utils/          calendarHelpers.ts, chartHelpers.ts（calculateMovingAverage等）,
+                  acwrHelpers.ts（ACWR疲労残高計算）,
+                  sportCalorieHelpers.ts（soccerCalorieHelpers.tsを吸収・削除、
+                  2026年9月13日）, nameMatching.ts（類似名確認ダイアログ用、
+                  2026年8月19〜20日）, oneRepMaxHelpers.ts・
+                  trainingVolumeSummaryHelpers.ts（1RM推移・自己ベスト・総ボリューム
+                  可視化、2026年9月15日）, mealPhotoHelpers.ts・imagePrep.ts
+                  （Gemini画像解析）, dishIngredientHelpers.ts,
+                  periodizationHelpers.ts（MD基準の栄養・負荷調整）,
+                  healthMetricsHelpers.ts・healthAutoExportHelpers.ts・
+                  healthDataTrackerHelpers.ts・appleHealthSyncHelpers.ts
+                  （Apple Health連携）, streakHelpers.ts, retryHelpers.ts
+                  （Gemini呼び出しの汎用リトライ処理）、他
+  hooks/          useAuth.tsx, useTheme.ts, useToast.tsx, useConfirm.tsx,
+                  useBadgeEvaluator.ts, useDailyAiComment.ts, usePushSubscription.ts
+  styles/         tokens.css（デザイントークン本体）, buttons.css
+  pages/          Dashboard(.css), MonthlyCalendar(.css), ProgressGraph(.css),
+                  Settings(.css), Login.tsx, Signup.tsx, UserProfile(.css)
   components/
-    GoalPanel(.css)
-    BottomNav(.tsx/.css), RecordSheet(.tsx/.css), icons.tsx
-                  （下部ナビ・記録シート・アイコン集、UIブラッシュアップPhase 2で新規）
-    ACWRGaugeCard(.tsx/.css)（疲労残高ゲージ、2026年8月16〜17日新設）
-    calendar/     TrainingLogForm.tsx, MealLogForm.tsx, ConditionForm.tsx, ScheduleForm.tsx,
-                  BulkScheduleImportModal(.tsx/.css)（予定に加えトレーニング/食事/体調の
-                  一括取り込みと種目名・食材名のフォールバックマッチングに2026年8月17〜18日拡張）,
-                  ExerciseNameInput.tsx, DishFormModal(.tsx/.css),
-                  GenreFoodPicker.tsx, SoccerLogForm.tsx, CalendarForms.css
-    graphs/       TrainingChart（実施回数・達成率等のサマリーカードのみに縮小、
-                  2026年8月18日）, TrainingVolumeChart（総ボリューム推移ヒーロー
-                  グラフ、2026年8月18日新規）, TrainingBodyPartDonut（部位バランス
-                  円グラフ、2026年8月18日新規）, TrainingBodyPartList（部位別詳細
-                  リスト・ドリルダウン、TrainingChartから分離、2026年8月18日新規）,
-                  WeightChart, SleepChart, FatigueChart, ChartCommon.css
-  App.tsx / App.css   状態管理・データ取得・ビュー切替のみ（AI一括取り込み後の
-                  グローバル状態再取得用に2026年8月17日、setTrainingLogs等を
-                  MonthlyCalendar経由でBulkScheduleImportModalに受け渡し）
+    ACWRGaugeCard(.css), BadgeGallery(.css), BottomNav(.css), GoalPanel(.css),
+    RecordFormModal(.css)（App.tsxから条件付きレンダリング＋React.lazyで分離、
+    パフォーマンス改善フェーズ2・2026年9月16日）, RecordSheet(.css),
+    TrainingTemplateManager.tsx、他
+    calendar/     ConditionForm.tsx, ScheduleForm.tsx, SportLogForm.tsx,
+                  WorkoutForm.tsx（各記録フォーム）, TrainingEditListFlow.tsx・
+                  TrainingExerciseEditModal.tsx・TrainingExerciseCard.tsx・
+                  TrainingSetCard.tsx・ExerciseNameInput.tsx（旧
+                  TrainingLogForm.tsxを種目カード＋編集モーダル分離で置き換え、
+                  2026年8月28日）, MealLogWizardModal.tsx（旧MealLogForm.tsxを
+                  置き換えた3ステップウィザード、2026年8月29日新設。写真解析・
+                  料理名機能の追加で1000行超まで肥大化、下記「既知の技術的負債」
+                  参照）, MealLogCard.tsx・MealFoodItemCard.tsx・
+                  DailyReportModal(.css)・CalendarDaySummaries.tsx（閲覧専用
+                  サマリー表示、編集フォームとは別コンポーネント）,
+                  MealPhotoAnalyzeSection(.css)（Gemini画像解析、2026年9月14日）,
+                  DishFormModal(.css), FoodItemFormModal(.css),
+                  GenreFoodPicker.tsx, ExercisePicker.tsx, SportLogCard.tsx,
+                  WorkoutEditListFlow.tsx, BulkScheduleImportModal(.css),
+                  CalendarForms.css, TrainingExercise.css, MealLogEntry.css
+    graphs/       TrainingChart（サマリーカードのみ）, TrainingVolumeChart,
+                  TrainingBodyPartDonut, TrainingBodyPartList, WeightChart,
+                  SleepChart, FatigueChart, OneRepMaxChart・PersonalBestList
+                  （1RM推移・自己ベスト、2026年9月15日新設）, ChartCommon.css
+    celebration/  CelebrationProvider.tsx, PRCelebrationCard.tsx,
+                  StreakCelebrationCard.tsx, Celebration.css
+    common/       ConfirmDialog(.css)（window.confirm()全廃対応）
+    timer/        RestTimerModal(.css)
+  App.tsx / App.css   状態管理・データ取得・ルーティングのみ。Dashboard・
+                  MonthlyCalendar・ProgressGraph・Settings・UserProfile・
+                  RecordFormModalはReact.lazyでコード分割済み（パフォーマンス
+                  改善フェーズ2、2026年9月16日）
   types.ts        全ドメイン型を集約
 ```
 
-`mockData.ts`は2026年8月12日に完全削除。Dashboard.tsxの当日予定フォールバックは
-training_schedulesからの直接取得に置き換え済み（下記参照）。
+`mockData.ts`は2026年8月12日に完全削除。
 
-`TrainingLogForm.tsx`・`MealLogForm.tsx`は目安の300行を超えているが、
-一体の機能を分割すると追跡しづらくなるため1ファイルにまとめている
-（判断理由は `.claude/references/architecture-history.md` 参照）。
+旧`TrainingLogForm.tsx`・`MealLogForm.tsx`（かつて本セクションで「300行超だが
+分割しない」と記載していたファイル）は、2026年8月28〜29日のUI/UX刷新で
+それぞれ複数ファイルへ分割・置き換えされ、現存しない（本セクションの旧記載が
+陳腐化していたのを2026年9月16日のパフォーマンス調査で発見・修正）。分割の
+経緯・判断理由は`.claude/references/architecture-history.md`参照。現時点で
+最大のファイルは`MealLogWizardModal.tsx`（1055行）で、機能一体性を優先して
+分割しない旧方針を踏襲しているが、1000行を超えており分割検討の目安には
+達している。
 
 ## 重要な運用ルール
 

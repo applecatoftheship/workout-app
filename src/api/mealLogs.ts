@@ -46,19 +46,42 @@ type MealLogFoodItemRow = {
   carbohydrates: number | null
 }
 
-export async function fetchMealLogs(): Promise<MealLog[]> {
+// パフォーマンス改善フェーズ2（2026年9月16日）：trainingLogs.tsのfetchTrainingLogsと
+// 同じ理由・同じ方針でstartDate/endDateをoptionalにしてある（BadgeGalleryの
+// 連続記録バッジがmealLogsも含めて全履歴を前提に計算するため、App.tsx側の
+// グローバル初回取得は引数省略＝全件取得のまま維持）。meal_log_food_itemsは
+// 親（meal_logs）の取得結果のIDにin()でスコープする形に修正した。
+export async function fetchMealLogs(startDate?: DateString, endDate?: DateString): Promise<MealLog[]> {
   const userId = await getCurrentUserId()
-  const { data: logRows, error: logError } = await supabase
+  let logQuery = supabase
     .from('meal_logs')
     .select('*')
     .eq('user_id', userId)
     .order('log_date', { ascending: true })
 
+  if (startDate) {
+    logQuery = logQuery.gte('log_date', startDate)
+  }
+  if (endDate) {
+    logQuery = logQuery.lte('log_date', endDate)
+  }
+
+  const { data: logRows, error: logError } = await logQuery
+
   if (logError) {
     throw logError
   }
 
-  const { data: linkRows, error: linkError } = await supabase.from('meal_log_food_items').select('*')
+  const mealLogIds = (logRows as MealLogRow[]).map((row) => row.id)
+
+  if (mealLogIds.length === 0) {
+    return []
+  }
+
+  const { data: linkRows, error: linkError } = await supabase
+    .from('meal_log_food_items')
+    .select('*')
+    .in('meal_log_id', mealLogIds)
 
   if (linkError) {
     throw linkError
