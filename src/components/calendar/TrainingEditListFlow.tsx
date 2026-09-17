@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { DailyCondition, DateString, MealLog, TrainingLog, TrainingSchedule } from '../../types'
 import { TrainingExerciseCard } from './TrainingExerciseCard'
 import { TrainingExerciseEditModal } from './TrainingExerciseEditModal'
+import './CalendarForms.css'
 
 // トレーニング実績編集UIの画面遷移化（2026年9月3日）：
 // 従来は種目カード（TrainingExerciseCard）に「編集」「削除」導線が常時表示され

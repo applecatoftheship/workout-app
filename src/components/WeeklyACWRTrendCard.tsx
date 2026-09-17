@@ -8,6 +8,12 @@ type WeeklyACWRTrendCardProps = {
   weekPoints: DailyACWRPoint[]
   daysUntilAvailable: number
   onOpenDetail: () => void
+  /** 暫定値表示バグ対応（Phase 0.5、2026年9月17日）：ACWRGaugeCardのisLoadingと
+   * 同じ意図・同じ入力元（Dashboard.tsxのisAcwrWindowDataLoaded）。「データ蓄積中」
+   * （記録日数不足）と意味が異なるため専用表示にする。ロード中は詳細モーダルを
+   * 開いても中身が空のため非活性の<section>にする（ロード完了後の<button>とは
+   * 要素自体を出し分ける）。 */
+  isLoading?: boolean
 }
 
 const TIER_TONE: Record<ACWRInsightTier, string> = {
@@ -40,8 +46,17 @@ function buildSparklinePath(values: number[], width: number, height: number) {
   return { linePoints, areaPath }
 }
 
-export function WeeklyACWRTrendCard({ weekPoints, daysUntilAvailable, onOpenDetail }: WeeklyACWRTrendCardProps) {
+export function WeeklyACWRTrendCard({ weekPoints, daysUntilAvailable, onOpenDetail, isLoading }: WeeklyACWRTrendCardProps) {
   const latestPoint = [...weekPoints].reverse().find((point) => point.acwr != null)
+
+  if (isLoading) {
+    return (
+      <section className="panel-card weekly-acwr-trend weekly-acwr-trend--pending">
+        <h2 className="panel-card__title">週次ACWRトレンド</h2>
+        <p className="panel-card__description">読み込み中...</p>
+      </section>
+    )
+  }
 
   if (!latestPoint) {
     return (

@@ -5,6 +5,7 @@ import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import type { MealLog } from '../../types'
 import './MealLogEntry.css'
+import './CalendarForms.css'
 
 // 食事記録画面UI/UX刷新（meal_logエントリカード＋編集モーダル分離、2026年8月29日）：
 // 閲覧画面：1 meal_logエントリ＝1カード（食品名一覧＋合計カロリー/PFC＋時刻のみ、

@@ -283,8 +283,25 @@ export function Dashboard({
 
   // スポーツ記録機能（Tier 4-2、2026年9月12日）：ACWR・ストリークへの反映用に、
   // 「直近28日・常にtoday終端」の範囲でsport_logsを取得する。
+  //
+  // 暫定値表示バグ対応（UIブラッシュアップ Phase 0.5、2026年9月17日）：
+  // マウント直後はacwrSportLogs/acwrWorkoutsが空配列のままacwrResult等が
+  // 計算されてしまい、ワークアウト・スポーツ負荷を0扱いにした「誤った暫定値」
+  // （例：本来🟢最適なのに🔵低下と表示）が一瞬表示される不具合があった
+  // （React Routerの<Routes>切り替えでDashboardが画面遷移のたびにアンマウント/
+  // 再マウントされる構造は2026年9月16日のReact.lazy化以前から存在していたが、
+  // 同日の変更でDashboard自体のJSチャンク取得が追加で先行するようになり、
+  // 「正しい値が出るまでの体感時間」が伸びて目立つようになったと見られる
+  // ——2026年9月17日のUI/UX棚卸し・原因調査で判明）。
+  // isAcwrSportLogsLoaded/isAcwrWorkoutsLoadedで両fetchの完了（成功・失敗いずれも）
+  // を追跡し、両方完了するまではacwrResult等を「データ未確定」を表す値
+  // （null・空配列・false）に固定する。acwrHelpers.ts側の計算ロジック自体は
+  // 無変更（Dashboard.tsx側の表示タイミング制御のみで対応）。
+  const [isAcwrSportLogsLoaded, setIsAcwrSportLogsLoaded] = useState(false)
+
   useEffect(() => {
     let isMounted = true
+    setIsAcwrSportLogsLoaded(false)
 
     fetchSportLogs(acwrChronicStartKey, todayString)
       .then((data) => {
@@ -294,6 +311,11 @@ export function Dashboard({
       })
       .catch((error) => {
         console.error('Supabaseから疲労残高計算用のスポーツ記録の取得に失敗しました', error)
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsAcwrSportLogsLoaded(true)
+        }
       })
 
     return () => {
@@ -309,9 +331,11 @@ export function Dashboard({
   // 範囲を使っていたが、同機能の削除（2026年8月30日）に伴いACWR専用の
   // 取得理由のみが残っている）。
   const [acwrWorkouts, setAcwrWorkouts] = useState<Workout[]>([])
+  const [isAcwrWorkoutsLoaded, setIsAcwrWorkoutsLoaded] = useState(false)
 
   useEffect(() => {
     let isMounted = true
+    setIsAcwrWorkoutsLoaded(false)
 
     fetchWorkouts(acwrChronicStartKey, todayString)
       .then((data) => {
@@ -322,11 +346,19 @@ export function Dashboard({
       .catch((error) => {
         console.error('Supabaseから疲労残高計算用のワークアウト記録の取得に失敗しました', error)
       })
+      .finally(() => {
+        if (isMounted) {
+          setIsAcwrWorkoutsLoaded(true)
+        }
+      })
 
     return () => {
       isMounted = false
     }
   }, [acwrChronicStartKey, todayString])
+
+  // 両方の取得が完了するまでは「データ未確定」扱いとする（上記コメント参照）。
+  const isAcwrWindowDataLoaded = isAcwrSportLogsLoaded && isAcwrWorkoutsLoaded
 
   // スプリント3（MD基準の栄養調整、2026年8月18日）：MD判定には選択日の前日〜
   // 3日後を含む範囲の予定が必要だが、週間ストリップ用のweekSchedules（週境界で
@@ -434,18 +466,25 @@ export function Dashboard({
     [dailyConditions, todayString],
   )
 
+  // 暫定値表示バグ対応（Phase 0.5、2026年9月17日）：isAcwrWindowDataLoadedが
+  // falseの間（acwrWorkouts/acwrSportLogsのfetchが完了していない間）は、
+  // 空配列のまま計算した「誤った暫定値」を返さずnullを返す。acwrHelpers.ts側の
+  // calculateACWR自体は無変更（データ不足7日未満の場合と同じnull形式を、
+  // ロード未完了の場合にも流用する形でDashboard.tsx側のみで対応）。
   const acwrResult = useMemo(
     () =>
-      calculateACWR(
-        trainingLogs,
-        todayString,
-        todayCondition?.muscleSorenessLevel,
-        todayCondition?.muscleSorenessLocation,
-        acwrWorkouts,
-        dailyConditions,
-        acwrSportLogs,
-      ),
-    [trainingLogs, todayString, todayCondition, acwrWorkouts, dailyConditions, acwrSportLogs],
+      isAcwrWindowDataLoaded
+        ? calculateACWR(
+            trainingLogs,
+            todayString,
+            todayCondition?.muscleSorenessLevel,
+            todayCondition?.muscleSorenessLocation,
+            acwrWorkouts,
+            dailyConditions,
+            acwrSportLogs,
+          )
+        : null,
+    [isAcwrWindowDataLoaded, trainingLogs, todayString, todayCondition, acwrWorkouts, dailyConditions, acwrSportLogs],
   )
   const acwrDaysUntilAvailable = useMemo(
     () => daysUntilACWRAvailable(trainingLogs, todayString, acwrSportLogs),
@@ -454,9 +493,13 @@ export function Dashboard({
   // ディロード自動提案（実装指示書Phase C、2026年8月18日）：直近3日連続で
   // 🔴警戒状態が続いている場合に警告を表示する。ACWRGaugeCard同様、日付選択の
   // 対象外でtodayString基準のまま。
+  // 暫定値表示バグ対応（Phase 0.5、2026年9月17日）：acwrResultと同じ理由で、
+  // ロード未完了の間はfalse（警告なし）とする。
   const showDeloadWarning = useMemo(
-    () => hasConsecutiveDangerDays(trainingLogs, dailyConditions, todayString, 3, acwrWorkouts, acwrSportLogs),
-    [trainingLogs, dailyConditions, todayString, acwrWorkouts, acwrSportLogs],
+    () =>
+      isAcwrWindowDataLoaded &&
+      hasConsecutiveDangerDays(trainingLogs, dailyConditions, todayString, 3, acwrWorkouts, acwrSportLogs),
+    [isAcwrWindowDataLoaded, trainingLogs, dailyConditions, todayString, acwrWorkouts, acwrSportLogs],
   )
 
   // 週次ACWRインサイト機能（2026年8月25日）：ACWRGaugeCard・目標ストリップと同じく
@@ -464,9 +507,14 @@ export function Dashboard({
   // 終端とした直近の推移」という指示書の定義に従う）。28日分をここで一度だけ計算し、
   // ミニカードのスパークライン（末尾7件）・詳細モーダルのメイングラフ（全28件）の
   // 両方で使い回す（DBキャッシュせず動的計算する既存方針はACWR機能全体で踏襲）。
+  // 暫定値表示バグ対応（Phase 0.5、2026年9月17日）：acwrResultと同じ理由で、
+  // ロード未完了の間は空配列とする（WeeklyACWRTrendCard側のisLoading表示に委ねる）。
   const weeklyACWRSeries = useMemo(
-    () => calculateDailyACWRSeries(trainingLogs, todayString, 28, acwrWorkouts, dailyConditions, acwrSportLogs),
-    [trainingLogs, todayString, acwrWorkouts, dailyConditions, acwrSportLogs],
+    () =>
+      isAcwrWindowDataLoaded
+        ? calculateDailyACWRSeries(trainingLogs, todayString, 28, acwrWorkouts, dailyConditions, acwrSportLogs)
+        : [],
+    [isAcwrWindowDataLoaded, trainingLogs, todayString, acwrWorkouts, dailyConditions, acwrSportLogs],
   )
   const [isWeeklyACWRDetailOpen, setIsWeeklyACWRDetailOpen] = useState(false)
 
@@ -798,12 +846,14 @@ export function Dashboard({
         sorenessLocation={todayCondition?.muscleSorenessLocation}
         sorenessLevel={todayCondition?.muscleSorenessLevel}
         showDeloadWarning={showDeloadWarning}
+        isLoading={!isAcwrWindowDataLoaded}
       />
 
       <WeeklyACWRTrendCard
         weekPoints={weeklyACWRSeries.slice(-7)}
         daysUntilAvailable={acwrDaysUntilAvailable}
         onOpenDetail={() => setIsWeeklyACWRDetailOpen(true)}
+        isLoading={!isAcwrWindowDataLoaded}
       />
 
       <section className="panel-card week-strip">

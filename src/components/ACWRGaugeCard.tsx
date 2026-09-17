@@ -11,6 +11,13 @@ type ACWRGaugeCardProps = {
   sorenessLevel?: SorenessLevel
   /** 3日連続で🔴警戒状態が続いているか（実装指示書Phase C、2026年8月18日追加） */
   showDeloadWarning?: boolean
+  /** 暫定値表示バグ対応（Phase 0.5、2026年9月17日）：ACWR計算に必要な
+   * workouts/sportLogsのfetchが完了していない間はtrue。「データ蓄積中
+   * （記録日数が7日未満）」と意味が異なるため、resultがnullでも
+   * isLoadingがtrueの間は「データ蓄積中」メッセージではなく専用の
+   * 読み込み中表示にする（既存の「読み込み中...」文言パターン、
+   * TrainingTemplateManager.tsx等と同じ表記を踏襲）。 */
+  isLoading?: boolean
 }
 
 const STATUS_META: Record<ACWRResult['status'], { emoji: string; label: string; tone: string }> = {
@@ -29,7 +36,23 @@ const STATUS_RING_COLOR_VAR: Record<string, string> = {
   data: '--color-data',
 }
 
-export function ACWRGaugeCard({ result, daysUntilAvailable, sorenessLocation, sorenessLevel, showDeloadWarning }: ACWRGaugeCardProps) {
+export function ACWRGaugeCard({
+  result,
+  daysUntilAvailable,
+  sorenessLocation,
+  sorenessLevel,
+  showDeloadWarning,
+  isLoading,
+}: ACWRGaugeCardProps) {
+  if (isLoading) {
+    return (
+      <section className="panel-card acwr-card">
+        <h2 className="panel-card__title">疲労残高（ACWR）</h2>
+        <p className="panel-card__description">読み込み中...</p>
+      </section>
+    )
+  }
+
   if (!result) {
     return (
       <section className="panel-card acwr-card">

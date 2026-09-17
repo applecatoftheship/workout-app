@@ -7,6 +7,7 @@ import { useToast } from '../../hooks/useToast'
 import { MealPhotoAnalyzeSection } from './MealPhotoAnalyzeSection'
 import type { FoodItem } from '../../types'
 import './FoodItemFormModal.css'
+import './CalendarForms.css'
 
 // 食事編集モーダルの再構成（2026年8月30日）：MealLogEditModal.tsx内に常時展開で
 // 表示されていた「新しい食材をここで登録」8項目のサブフォームを、

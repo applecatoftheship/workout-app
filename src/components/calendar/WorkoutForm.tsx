@@ -15,6 +15,7 @@ import {
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import type { DateString, Workout } from '../../types'
+import './CalendarForms.css'
 
 // 有酸素運動の時間ベース記録フォーム（2026年9月3日）：
 // body_part = '有酸素' の種目（ウォーキング／ランニング／サイクリング）を

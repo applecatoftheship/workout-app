@@ -1,4 +1,5 @@
 import type { FoodItem } from '../../types'
+import './CalendarForms.css'
 
 // 食事記録画面UI/UX刷新（meal_logエントリカード＋編集モーダル分離、2026年8月29日）
 // 1食品明細分のカード。トレーニングのTrainingSetCard.tsxと異なり、食品は本質的に

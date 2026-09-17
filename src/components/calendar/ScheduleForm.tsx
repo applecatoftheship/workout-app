@@ -4,6 +4,7 @@ import { fetchTrainingTemplates } from '../../api/trainingTemplates'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import type { BodyPart, DateString, ScheduleType, TrainingSchedule, TrainingScheduleStatus, TrainingTemplate } from '../../types'
+import './CalendarForms.css'
 
 const QUICK_EMOJIS = ['🏋️', '🏃', '🧘', '💪', '🚴', '😴']
 

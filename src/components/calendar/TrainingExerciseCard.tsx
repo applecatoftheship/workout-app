@@ -5,6 +5,7 @@ import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import type { TrainingLog, TrainingLogExercise } from '../../types'
 import './TrainingExercise.css'
+import './CalendarForms.css'
 
 // トレーニング記録画面UI/UX刷新（種目カード＋編集モーダル分離、2026年8月28日）：
 // 閲覧画面：種目ごとにカード表示（種目名＋記録サマリーのみ、入力欄なし）。

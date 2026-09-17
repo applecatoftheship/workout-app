@@ -10,6 +10,7 @@ import { GenreFoodPicker } from './GenreFoodPicker'
 import { FoodItemFormModal } from './FoodItemFormModal'
 import { useToast } from '../../hooks/useToast'
 import './DishFormModal.css'
+import './CalendarForms.css'
 
 const DEFAULT_FOOD_EMOJI = '🍽️'
 

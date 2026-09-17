@@ -21,6 +21,7 @@ import type {
   TrainingTemplate,
 } from '../../types'
 import './BulkScheduleImportModal.css'
+import './CalendarForms.css'
 
 // AI一括取り込み拡張（2026年8月17日）：既存の予定専用モーダルを、日付ごとに
 // 予定・トレーニング実績・食事記録・体調記録を柔軟に含められる形式に拡張した。

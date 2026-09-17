@@ -5,6 +5,7 @@ import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../../utils/acwrH
 import { deleteDailyConditionRemote, fetchDailyConditions, fetchRecentWeight, upsertDailyCondition } from '../../api/dailyConditions'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
+import './CalendarForms.css'
 
 const MUSCLE_LOCATIONS: MuscleLocation[] = ['none', 'calf_l', 'calf_r', 'hamstring', 'quad', 'groin', 'other']
 const SORENESS_LEVELS: SorenessLevel[] = ['none', 'mild', 'severe']

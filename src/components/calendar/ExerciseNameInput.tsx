@@ -3,6 +3,7 @@ import { createExercise } from '../../api/trainingLogs'
 import { useToast } from '../../hooks/useToast'
 import { findMostSimilarName } from '../../utils/nameMatching'
 import type { BodyPart, ExerciseDefinition } from '../../types'
+import './CalendarForms.css'
 
 const bodyPartOptions: BodyPart[] = ['胸', '肩', '腕', '背', '脚', '腹', '有酸素', 'その他']
 

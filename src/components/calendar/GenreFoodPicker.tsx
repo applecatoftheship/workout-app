@@ -4,6 +4,7 @@ import { deleteFoodItem } from '../../api/foodItems'
 import { isUncategorizedFoodCategory, UNCATEGORIZED_CHIP_LABEL } from '../../utils/foodCategoryHelpers'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
+import './CalendarForms.css'
 
 const UNCATEGORIZED = 'uncategorized'
 const DEFAULT_FOOD_EMOJI = '🍽️'

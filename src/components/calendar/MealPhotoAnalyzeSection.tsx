@@ -4,6 +4,7 @@ import { analyzeMealPhoto } from '../../api/mealPhotoAnalysis'
 import { prepareMealPhotoForAnalysis } from '../../utils/imagePrep'
 import type { MealPhotoAnalysisResult, MealPhotoHint } from '../../utils/mealPhotoHelpers'
 import './MealPhotoAnalyzeSection.css'
+import './CalendarForms.css'
 
 // Gemini画像解析による食事入力（指示書2026-09-14）：食事記録ウィザード・
 // FoodItemFormModalの両方から使う共通UI。写真を選択（またはカメラ撮影）すると、

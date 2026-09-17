@@ -43,6 +43,7 @@ import type {
   TrainingSet,
 } from '../../types'
 import './TrainingExercise.css'
+import './CalendarForms.css'
 
 // スプリント3（MD基準の栄養・トレーニング調整、2026年8月18日）由来。
 // 種目カード＋編集モーダル分離（2026年8月28日）で旧TrainingLogForm.tsxから移設。

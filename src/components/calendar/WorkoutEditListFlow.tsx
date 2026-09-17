@@ -6,6 +6,7 @@ import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import type { DateString, Workout } from '../../types'
 import { WorkoutForm } from './WorkoutForm'
+import './CalendarForms.css'
 
 // 有酸素運動の時間ベース記録への移行（2026年9月3日）：
 // ⑤「記録を編集」の画面遷移パターン（一覧→選択→編集）をワークアウトにも踏襲。

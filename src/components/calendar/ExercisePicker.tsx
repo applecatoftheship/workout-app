@@ -3,6 +3,7 @@ import type { BodyPart, ExerciseDefinition } from '../../types'
 import { deleteExercise } from '../../api/trainingLogs'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
+import './CalendarForms.css'
 
 /**
  * カレンダー構造変更・記録モーダル・トレーニング刷新 実装指示書 Phase E（2026年8月16日）

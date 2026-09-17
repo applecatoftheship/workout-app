@@ -25,6 +25,7 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { DISH_CATEGORIES } from '../../types'
 import type { DateString, DishCategory, DishWithDetails, FoodItem, MealLog, MealSize, MealType } from '../../types'
 import './MealLogEntry.css'
+import './CalendarForms.css'
 
 // 食事記録画面の3ステップ画面遷移化（2026年9月3日、John承認済み）：
 // 旧MealLogEditModal.tsx（1画面に全項目を縦積み）を、以下の3ステップの

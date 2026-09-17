@@ -15,6 +15,7 @@ import { TrainingExerciseCard } from './TrainingExerciseCard'
 import { MealLogCard } from './MealLogCard'
 import { SportLogCard } from './SportLogCard'
 import { useToast } from '../../hooks/useToast'
+import './CalendarForms.css'
 
 /**
  * カレンダー構造変更・記録モーダル・トレーニング刷新 実装指示書 Phase C（2026年8月16日）

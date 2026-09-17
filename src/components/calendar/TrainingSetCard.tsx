@@ -1,6 +1,7 @@
 // トレーニング記録画面UI/UX刷新（種目カード＋編集モーダル分離、2026年8月28日）
 // セット別詳細モードの1セット分カード。色分けは意味を持たせず、視認性のための
 // 4色循環（training-set-card--0〜3）とする。
+import './CalendarForms.css'
 
 const COLOR_VARIANTS = 4
 

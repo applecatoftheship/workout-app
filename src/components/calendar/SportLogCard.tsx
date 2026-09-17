@@ -4,6 +4,7 @@ import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import { OTHER_SPORT_TYPE } from '../../utils/sportCalorieHelpers'
 import type { SportLog } from '../../types'
+import './CalendarForms.css'
 
 // スポーツ記録機能（Tier 4-2：競技の拡張、2026年9月12日追加修正：1日複数件
 // 対応）：MealLogCard.tsxと同じ「leafコンポーネント自身がconfirm+API呼び出しを
