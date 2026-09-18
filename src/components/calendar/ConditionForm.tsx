@@ -380,7 +380,9 @@ export function ConditionForm({
           </div>
         </div>
       ) : (
-        <p className="calendar-detail__empty">記録なし</p>
+        // 2026年9月18日：空状態文言の統一（UIブラッシュアップPhase1・低リスク
+        // 改善#9）。CalendarDaySummaries.tsxの体調セクションと同じ表現に統一。
+        <p className="calendar-detail__empty">🌙 まだ体調記録がありません</p>
       )}
     </div>
   )

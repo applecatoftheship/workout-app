@@ -23,41 +23,28 @@
 
 :root {
   /*
-   * 旧トークン名（2026年8月時点の「ナイター照明の下のピッチ」ブランド）を
-   * 新トークンへのエイリアスとして残している。既存CSSファイルはこの旧名を
-   * 参照したままだが、値は新パレット（オレンジ/ティール）を指すため配色は
-   * 即座に新パレットへ移行する。旧名の参照自体は、各画面がPhase 3〜5で
-   * リデザインされる際に新トークン名へ順次置き換えて削除する予定
-   * （2026年8月16日、技術的負債9番の解消でGoalPanel.css・
-   * BulkScheduleImportModal.css・DishFormModal.cssの3ファイルを移行し、
-   * それらでしか参照されていなかった --color-ink / --color-pitch-text /
-   * --color-amber-text / --color-red-text / --font-display / --font-mono
-   * のエイリアス定義は削除済み。--color-surface / --color-surface-muted /
-   * --color-text / --color-pitch / --font-sans は src/App.css がまだ
-   * 参照しているため残存）。
-   * 例外：--color-ink-soft / --color-hero-muted は
-   * ダッシュボードの「常に濃紺のヒーローカード」専用色で新トークンに
-   * 対応物がないため固定値のまま維持する（ヒーローカード自体はPhase 3で
-   * 撤去済みで現在は参照ゼロだが、このファイルの移行スコープ外のため未整理）。
+   * 旧トークン名の一括削除（2026年9月18日、UIブラッシュアップPhase1・
+   * 低リスク改善#8）：このブロックにはかつて「ナイター照明の下のピッチ」
+   * ブランド（2026年8月以前）からの移行用エイリアスが並んでいたが、最後の
+   * 参照元だったsrc/App.cssおよびこのファイル自身の参照箇所を現行トークン名
+   * （--color-bg-surface・--color-bg-elevated・--color-text-primary・
+   * --color-accent・--font-base）へ置き換えたため、エイリアス定義
+   * （--color-surface・--color-surface-muted・--color-text・--color-pitch・
+   * --font-sans）を削除した。あわせて、参照元が一つも無いことを確認できた
+   * 完全なデッドコードも同時に削除した：--color-ink-soft・--color-hero-muted
+   * （旧「常に濃紺のヒーローカード」専用色。ヒーローカード自体はPhase 3で
+   * 撤去済みで、指示で参照ゼロと確認済みだった2つ）に加え、調査の過程で
+   * 新たに参照ゼロと判明した--color-pitch-soft・--color-amber・
+   * --color-amber-soft・--color-red・--color-red-softも削除した
+   * （--color-bgのみ、このファイル内のbody背景色指定で現に使われているため
+   * 残置）。
    */
   --color-bg: var(--color-bg-base);
-  --color-surface: var(--color-bg-surface);
-  --color-surface-muted: var(--color-bg-elevated);
-  --color-ink-soft: #1c2427;
-  --color-text: var(--color-text-primary);
-  --color-hero-muted: #8fa79a;
-  --color-pitch: var(--color-accent);
-  --color-pitch-soft: var(--color-accent-soft);
-  --color-amber: var(--color-warning);
-  --color-amber-soft: var(--color-warning-soft);
-  --color-red: var(--color-danger);
-  --color-red-soft: var(--color-danger-soft);
-  --font-sans: var(--font-base);
 
-  font-family: var(--font-sans);
+  font-family: var(--font-base);
   line-height: 1.5;
   font-weight: 400;
-  color: var(--color-text);
+  color: var(--color-text-primary);
   background: var(--color-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -130,6 +117,37 @@ button:not(:disabled):active {
   animation: reveal-fade-in 0.35s ease-out 0.85s both;
 }
 
+/*
+ * モーダル開閉トランジションの統一（2026年9月18日、UIブラッシュアップPhase1・
+ * 低リスク改善#3）：RecordSheet.css（常時マウント＋isOpenクラストグルによる
+ * transition方式）とは異なり、他の11個のモーダルはすべて条件付きマウント
+ * （親が`{isOpen && <Modal />}`の形でレンダーするパターン）のため、マウント時に
+ * 自動再生されるCSSアニメーション（@keyframes）方式を採用する。この方式は
+ * celebration/Celebration.css（celebration-backdrop-in・celebration-card-in）で
+ * 既に使われている既存パターンを踏襲したもの。閉じる際の退場アニメーションは、
+ * アンマウントのタイミングを遅らせるJS側のstate管理が別途必要になり、CSSのみの
+ * 低リスク範囲を超えるため今回は対象外とした（開くときのみ）。
+ */
+@keyframes modal-overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-content-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   button:not(:disabled) {
     transition: none;
@@ -140,6 +158,34 @@ button:not(:disabled):active {
   }
 
   .reveal-fade {
+    animation: none;
+  }
+
+  .record-sheet-overlay,
+  .record-sheet {
+    transition: none;
+  }
+
+  .notification-modal__overlay,
+  .notification-modal,
+  .avatar-crop-modal__overlay,
+  .avatar-crop-modal,
+  .record-form-modal__overlay,
+  .record-form-modal,
+  .bulk-import-modal__overlay,
+  .bulk-import-modal,
+  .dish-form-modal__overlay,
+  .dish-form-modal,
+  .food-item-form-modal__overlay,
+  .food-item-form-modal,
+  .weekly-acwr-detail__overlay,
+  .weekly-acwr-detail,
+  .rest-timer-modal__overlay,
+  .rest-timer-modal,
+  .daily-report-modal__overlay,
+  .daily-report-modal,
+  .confirm-dialog__overlay,
+  .confirm-dialog {
     animation: none;
   }
 }

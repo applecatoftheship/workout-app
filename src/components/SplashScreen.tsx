@@ -133,8 +133,11 @@ function ArtDecoSplashContent({ isReady }: SplashContentProps) {
       </div>
       <h1 className="splash-title">WORKOUT &amp; VITAL</h1>
       <p className="splash-subtitle">FITNESS CONDITION LOG</p>
+      {/* 2026年9月18日：実際の挙動（タップ不要、数秒で自動遷移）に合わせて
+          文言を「TAP TO SKIP」に変更（旧「TAP TO START」はタップ必須であるかの
+          ような誤解を招くため）。 */}
       <p className={`splash-tap-hint${isReady ? ' splash-tap-hint--visible' : ''}`} aria-hidden="true">
-        TAP TO START
+        TAP TO SKIP
       </p>
     </div>
   )
@@ -163,6 +166,14 @@ function AetherFlowSplashContent({ isReady }: SplashContentProps) {
               <linearGradient id="aetherGlassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.6" />
                 <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.05" />
+              </linearGradient>
+              {/* 2026年9月18日：ライトテーマ用のガラスリング勾配。白ベースの
+                  aetherGlassGradは白背景では見えなくなるため、暗色ベースの
+                  勾配を別途用意し、CSS側で[data-theme="light"]時のみ
+                  参照先を切り替える（SplashScreen.css参照）。 */}
+              <linearGradient id="aetherGlassGradLight" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#2A2140" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="#2A2140" stopOpacity="0.05" />
               </linearGradient>
               <filter id="aetherSoftGlow" x="-40%" y="-40%" width="180%" height="180%">
                 <feGaussianBlur stdDeviation="2.5" result="blur" />
@@ -241,7 +252,9 @@ function AetherFlowSplashContent({ isReady }: SplashContentProps) {
             導入に合わせて追加した。 */}
         <div className={`splash-aether__tap-hint${isReady ? ' splash-aether__tap-hint--visible' : ''}`} aria-hidden="true">
           <span className="splash-aether__tap-dot" />
-          <span className="splash-aether__tap-label">TAP TO START</span>
+          {/* 2026年9月18日：ART DECO側と同様に「TAP TO SKIP」へ変更（実際の
+              挙動に合わせた文言修正）。 */}
+          <span className="splash-aether__tap-label">TAP TO SKIP</span>
         </div>
       </div>
     </>

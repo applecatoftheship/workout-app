@@ -6,13 +6,13 @@
 
 .character-status-card__emoji {
   flex-shrink: 0;
-  font-size: 2rem;
+  font-size: var(--font-size-metric-lg);
   line-height: 1;
 }
 
 .character-status-card__message {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--font-size-body);
   font-weight: 600;
   line-height: 1.4;
 }

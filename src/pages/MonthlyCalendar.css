@@ -114,7 +114,7 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   min-height: 13px;
   line-height: 1;
 }
@@ -134,7 +134,10 @@
   position: absolute;
   bottom: -3px;
   right: -4px;
-  font-size: 8px;
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。8pxは
+     6段階の最小値--font-size-caption（11px）に置き換えたが、カレンダー
+     セルの小さなバッジ絵文字が目立って大きくなるため報告に明記。 */
+  font-size: var(--font-size-caption);
   line-height: 1;
 }
 

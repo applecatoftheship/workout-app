@@ -111,6 +111,10 @@ export function DailyReportModal({
         </div>
 
         <div className="daily-report-modal__body">
+          {/* 2026年9月18日：空状態文言の統一（UIブラッシュアップPhase1・低リスク
+              改善#9）。従来は全セクション共通で「記録なし」だったが、
+              CalendarDaySummaries.tsxの「まだ○○記録がありません」パターン
+              （絵文字＋種別名）にセクションごと揃えた。 */}
           <section className="daily-report__section">
             <h4>トレーニング実績</h4>
             {dayTrainingLogs.length > 0 ? (
@@ -128,7 +132,7 @@ export function DailyReportModal({
                 ))}
               </div>
             ) : (
-              <p className="daily-report__empty">記録なし</p>
+              <p className="daily-report__empty">🏋️ まだトレーニング記録がありません</p>
             )}
           </section>
 
@@ -150,7 +154,7 @@ export function DailyReportModal({
                 ))}
               </div>
             ) : (
-              <p className="daily-report__empty">記録なし</p>
+              <p className="daily-report__empty">📅 まだ予定がありません</p>
             )}
           </section>
 
@@ -162,7 +166,7 @@ export function DailyReportModal({
                 {condition.notes ? <p className="daily-report__note">メモ: {condition.notes}</p> : null}
               </div>
             ) : (
-              <p className="daily-report__empty">記録なし</p>
+              <p className="daily-report__empty">🌙 まだ体調記録がありません</p>
             )}
             {/* AI日次コメント（2026年9月3日）：体調記録の有無に関わらず、
                 運動・食事の記録からその場で生成できるようにするため、
@@ -207,7 +211,7 @@ export function DailyReportModal({
                 </div>
               </>
             ) : (
-              <p className="daily-report__empty">記録なし</p>
+              <p className="daily-report__empty">🍽️ まだ食事記録がありません</p>
             )}
           </section>
 
@@ -229,7 +233,7 @@ export function DailyReportModal({
                 ))}
               </div>
             ) : (
-              <p className="daily-report__empty">記録なし</p>
+              <p className="daily-report__empty">🏆 まだスポーツ記録がありません</p>
             )}
           </section>
 
@@ -263,7 +267,7 @@ export function DailyReportModal({
                 ))}
               </div>
             ) : (
-              <p className="daily-report__empty">記録なし</p>
+              <p className="daily-report__empty">🏃 まだワークアウト記録がありません</p>
             )}
           </section>
         </div>

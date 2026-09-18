@@ -421,7 +421,9 @@ export function ScheduleForm({
           </div>
         </div>
       ) : selectedSchedules.length === 0 ? (
-        <p className="calendar-detail__empty">予定なし</p>
+        // 2026年9月18日：空状態文言の統一（UIブラッシュアップPhase1・低リスク
+        // 改善#9）。CalendarDaySummaries.tsxの予定セクションと同じ表現に統一。
+        <p className="calendar-detail__empty">📅 まだ予定がありません</p>
       ) : null}
     </div>
   )

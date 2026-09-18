@@ -155,7 +155,7 @@
 .splash-title {
   margin: 0;
   color: #f5f7fa;
-  font-size: 1.1rem;
+  font-size: var(--font-size-title);
   font-weight: 700;
   letter-spacing: 0.2em;
   opacity: 0;
@@ -166,7 +166,7 @@
 .splash-subtitle {
   margin: 0;
   color: #4ecdc4;
-  font-size: 0.7rem;
+  font-size: var(--font-size-caption);
   font-weight: 600;
   letter-spacing: 0.18em;
   opacity: 0;
@@ -190,7 +190,7 @@
 .splash-tap-hint {
   margin: 2px 0 0;
   color: #94a3b8;
-  font-size: 0.6rem;
+  font-size: var(--font-size-caption);
   font-weight: 600;
   letter-spacing: 0.2em;
   opacity: 0;
@@ -256,6 +256,45 @@
   to {
     opacity: 1;
   }
+}
+
+/* ライトテーマ対応（2026年9月18日、UIブラッシュアップPhase1・低リスク改善#1）：
+   従来はこのスプラッシュ専用の固定ブランドカラーとしてライト/ダーク非連動に
+   していたが、指示によりテーマ追従へ変更した。[data-theme="light"]時のみ
+   上書きする（data-theme="dark"は既存のデフォルト値のまま、追加不要）。
+   SVGの一部（glass-ring等）はJSX側にfill/stroke属性を直接指定しているが、
+   CSSのプレゼンテーション属性に対する優先度はCSSが常に勝るため、ここでの
+   クラスセレクタ指定だけで上書きできる（JSX側の変更は不要）。 */
+[data-theme='light'] .splash-screen {
+  background-color: #faf9f8;
+}
+
+[data-theme='light'] .splash-ring__track {
+  stroke: #dce0e6;
+}
+
+[data-theme='light'] .splash-ring__arc {
+  stroke: #1d9c93;
+}
+
+[data-theme='light'] .splash-dumbbell__plate {
+  fill: #2b3544;
+}
+
+[data-theme='light'] .splash-dumbbell__pulse {
+  stroke: #e0524a;
+}
+
+[data-theme='light'] .splash-title {
+  color: #1b1d1f;
+}
+
+[data-theme='light'] .splash-subtitle {
+  color: #1d9c93;
+}
+
+[data-theme='light'] .splash-tap-hint {
+  color: #6b6f76;
 }
 
 /* ============================================================================
@@ -408,7 +447,7 @@
 .splash-aether__ring-label {
   fill: #e2e8f0;
   font-family: var(--font-base, -apple-system, BlinkMacSystemFont, sans-serif);
-  font-size: 9px;
+  font-size: var(--font-size-caption);
   font-weight: 500;
   letter-spacing: 2px;
   opacity: 0;
@@ -418,7 +457,7 @@
 .splash-aether__eyebrow {
   margin: 0;
   color: #e2e8f0;
-  font-size: 0.55rem;
+  font-size: var(--font-size-caption);
   font-weight: 600;
   letter-spacing: 0.25em;
   opacity: 0;
@@ -429,7 +468,7 @@
 .splash-aether__title {
   margin: 0;
   color: #ffffff;
-  font-size: 1.25rem;
+  font-size: var(--font-size-title);
   font-weight: 700;
   letter-spacing: 0.4em;
   /* SVGソースの filter="url(#softAetherGlow)" に相当するソフトグロー。 */
@@ -442,7 +481,7 @@
 .splash-aether__subtitle {
   margin: 0;
   color: #6ee7b7;
-  font-size: 0.7rem;
+  font-size: var(--font-size-caption);
   font-weight: 600;
   letter-spacing: 0.22em;
   opacity: 0;
@@ -479,7 +518,7 @@
 
 .splash-aether__tap-label {
   color: #94a3b8;
-  font-size: 0.6rem;
+  font-size: var(--font-size-caption);
   font-weight: 500;
   letter-spacing: 0.2em;
 }
@@ -543,4 +582,49 @@
   .splash-screen--aetherflow .splash-screen__content {
     animation: splash-reduced-fade-in 200ms ease-out forwards;
   }
+}
+
+/* ライトテーマ対応（2026年9月18日、UIブラッシュアップPhase1・低リスク改善#1）。
+   上記ART DECOと同じ方針。glass-ring・inner-ring・plate--l2/r2の各値は
+   JSX側にfill/stroke属性で直接指定されているが、CSSが常にプレゼンテーション
+   属性より優先されるためここでの上書きのみで反映される。aetherGlassGradLight
+   （白ベースではなく暗色ベースの勾配、defs内に定義済み）に参照先を切り替える。 */
+[data-theme='light'] .splash-screen--aetherflow {
+  background-color: #f5f3fb;
+}
+
+[data-theme='light'] .splash-aether__glass-ring {
+  stroke: url(#aetherGlassGradLight);
+}
+
+[data-theme='light'] .splash-aether__inner-ring {
+  stroke: #2a2140;
+  stroke-opacity: 0.16;
+}
+
+[data-theme='light'] .splash-aether__plate--l2,
+[data-theme='light'] .splash-aether__plate--r2 {
+  fill: #2a2140;
+  fill-opacity: 0.82;
+}
+
+[data-theme='light'] .splash-aether__ring-label {
+  fill: #4b4458;
+}
+
+[data-theme='light'] .splash-aether__eyebrow {
+  color: #4b4458;
+}
+
+[data-theme='light'] .splash-aether__title {
+  color: #2a2140;
+  text-shadow: 0 0 12px rgba(109, 69, 214, 0.25), 0 0 4px rgba(62, 143, 111, 0.2);
+}
+
+[data-theme='light'] .splash-aether__subtitle {
+  color: #3e8f6f;
+}
+
+[data-theme='light'] .splash-aether__tap-label {
+  color: #6b6f76;
 }

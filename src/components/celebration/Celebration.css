@@ -6,7 +6,9 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-lg);
-  background: rgba(0, 0, 0, 0.45);
+  /* 2026年9月18日：他モーダルと同じrgba(18, 24, 27, 0.55)へ統一
+     （UIブラッシュアップPhase1・低リスク改善#7、--color-modal-overlay参照）。 */
+  background: var(--color-modal-overlay);
   animation: celebration-backdrop-in 0.2s ease-out;
 }
 
@@ -115,7 +117,10 @@
 }
 
 .celebration-card__medal {
-  font-size: 48px;
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。48pxは
+     6段階の最大値--font-size-metric-lg（30px）に置き換えたが、お祝い演出の
+     絵文字メダルが大きく縮小する（-18px）ため報告に明記。 */
+  font-size: var(--font-size-metric-lg);
   line-height: 1;
 }
 

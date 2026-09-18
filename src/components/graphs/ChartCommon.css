@@ -174,7 +174,7 @@
 @media (max-width: 480px) {
   .progress-graph__labels {
     gap: 2px;
-    font-size: 10px;
+    font-size: var(--font-size-caption);
     letter-spacing: -0.2px;
   }
 }
@@ -186,7 +186,11 @@
 
 .progress-graph__axis-label {
   font-family: var(--font-base);
-  font-size: 7px;
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。7pxは
+     6段階の最小値--font-size-caption（11px）に置き換えたが、密なグラフの
+     軸ラベルが+4pxと目立って大きくなり、ラベルの重なり・見切れを誘発する
+     懸念があるため報告に明記。 */
+  font-size: var(--font-size-caption);
   fill: var(--color-text-muted);
 }
 

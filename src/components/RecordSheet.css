@@ -1,7 +1,11 @@
 .record-sheet-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  /* 2026年9月18日：他モーダルと同じrgba(18, 24, 27, 0.55)へ統一
+     （UIブラッシュアップPhase1・低リスク改善#7、--color-modal-overlay参照）。
+     従来はrgba(0, 0, 0, 0.45)だったが、異なる値である意図的な理由が見当たら
+     なかったため多数派の値に統一した。 */
+  background: var(--color-modal-overlay);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.28s ease;

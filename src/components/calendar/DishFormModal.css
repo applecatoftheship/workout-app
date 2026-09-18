@@ -1,13 +1,14 @@
 .dish-form-modal__overlay {
   position: fixed;
   inset: 0;
-  background: rgba(18, 24, 27, 0.55);
+  background: var(--color-modal-overlay);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 24px 12px;
   overflow-y: auto;
   z-index: 100;
+  animation: modal-overlay-fade-in 0.2s ease-out;
 }
 
 .dish-form-modal {
@@ -19,6 +20,7 @@
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 48px);
+  animation: modal-content-pop-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .dish-form-modal__header {
@@ -33,14 +35,14 @@
 .dish-form-modal__header h3 {
   margin: 0;
   font-family: var(--font-base);
-  font-size: 1rem;
+  font-size: var(--font-size-title);
   font-weight: 500;
 }
 
 .dish-form-modal__close {
   border: 0;
   background: transparent;
-  font-size: 1.3rem;
+  font-size: var(--font-size-title);
   line-height: 1;
   cursor: pointer;
   color: var(--color-text-secondary);

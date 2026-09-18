@@ -28,7 +28,8 @@ export function SleepChart({ periodSleepSeries, periodSleepMA, targetSleepHours 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   if (periodSleepSeries.length === 0) {
-    return <p className="progress-graph__empty">データがありません</p>
+    // 2026年9月18日：空状態文言の統一（UIブラッシュアップPhase1・低リスク改善#9）。
+    return <p className="progress-graph__empty">まだ睡眠記録がありません</p>
   }
 
   const maByDate = new Map(periodSleepMA.map((point) => [point.date, point.movingAvg]))

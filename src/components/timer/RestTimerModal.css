@@ -1,13 +1,14 @@
 .rest-timer-modal__overlay {
   position: fixed;
   inset: 0;
-  background: rgba(18, 24, 27, 0.55);
+  background: var(--color-modal-overlay);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 24px 12px;
   overflow-y: auto;
   z-index: 100;
+  animation: modal-overlay-fade-in 0.2s ease-out;
 }
 
 .rest-timer-modal {
@@ -19,6 +20,7 @@
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 48px);
+  animation: modal-content-pop-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .rest-timer-modal__header {
@@ -33,7 +35,7 @@
 .rest-timer-modal__header h3 {
   margin: 0;
   font-family: var(--font-base);
-  font-size: 1rem;
+  font-size: var(--font-size-title);
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -64,7 +66,10 @@
 }
 
 .rest-timer-modal__duration {
-  font-size: 2.75rem;
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。2.75rem
+     （44px）は6段階の最大値--font-size-metric-lg（30px）に置き換えたが、
+     視覚的なサイズ差が大きい（-14px）ため報告に明記。 */
+  font-size: var(--font-size-metric-lg);
   font-weight: 700;
   color: var(--color-text-primary);
 }
@@ -112,7 +117,12 @@
 }
 
 .rest-timer-modal__countdown {
-  font-size: 3.5rem;
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。3.5rem
+     （56px）は6段階の最大値--font-size-metric-lg（30px）に置き換えたが、
+     視覚的なサイズ差が非常に大きい（-26px、インターバル中の一目確認用の
+     カウントダウン表示のため可読性への影響が懸念される）。要確認事項として
+     報告に明記。 */
+  font-size: var(--font-size-metric-lg);
   font-weight: 700;
   color: var(--color-text-primary);
   transition: color 0.2s ease;

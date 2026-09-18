@@ -29,7 +29,8 @@ function BodyPartDrilldownChart({
   color: string
 }) {
   if (dailyVolumes.length === 0) {
-    return <p className="progress-graph__empty">データがありません</p>
+    // 2026年9月18日：空状態文言の統一（UIブラッシュアップPhase1・低リスク改善#9）。
+    return <p className="progress-graph__empty">まだトレーニング記録がありません</p>
   }
 
   const values = dailyVolumes.map((point) => point.volume)

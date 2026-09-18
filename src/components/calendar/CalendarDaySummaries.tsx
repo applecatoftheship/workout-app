@@ -160,7 +160,14 @@ export function TrainingSummary({ trainingLogs, setTrainingLogs, selectedDate, o
             placeholder="今日の感想やポイント"
           />
         </label>
-        <button type="button" className="calendar-detail__secondary-button" onClick={handleSaveMeta} disabled={isSavingMeta}>
+        {/* 2026年9月18日：UIブラッシュアップPhase1・低リスク改善#4。従来は
+            .calendar-detail__secondary-button（薄いティール地に同系色文字）で
+            他の副次操作（種目を追加・記録を編集）と同じ弱いコントラストの
+            スタイルだったが、「保存」は変更を確定させる主操作のため、
+            既存の.calendar-detail__button（accent色地に白文字、上記の
+            「保存する」ボタン等と同じ配色体系）に変更してコントラストを
+            改善した。新規の色は追加していない。 */}
+        <button type="button" className="calendar-detail__button" onClick={handleSaveMeta} disabled={isSavingMeta}>
           {isSavingMeta ? '保存中...' : '保存'}
         </button>
       </div>

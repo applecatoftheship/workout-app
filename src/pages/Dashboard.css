@@ -37,7 +37,7 @@
   border-radius: var(--radius-pill);
   background: var(--color-danger);
   color: #fff;
-  font-size: 9px;
+  font-size: var(--font-size-caption);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -55,7 +55,7 @@
   margin: 0;
   font-family: var(--font-base);
   font-weight: 600;
-  font-size: 1.4rem;
+  font-size: var(--font-size-metric);
   line-height: 1.2;
   color: var(--color-text-primary);
 }
@@ -259,7 +259,7 @@
 }
 
 .week-strip__day-label {
-  font-size: 9px;
+  font-size: var(--font-size-caption);
   color: var(--color-text-muted);
 }
 
@@ -268,7 +268,7 @@
 }
 
 .week-strip__date {
-  font-size: 12px;
+  font-size: var(--font-size-body-sm);
   font-weight: 600;
   color: var(--color-text-primary);
   line-height: 1;
@@ -286,7 +286,7 @@
   align-items: center;
   justify-content: center;
   gap: 1px;
-  font-size: 9px;
+  font-size: var(--font-size-caption);
   line-height: 1;
 }
 
@@ -305,7 +305,10 @@
   position: absolute;
   bottom: -2px;
   right: -3px;
-  font-size: 6px;
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。6pxは
+     6段階の最小値--font-size-caption（11px）に置き換えたが、週間ストリップの
+     小さな絵文字バッジがほぼ倍のサイズになるため報告に明記。 */
+  font-size: var(--font-size-caption);
   line-height: 1;
 }
 
@@ -483,7 +486,7 @@
 }
 
 .nutrition-card__rate {
-  font-size: 1rem;
+  font-size: var(--font-size-title);
   font-weight: 500;
   color: var(--color-accent-text);
   font-variant-numeric: tabular-nums;

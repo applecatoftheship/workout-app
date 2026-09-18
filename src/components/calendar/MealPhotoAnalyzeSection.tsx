@@ -71,7 +71,7 @@ export function MealPhotoAnalyzeSection({
       />
       <button
         type="button"
-        className="calendar-detail__secondary-button"
+        className="meal-photo-analyze__button"
         onClick={() => inputRef.current?.click()}
         disabled={isAnalyzing}
       >

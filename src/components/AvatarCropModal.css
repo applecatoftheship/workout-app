@@ -1,12 +1,13 @@
 .avatar-crop-modal__overlay {
   position: fixed;
   inset: 0;
-  background: rgba(18, 24, 27, 0.55);
+  background: var(--color-modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px 12px;
   z-index: 100;
+  animation: modal-overlay-fade-in 0.2s ease-out;
 }
 
 .avatar-crop-modal {
@@ -17,6 +18,7 @@
   box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
+  animation: modal-content-pop-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .avatar-crop-modal__header {
@@ -31,7 +33,7 @@
 .avatar-crop-modal__header h3 {
   margin: 0;
   font-family: var(--font-base);
-  font-size: 1rem;
+  font-size: var(--font-size-title);
   font-weight: 600;
   color: var(--color-text-primary);
 }
