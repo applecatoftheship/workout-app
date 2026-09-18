@@ -186,11 +186,10 @@
 
 .progress-graph__axis-label {
   font-family: var(--font-base);
-  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。7pxは
-     6段階の最小値--font-size-caption（11px）に置き換えたが、密なグラフの
-     軸ラベルが+4pxと目立って大きくなり、ラベルの重なり・見切れを誘発する
-     懸念があるため報告に明記。 */
-  font-size: var(--font-size-caption);
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）は見送り、
+     意図的にハードコード値を維持（密なグラフの軸ラベルが目立って大きくなり、
+     重なり・見切れを誘発するため対象外と判断）。 */
+  font-size: 7px;
   fill: var(--color-text-muted);
 }
 

@@ -32,10 +32,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。2.4rem
-     （38.4px）は6段階の最大値--font-size-metric-lg（30px）に置き換え。
-     88px円内の絵文字アバターがやや小さくなる（-8.4px）ため報告に明記。 */
-  font-size: var(--font-size-metric-lg);
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）は見送り、
+     意図的にハードコード値を維持（88px円内の絵文字アバターが視覚的に
+     小さくなりすぎるため対象外と判断）。 */
+  font-size: 2.4rem;
   overflow: hidden;
 }
 

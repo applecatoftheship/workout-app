@@ -66,10 +66,10 @@
 }
 
 .rest-timer-modal__duration {
-  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。2.75rem
-     （44px）は6段階の最大値--font-size-metric-lg（30px）に置き換えたが、
-     視覚的なサイズ差が大きい（-14px）ため報告に明記。 */
-  font-size: var(--font-size-metric-lg);
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）は見送り、
+     意図的にハードコード値を維持（レビューの結果、6段階トークンでは
+     視覚差が大きすぎると判断されたため対象外）。 */
+  font-size: 2.75rem;
   font-weight: 700;
   color: var(--color-text-primary);
 }
@@ -117,12 +117,10 @@
 }
 
 .rest-timer-modal__countdown {
-  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）。3.5rem
-     （56px）は6段階の最大値--font-size-metric-lg（30px）に置き換えたが、
-     視覚的なサイズ差が非常に大きい（-26px、インターバル中の一目確認用の
-     カウントダウン表示のため可読性への影響が懸念される）。要確認事項として
-     報告に明記。 */
-  font-size: var(--font-size-metric-lg);
+  /* 2026年9月18日：フォントサイズのトークン化（低リスク改善#6）は見送り、
+     意図的にハードコード値を維持（インターバル中の一目確認用のカウントダウン
+     表示のため、6段階トークンでは可読性への影響が大きいと判断）。 */
+  font-size: 3.5rem;
   font-weight: 700;
   color: var(--color-text-primary);
   transition: color 0.2s ease;
