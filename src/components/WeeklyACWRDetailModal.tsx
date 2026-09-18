@@ -14,7 +14,8 @@ import {
   valueToX,
   valueToY,
 } from '../utils/chartHelpers'
-import { CloseIcon } from './icons'
+import { Modal } from './common/Modal'
+import { ModalCloseButton } from './common/ModalCloseButton'
 
 type WeeklyACWRDetailModalProps = {
   /** todayDateを終端とする直近28日分のDailyACWRPoint（Dashboard.tsx側で計算済みのものをそのまま渡す） */
@@ -45,27 +46,17 @@ export function WeeklyACWRDetailModal({ seriesPoints, chronicDaysAvailable, days
 
   if (availablePoints.length === 0) {
     return (
-      <div className="weekly-acwr-detail__overlay" role="presentation" onClick={onClose}>
-        <div
-          className="weekly-acwr-detail"
-          role="dialog"
-          aria-modal="true"
-          aria-label="週次ACWRトレンド"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="weekly-acwr-detail__header">
-            <h3>週次ACWRトレンド</h3>
-            <button type="button" className="weekly-acwr-detail__close" onClick={onClose} aria-label="閉じる">
-              <CloseIcon />
-            </button>
-          </div>
-          <div className="weekly-acwr-detail__body">
-            <p className="weekly-acwr-detail__pending">
-              データ蓄積中（{Math.max(0, 7 - daysUntilAvailable)}/7日）。ACWRの算出には最低7日分の記録が必要です。
-            </p>
-          </div>
+      <Modal ariaLabel="週次ACWRトレンド" maxWidth={560} onOverlayClick={onClose} className="weekly-acwr-detail">
+        <div className="weekly-acwr-detail__header">
+          <h3>週次ACWRトレンド</h3>
+          <ModalCloseButton onClick={onClose} />
         </div>
-      </div>
+        <div className="weekly-acwr-detail__body">
+          <p className="weekly-acwr-detail__pending">
+            データ蓄積中（{Math.max(0, 7 - daysUntilAvailable)}/7日）。ACWRの算出には最低7日分の記録が必要です。
+          </p>
+        </div>
+      </Modal>
     )
   }
 
@@ -86,23 +77,14 @@ export function WeeklyACWRDetailModal({ seriesPoints, chronicDaysAvailable, days
   const selectedPoint = selectedDate ? availablePoints.find((point) => point.date === selectedDate) : null
 
   return (
-    <div className="weekly-acwr-detail__overlay" role="presentation" onClick={onClose}>
-      <div
-        className="weekly-acwr-detail"
-        role="dialog"
-        aria-modal="true"
-        aria-label="週次ACWRトレンド"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="weekly-acwr-detail__header">
-          <h3>週次ACWRトレンド</h3>
-          <button type="button" className="weekly-acwr-detail__close" onClick={onClose} aria-label="閉じる">
-            <CloseIcon />
-          </button>
-        </div>
+    <Modal ariaLabel="週次ACWRトレンド" maxWidth={560} onOverlayClick={onClose} className="weekly-acwr-detail">
+      <div className="weekly-acwr-detail__header">
+        <h3>週次ACWRトレンド</h3>
+        <ModalCloseButton onClick={onClose} />
+      </div>
 
-        <div className="weekly-acwr-detail__body">
-          <div className="weekly-acwr-detail__score-row">
+      <div className="weekly-acwr-detail__body">
+        <div className="weekly-acwr-detail__score-row">
             <span className="weekly-acwr-detail__score metric-value">{latest.acwr.toFixed(2)}</span>
             <span className={`weekly-acwr-detail__badge weekly-acwr-detail__badge--${TIER_TONE[insight.tier]}`}>{insight.title}</span>
           </div>
@@ -161,7 +143,6 @@ export function WeeklyACWRDetailModal({ seriesPoints, chronicDaysAvailable, days
 
           <p className="weekly-acwr-detail__insight-body">{insight.body}</p>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

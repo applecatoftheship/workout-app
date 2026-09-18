@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Modal } from '../common/Modal'
+import { ModalCloseButton } from '../common/ModalCloseButton'
 import { bulkCreateSchedules, deleteSchedulesInRange } from '../../api/trainingSchedules'
 import { fetchTrainingTemplates } from '../../api/trainingTemplates'
 import { fetchExercises, fetchTrainingLogs, upsertTrainingLog } from '../../api/trainingLogs'
@@ -604,22 +606,13 @@ export function BulkScheduleImportModal({
   }
 
   return (
-    <div className="bulk-import-modal__overlay" role="presentation" onClick={onClose}>
-      <div
-        className="bulk-import-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="AI一括取り込み"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="bulk-import-modal__header">
-          <h3>✨ AI一括取り込み</h3>
-          <button type="button" className="bulk-import-modal__close" onClick={onClose} aria-label="閉じる">
-            ×
-          </button>
-        </div>
+    <Modal ariaLabel="AI一括取り込み" maxWidth={560} onOverlayClick={onClose} className="bulk-import-modal">
+      <div className="bulk-import-modal__header">
+        <h3>✨ AI一括取り込み</h3>
+        <ModalCloseButton onClick={onClose} />
+      </div>
 
-        <div className="bulk-import-modal__body">
+      <div className="bulk-import-modal__body">
           <section className="bulk-import-modal__section">
             <p className="bulk-import-modal__description">
               下のプロンプトをコピーしてChatGPTやGeminiなどのAIに渡し、出力されたJSONをそのまま次の欄に貼り付けてください。
@@ -817,7 +810,6 @@ export function BulkScheduleImportModal({
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

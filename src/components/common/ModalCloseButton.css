@@ -1,0 +1,17 @@
+/*
+ * 共有の閉じるボタン（UIブラッシュアップPhase2 Step2a、2026年9月18日）。
+ * 移行対象8ファイルで完全一致していた.xxx-modal__closeのCSSをここに集約した。
+ */
+.modal-close-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: 4px;
+  display: inline-flex;
+}
+
+.modal-close-button svg {
+  width: 20px;
+  height: 20px;
+}

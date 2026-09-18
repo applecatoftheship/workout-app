@@ -166,24 +166,14 @@ button:not(:disabled):active {
     transition: none;
   }
 
-  .notification-modal__overlay,
-  .notification-modal,
+  /* 2026年9月18日：UIブラッシュアップPhase2 Step2aで8モーダルが共有
+     Modal.tsx（.modal__overlay/.modal）へ移行したため、個別クラス名の
+     列挙から共有クラス名2つに集約した。AvatarCropModal・ConfirmDialogは
+     今回の移行対象外のため個別クラス名のまま維持している。 */
+  .modal__overlay,
+  .modal,
   .avatar-crop-modal__overlay,
   .avatar-crop-modal,
-  .record-form-modal__overlay,
-  .record-form-modal,
-  .bulk-import-modal__overlay,
-  .bulk-import-modal,
-  .dish-form-modal__overlay,
-  .dish-form-modal,
-  .food-item-form-modal__overlay,
-  .food-item-form-modal,
-  .weekly-acwr-detail__overlay,
-  .weekly-acwr-detail,
-  .rest-timer-modal__overlay,
-  .rest-timer-modal,
-  .daily-report-modal__overlay,
-  .daily-report-modal,
   .confirm-dialog__overlay,
   .confirm-dialog {
     animation: none;

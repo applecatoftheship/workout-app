@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Modal } from '../common/Modal'
+import { ModalCloseButton } from '../common/ModalCloseButton'
 import { DISH_CATEGORIES } from '../../types'
 import type { DishCategory, DishWithDetails, FoodItem } from '../../types'
 import { createDish, updateDish } from '../../api/dishes'
@@ -377,19 +379,10 @@ export function DishFormModal({
   return (
     // Fragment：DishFormModal のオーバーレイと、その外側に置く FoodItemFormModal を並べる。
     <>
-    <div className="dish-form-modal__overlay" role="presentation" onClick={onClose}>
-      <div
-        className="dish-form-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={heading}
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal ariaLabel={heading} maxWidth={560} onOverlayClick={onClose} className="dish-form-modal">
         <div className="dish-form-modal__header">
           <h3>{heading}</h3>
-          <button type="button" className="dish-form-modal__close" onClick={onClose} aria-label="閉じる">
-            ×
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </div>
 
         <div className="dish-form-modal__body">
@@ -583,8 +576,7 @@ export function DishFormModal({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
 
     {/* 未登録食材の「新規食材として登録」用。DishFormModal のオーバーレイの外側に
         置き、クリックが DishFormModal の onClose に伝播しないようにする。 */}

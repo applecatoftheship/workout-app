@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Modal } from '../common/Modal'
+import { ModalCloseButton } from '../common/ModalCloseButton'
 import { createFoodItem } from '../../api/foodItems'
 import { findMostSimilarName } from '../../utils/nameMatching'
 import { toFoodItemDraftFromMealPhotoResult } from '../../utils/mealPhotoHelpers'
@@ -213,19 +215,10 @@ export function FoodItemFormModal({ isOpen, onClose, onSaved, foodItems, initial
   }
 
   return (
-    <div className="food-item-form-modal__overlay" role="presentation" onClick={onClose}>
-      <div
-        className="food-item-form-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="新しい食材を登録"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal ariaLabel="新しい食材を登録" maxWidth={560} onOverlayClick={onClose} className="food-item-form-modal">
         <div className="food-item-form-modal__header">
           <h3>新しい食材を登録</h3>
-          <button type="button" className="food-item-form-modal__close" onClick={onClose} aria-label="閉じる">
-            ×
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </div>
 
         <div className="food-item-form-modal__body">
@@ -359,7 +352,6 @@ export function FoodItemFormModal({ isOpen, onClose, onSaved, foodItems, initial
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

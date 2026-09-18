@@ -7,7 +7,8 @@ import { MealLogWizardModal } from './calendar/MealLogWizardModal'
 import { ConditionForm } from './calendar/ConditionForm'
 import { ScheduleForm } from './calendar/ScheduleForm'
 import { SportLogForm } from './calendar/SportLogForm'
-import { CloseIcon } from './icons'
+import { Modal } from './common/Modal'
+import { ModalCloseButton } from './common/ModalCloseButton'
 import { fetchTrainingSchedules } from '../api/trainingSchedules'
 import { fetchSportLogs } from '../api/sportLogs'
 import { fetchWorkouts } from '../api/workouts'
@@ -178,24 +179,15 @@ export function RecordFormModal({
     request.type === 'training' && request.trainingEdit ? 'トレーニング記録を編集' : TITLES[request.type]
 
   return (
-    <div className="record-form-modal__overlay" role="presentation" onClick={onClose}>
-      <div
-        className="record-form-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={modalTitle}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="record-form-modal__header">
-          <h3>
-            {modalTitle}（{request.date}）
-          </h3>
-          <button type="button" className="record-form-modal__close" onClick={onClose} aria-label="閉じる">
-            <CloseIcon />
-          </button>
-        </div>
+    <Modal ariaLabel={modalTitle} maxWidth={560} onOverlayClick={onClose} className="record-form-modal">
+      <div className="record-form-modal__header">
+        <h3>
+          {modalTitle}（{request.date}）
+        </h3>
+        <ModalCloseButton onClick={onClose} />
+      </div>
 
-        <div className="record-form-modal__body">
+      <div className="record-form-modal__body">
           {request.type === 'training' && request.trainingEdit ? (
             <TrainingEditListFlow
               key={formKey}
@@ -283,7 +275,6 @@ export function RecordFormModal({
             />
           ) : null}
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

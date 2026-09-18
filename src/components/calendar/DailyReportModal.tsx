@@ -3,7 +3,8 @@ import { formatConditionSummary, formatTrainingLogItem, getMealTypeLabel, toDate
 import { AiCommentCard } from '../AiCommentCard'
 import { useDailyAiComment } from '../../hooks/useDailyAiComment'
 import { AI_COMMENT_PENDING_TEXT } from '../../utils/dailyCommentHelpers'
-import { CloseIcon } from '../icons'
+import { Modal } from '../common/Modal'
+import { ModalCloseButton } from '../common/ModalCloseButton'
 import type { DailyCondition, DateString, MealLog, SportLog, TrainingLog, TrainingSchedule, Workout } from '../../types'
 import { OTHER_SPORT_TYPE } from '../../utils/sportCalorieHelpers'
 import './DailyReportModal.css'
@@ -95,22 +96,19 @@ export function DailyReportModal({
   const isTodaySelected = selectedDate === todayKey
 
   return (
-    <div className="daily-report-modal__overlay" role="presentation" onClick={onClose}>
-      <div
-        className="daily-report-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${selectedDate}の日次レポート`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="daily-report-modal__header">
-          <h3>{selectedDate}の日次レポート</h3>
-          <button type="button" className="daily-report-modal__close" onClick={onClose} aria-label="閉じる">
-            <CloseIcon />
-          </button>
-        </div>
+    <Modal
+      ariaLabel={`${selectedDate}の日次レポート`}
+      maxWidth={640}
+      mobileMaxHeight="90dvh"
+      onOverlayClick={onClose}
+      className="daily-report-modal"
+    >
+      <div className="daily-report-modal__header">
+        <h3>{selectedDate}の日次レポート</h3>
+        <ModalCloseButton onClick={onClose} />
+      </div>
 
-        <div className="daily-report-modal__body">
+      <div className="daily-report-modal__body">
           {/* 2026年9月18日：空状態文言の統一（UIブラッシュアップPhase1・低リスク
               改善#9）。従来は全セクション共通で「記録なし」だったが、
               CalendarDaySummaries.tsxの「まだ○○記録がありません」パターン
@@ -271,7 +269,6 @@ export function DailyReportModal({
             )}
           </section>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

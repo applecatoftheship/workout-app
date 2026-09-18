@@ -1,0 +1,54 @@
+/*
+ * 共有モーダル土台（UIブラッシュアップPhase2 Step2a、2026年9月18日）。
+ * NotificationModal・RecordFormModal・WeeklyACWRDetailModal・
+ * BulkScheduleImportModal・DailyReportModal・DishFormModal・
+ * FoodItemFormModal・RestTimerModalの8個で完全一致していたオーバーレイ・
+ * カード土台のCSSをここに集約した。max-widthのみModal.tsxのmaxWidth props
+ * から--modal-max-widthカスタムプロパティ経由で各モーダルごとに変える。
+ * 640px以下のmax-width/max-heightも既定値は全ファイル共通（32rem/80dvh）
+ * だったが、調査時点では気づいていなかった例外が2件あった：RestTimerModal
+ * （26rem）・DailyReportModal（max-height 90dvh）。この2件のみ
+ * --modal-mobile-max-width/--modal-mobile-max-heightで個別に上書きする
+ * （Modal.tsxのprops参照）。
+ * ヘッダー・本文・フッター等モーダル固有のレイアウトは対象外で、各ファイルの
+ * CSSにそのまま残している。
+ */
+.modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-modal-overlay);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 12px;
+  overflow-y: auto;
+  z-index: 100;
+  animation: modal-overlay-fade-in 0.2s ease-out;
+}
+
+.modal {
+  width: 100%;
+  max-width: var(--modal-max-width);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  animation: modal-content-pop-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (max-width: 640px) {
+  .modal__overlay {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .modal {
+    margin: auto 0.75rem;
+    width: calc(100% - 1.5rem);
+    max-width: var(--modal-mobile-max-width, 32rem);
+    max-height: var(--modal-mobile-max-height, 80dvh);
+    border-radius: 1rem;
+  }
+}

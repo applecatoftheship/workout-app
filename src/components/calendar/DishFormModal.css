@@ -1,27 +1,6 @@
-.dish-form-modal__overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--color-modal-overlay);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 24px 12px;
-  overflow-y: auto;
-  z-index: 100;
-  animation: modal-overlay-fade-in 0.2s ease-out;
-}
-
-.dish-form-modal {
-  width: 100%;
-  max-width: 560px;
-  background: var(--color-bg-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 48px);
-  animation: modal-content-pop-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
-}
+/* オーバーレイ・カード土台（.modal__overlay/.modal）は共有コンポーネント
+   （src/components/common/Modal.css）に移行済み（UIブラッシュアップPhase2
+   Step2a、2026年9月18日）。ここにはヘッダー・本文等の固有スタイルのみ残す。 */
 
 .dish-form-modal__header {
   flex-shrink: 0;
@@ -39,15 +18,8 @@
   font-weight: 500;
 }
 
-.dish-form-modal__close {
-  border: 0;
-  background: transparent;
-  font-size: var(--font-size-title);
-  line-height: 1;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  padding: 2px 6px;
-}
+/* .dish-form-modal__close は文字「×」版から共有ModalCloseButton
+   （SVGアイコン版）に統一移行済み（src/components/common/ModalCloseButton.css）。 */
 
 .dish-form-modal__body {
   padding: 16px;
@@ -118,19 +90,6 @@
 }
 
 @media (max-width: 640px) {
-  .dish-form-modal__overlay {
-    padding: 0;
-    align-items: stretch;
-  }
-
-  .dish-form-modal {
-    margin: auto 0.75rem;
-    width: calc(100% - 1.5rem);
-    max-width: 32rem;
-    max-height: 80dvh;
-    border-radius: 1rem;
-  }
-
   .dish-form-modal__header {
     padding-top: calc(14px + env(safe-area-inset-top, 0px));
   }

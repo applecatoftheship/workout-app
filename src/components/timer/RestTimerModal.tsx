@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { CloseIcon } from '../icons'
+import { Modal } from '../common/Modal'
+import { ModalCloseButton } from '../common/ModalCloseButton'
 import './RestTimerModal.css'
 
 // 休憩タイマー機能（2026年8月21日新設）。DBには保存せず、モーダルを開いている
@@ -145,22 +146,13 @@ export function RestTimerModal({ onClose }: RestTimerModalProps) {
   }
 
   return (
-    <div className="rest-timer-modal__overlay" role="presentation" onClick={handleClose}>
-      <div
-        className="rest-timer-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="休憩タイマー"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="rest-timer-modal__header">
-          <h3>休憩タイマー</h3>
-          <button type="button" className="rest-timer-modal__close" onClick={handleClose} aria-label="閉じる">
-            <CloseIcon />
-          </button>
-        </div>
+    <Modal ariaLabel="休憩タイマー" maxWidth={400} mobileMaxWidth="26rem" onOverlayClick={handleClose} className="rest-timer-modal">
+      <div className="rest-timer-modal__header">
+        <h3>休憩タイマー</h3>
+        <ModalCloseButton onClick={handleClose} />
+      </div>
 
-        <div className="rest-timer-modal__body">
+      <div className="rest-timer-modal__body">
           {phase === 'idle' ? (
             <>
               <div className="rest-timer-modal__duration metric-value">{durationSeconds}秒</div>
@@ -228,7 +220,6 @@ export function RestTimerModal({ onClose }: RestTimerModalProps) {
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

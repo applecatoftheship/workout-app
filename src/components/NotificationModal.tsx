@@ -1,4 +1,5 @@
-import { CloseIcon } from './icons'
+import { Modal } from './common/Modal'
+import { ModalCloseButton } from './common/ModalCloseButton'
 import type { AppNotification } from '../types'
 import './NotificationModal.css'
 
@@ -33,52 +34,42 @@ type NotificationModalProps = {
 
 export function NotificationModal({ notifications, onMarkRead, onClose }: NotificationModalProps) {
   return (
-    <div className="notification-modal__overlay" role="presentation" onClick={onClose}>
-      <div
-        className="notification-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="通知"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="notification-modal__header">
-          <h3>通知</h3>
-          <button type="button" className="notification-modal__close" onClick={onClose} aria-label="閉じる">
-            <CloseIcon />
-          </button>
-        </div>
-
-        <div className="notification-modal__body">
-          {notifications.length === 0 ? (
-            <p className="notification-modal__empty">通知はありません</p>
-          ) : (
-            <div className="notification-modal__list">
-              {notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  type="button"
-                  className={`notification-modal__item notification-modal__item--${TYPE_TONE[notification.type]}${
-                    notification.isRead ? '' : ' notification-modal__item--unread'
-                  }`}
-                  onClick={() => {
-                    if (!notification.isRead && notification.id) {
-                      onMarkRead(notification.id)
-                    }
-                  }}
-                >
-                  <div className="notification-modal__item-head">
-                    <span className="notification-modal__item-title">{notification.title}</span>
-                    <span className="notification-modal__item-time">
-                      {notification.createdAt ? formatNotificationTime(notification.createdAt) : ''}
-                    </span>
-                  </div>
-                  <p className="notification-modal__item-message">{notification.message}</p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+    <Modal ariaLabel="通知" maxWidth={480} onOverlayClick={onClose} className="notification-modal">
+      <div className="notification-modal__header">
+        <h3>通知</h3>
+        <ModalCloseButton onClick={onClose} />
       </div>
-    </div>
+
+      <div className="notification-modal__body">
+        {notifications.length === 0 ? (
+          <p className="notification-modal__empty">通知はありません</p>
+        ) : (
+          <div className="notification-modal__list">
+            {notifications.map((notification) => (
+              <button
+                key={notification.id}
+                type="button"
+                className={`notification-modal__item notification-modal__item--${TYPE_TONE[notification.type]}${
+                  notification.isRead ? '' : ' notification-modal__item--unread'
+                }`}
+                onClick={() => {
+                  if (!notification.isRead && notification.id) {
+                    onMarkRead(notification.id)
+                  }
+                }}
+              >
+                <div className="notification-modal__item-head">
+                  <span className="notification-modal__item-title">{notification.title}</span>
+                  <span className="notification-modal__item-time">
+                    {notification.createdAt ? formatNotificationTime(notification.createdAt) : ''}
+                  </span>
+                </div>
+                <p className="notification-modal__item-message">{notification.message}</p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
   )
 }
