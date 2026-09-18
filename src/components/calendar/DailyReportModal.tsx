@@ -109,166 +109,166 @@ export function DailyReportModal({
       </div>
 
       <div className="daily-report-modal__body">
-          {/* 2026年9月18日：空状態文言の統一（UIブラッシュアップPhase1・低リスク
-              改善#9）。従来は全セクション共通で「記録なし」だったが、
-              CalendarDaySummaries.tsxの「まだ○○記録がありません」パターン
-              （絵文字＋種別名）にセクションごと揃えた。 */}
-          <section className="daily-report__section">
-            <h4>トレーニング実績</h4>
-            {dayTrainingLogs.length > 0 ? (
+        {/* 2026年9月18日：空状態文言の統一（UIブラッシュアップPhase1・低リスク
+            改善#9）。従来は全セクション共通で「記録なし」だったが、
+            CalendarDaySummaries.tsxの「まだ○○記録がありません」パターン
+            （絵文字＋種別名）にセクションごと揃えた。 */}
+        <section className="daily-report__section">
+          <h4>トレーニング実績</h4>
+          {dayTrainingLogs.length > 0 ? (
+            <div className="daily-report__log-list">
+              {dayTrainingLogs.map((log, index) => (
+                <div key={log.id ?? index} className="daily-report__item">
+                  <p className="daily-report__item-head">{log.completed ? '完了' : '未完了'}</p>
+                  <ul className="daily-report__exercise-list">
+                    {log.exercises.map((exercise, exerciseIndex) => (
+                      <li key={exercise.id ?? exerciseIndex}>{formatTrainingLogItem(exercise)}</li>
+                    ))}
+                  </ul>
+                  {log.notes ? <p className="daily-report__note">メモ: {log.notes}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="daily-report__empty">🏋️ まだトレーニング記録がありません</p>
+          )}
+        </section>
+
+        <section className="daily-report__section">
+          <h4>予定</h4>
+          {daySchedules.length > 0 ? (
+            <div className="daily-report__log-list">
+              {daySchedules.map((schedule) => (
+                <div key={schedule.id} className="daily-report__item">
+                  <p className="daily-report__item-head">
+                    {schedule.emoji} {schedule.title}（{scheduleStatusLabel[schedule.status]}
+                    {schedule.scheduleType && schedule.scheduleType !== 'practice'
+                      ? `・${scheduleTypeLabel[schedule.scheduleType]}`
+                      : ''}
+                    ）
+                  </p>
+                  {schedule.notes ? <p className="daily-report__note">メモ: {schedule.notes}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="daily-report__empty">📅 まだ予定がありません</p>
+          )}
+        </section>
+
+        <section className="daily-report__section">
+          <h4>体調</h4>
+          {condition ? (
+            <div className="daily-report__item">
+              <p>{formatConditionSummary(condition)}</p>
+              {condition.notes ? <p className="daily-report__note">メモ: {condition.notes}</p> : null}
+            </div>
+          ) : (
+            <p className="daily-report__empty">🌙 まだ体調記録がありません</p>
+          )}
+          {/* AI日次コメント（2026年9月3日）：体調記録の有無に関わらず、
+              運動・食事の記録からその場で生成できるようにするため、
+              condition の外に出して常に表示する。今日を選択中でまだコメントが
+              無い場合は「翌朝生成される」案内＋手動生成ボタンを表示する。 */}
+          <AiCommentCard
+            comment={condition?.aiComment}
+            isGenerating={isGeneratingAiComment}
+            onRegenerate={regenerateAiComment}
+            placeholderText={isTodaySelected && !condition?.aiComment ? AI_COMMENT_PENDING_TEXT : undefined}
+          />
+        </section>
+
+        <section className="daily-report__section">
+          <h4>食事・PFC</h4>
+          {dayMealLogs.length > 0 ? (
+            <>
+              <p className="daily-report__meal-totals">
+                合計: {mealTotals.calories}kcal / P{mealTotals.protein}g F{mealTotals.fat}g C{mealTotals.carbohydrates}g
+              </p>
               <div className="daily-report__log-list">
-                {dayTrainingLogs.map((log, index) => (
+                {dayMealLogs.map((log, index) => (
                   <div key={log.id ?? index} className="daily-report__item">
-                    <p className="daily-report__item-head">{log.completed ? '完了' : '未完了'}</p>
-                    <ul className="daily-report__exercise-list">
-                      {log.exercises.map((exercise, exerciseIndex) => (
-                        <li key={exercise.id ?? exerciseIndex}>{formatTrainingLogItem(exercise)}</li>
-                      ))}
-                    </ul>
+                    <p className="daily-report__item-head">{getMealTypeLabel(log.mealType)}</p>
+                    {/* 料理名の表示機能（2026年9月15日追加）：MealLogCard.tsxと同じく
+                        料理名があれば主表示（強調）、食材の内訳は副次表示にする。
+                        料理名が無い場合は従来通りの表示のまま。 */}
+                    {log.dishName ? (
+                      <>
+                        <p className="daily-report__dish-name">{log.dishName}</p>
+                        <p className="daily-report__meal-foods--secondary">内容: {log.foods.join('・')}</p>
+                      </>
+                    ) : (
+                      <p>内容: {log.foods.join('・')}</p>
+                    )}
+                    <p>
+                      カロリー: {log.calories}kcal / P{log.protein}g F{log.fat}g C{log.carbohydrates}g
+                    </p>
                     {log.notes ? <p className="daily-report__note">メモ: {log.notes}</p> : null}
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="daily-report__empty">🏋️ まだトレーニング記録がありません</p>
-            )}
-          </section>
+            </>
+          ) : (
+            <p className="daily-report__empty">🍽️ まだ食事記録がありません</p>
+          )}
+        </section>
 
-          <section className="daily-report__section">
-            <h4>予定</h4>
-            {daySchedules.length > 0 ? (
-              <div className="daily-report__log-list">
-                {daySchedules.map((schedule) => (
-                  <div key={schedule.id} className="daily-report__item">
-                    <p className="daily-report__item-head">
-                      {schedule.emoji} {schedule.title}（{scheduleStatusLabel[schedule.status]}
-                      {schedule.scheduleType && schedule.scheduleType !== 'practice'
-                        ? `・${scheduleTypeLabel[schedule.scheduleType]}`
-                        : ''}
-                      ）
-                    </p>
-                    {schedule.notes ? <p className="daily-report__note">メモ: {schedule.notes}</p> : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="daily-report__empty">📅 まだ予定がありません</p>
-            )}
-          </section>
-
-          <section className="daily-report__section">
-            <h4>体調</h4>
-            {condition ? (
-              <div className="daily-report__item">
-                <p>{formatConditionSummary(condition)}</p>
-                {condition.notes ? <p className="daily-report__note">メモ: {condition.notes}</p> : null}
-              </div>
-            ) : (
-              <p className="daily-report__empty">🌙 まだ体調記録がありません</p>
-            )}
-            {/* AI日次コメント（2026年9月3日）：体調記録の有無に関わらず、
-                運動・食事の記録からその場で生成できるようにするため、
-                condition の外に出して常に表示する。今日を選択中でまだコメントが
-                無い場合は「翌朝生成される」案内＋手動生成ボタンを表示する。 */}
-            <AiCommentCard
-              comment={condition?.aiComment}
-              isGenerating={isGeneratingAiComment}
-              onRegenerate={regenerateAiComment}
-              placeholderText={isTodaySelected && !condition?.aiComment ? AI_COMMENT_PENDING_TEXT : undefined}
-            />
-          </section>
-
-          <section className="daily-report__section">
-            <h4>食事・PFC</h4>
-            {dayMealLogs.length > 0 ? (
-              <>
-                <p className="daily-report__meal-totals">
-                  合計: {mealTotals.calories}kcal / P{mealTotals.protein}g F{mealTotals.fat}g C{mealTotals.carbohydrates}g
-                </p>
-                <div className="daily-report__log-list">
-                  {dayMealLogs.map((log, index) => (
-                    <div key={log.id ?? index} className="daily-report__item">
-                      <p className="daily-report__item-head">{getMealTypeLabel(log.mealType)}</p>
-                      {/* 料理名の表示機能（2026年9月15日追加）：MealLogCard.tsxと同じく
-                          料理名があれば主表示（強調）、食材の内訳は副次表示にする。
-                          料理名が無い場合は従来通りの表示のまま。 */}
-                      {log.dishName ? (
-                        <>
-                          <p className="daily-report__dish-name">{log.dishName}</p>
-                          <p className="daily-report__meal-foods--secondary">内容: {log.foods.join('・')}</p>
-                        </>
-                      ) : (
-                        <p>内容: {log.foods.join('・')}</p>
-                      )}
-                      <p>
-                        カロリー: {log.calories}kcal / P{log.protein}g F{log.fat}g C{log.carbohydrates}g
-                      </p>
-                      {log.notes ? <p className="daily-report__note">メモ: {log.notes}</p> : null}
-                    </div>
-                  ))}
+        <section className="daily-report__section">
+          <h4>スポーツ</h4>
+          {daySportLogs.length > 0 ? (
+            <div className="daily-report__log-list">
+              {daySportLogs.map((sportLog, index) => (
+                <div key={sportLog.id ?? index} className="daily-report__item">
+                  <p>
+                    🏆 {sportLog.sportType === OTHER_SPORT_TYPE ? sportLog.customSportName ?? OTHER_SPORT_TYPE : sportLog.sportType}
+                    {` / ${sportLog.durationMinutes}分`}
+                    {sportLog.rpe !== undefined ? ` / RPE${sportLog.rpe}` : ''}
+                    {sportLog.caloriesBurned !== undefined ? ` / ${sportLog.caloriesBurned}kcal` : ''}
+                  </p>
+                  {sportLog.resultNote ? <p className="daily-report__note">スコア・結果: {sportLog.resultNote}</p> : null}
+                  {sportLog.notes ? <p className="daily-report__note">メモ: {sportLog.notes}</p> : null}
                 </div>
-              </>
-            ) : (
-              <p className="daily-report__empty">🍽️ まだ食事記録がありません</p>
-            )}
-          </section>
+              ))}
+            </div>
+          ) : (
+            <p className="daily-report__empty">🏆 まだスポーツ記録がありません</p>
+          )}
+        </section>
 
-          <section className="daily-report__section">
-            <h4>スポーツ</h4>
-            {daySportLogs.length > 0 ? (
-              <div className="daily-report__log-list">
-                {daySportLogs.map((sportLog, index) => (
-                  <div key={sportLog.id ?? index} className="daily-report__item">
-                    <p>
-                      🏆 {sportLog.sportType === OTHER_SPORT_TYPE ? sportLog.customSportName ?? OTHER_SPORT_TYPE : sportLog.sportType}
-                      {` / ${sportLog.durationMinutes}分`}
-                      {sportLog.rpe !== undefined ? ` / RPE${sportLog.rpe}` : ''}
-                      {sportLog.caloriesBurned !== undefined ? ` / ${sportLog.caloriesBurned}kcal` : ''}
-                    </p>
-                    {sportLog.resultNote ? <p className="daily-report__note">スコア・結果: {sportLog.resultNote}</p> : null}
-                    {sportLog.notes ? <p className="daily-report__note">メモ: {sportLog.notes}</p> : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="daily-report__empty">🏆 まだスポーツ記録がありません</p>
-            )}
-          </section>
-
-          <section className="daily-report__section">
-            <h4>ワークアウト</h4>
-            {dayWorkouts.length > 0 ? (
-              <div className="daily-report__log-list">
-                {dayWorkouts.map((workout, index) => (
-                  <div key={workout.id ?? index} className="daily-report__item">
-                    <p className="daily-report__item-head">
-                      {/* activityTypeはoptional（Apple純正Shortcutsの制約でdistance_meters・
-                          start_timeのみ送られてくる場合があるため）。CalendarDaySummaries.tsx
-                          のWorkoutSummaryと同じフォールバック文言に揃える。 */}
-                      🏃 {workout.activityType ?? 'ワークアウト'}
-                      {workout.externalId ? '（⌚ Watch）' : ''}
-                    </p>
-                    {workout.durationSeconds != null ? (
-                      <p className="daily-report__note">時間: {Math.round(workout.durationSeconds / 60)}分</p>
-                    ) : null}
-                    {workout.distanceMeters != null ? (
-                      <p className="daily-report__note">距離: {(workout.distanceMeters / 1000).toFixed(2)}km</p>
-                    ) : null}
-                    {workout.activeCalories != null ? (
-                      <p className="daily-report__note">消費カロリー: {Math.round(workout.activeCalories)}kcal</p>
-                    ) : null}
-                    {workout.avgHeartRate != null ? (
-                      <p className="daily-report__note">平均心拍: {Math.round(workout.avgHeartRate)}bpm</p>
-                    ) : null}
-                    {workout.notes ? <p className="daily-report__note">メモ: {workout.notes}</p> : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="daily-report__empty">🏃 まだワークアウト記録がありません</p>
-            )}
-          </section>
-        </div>
+        <section className="daily-report__section">
+          <h4>ワークアウト</h4>
+          {dayWorkouts.length > 0 ? (
+            <div className="daily-report__log-list">
+              {dayWorkouts.map((workout, index) => (
+                <div key={workout.id ?? index} className="daily-report__item">
+                  <p className="daily-report__item-head">
+                    {/* activityTypeはoptional（Apple純正Shortcutsの制約でdistance_meters・
+                        start_timeのみ送られてくる場合があるため）。CalendarDaySummaries.tsx
+                        のWorkoutSummaryと同じフォールバック文言に揃える。 */}
+                    🏃 {workout.activityType ?? 'ワークアウト'}
+                    {workout.externalId ? '（⌚ Watch）' : ''}
+                  </p>
+                  {workout.durationSeconds != null ? (
+                    <p className="daily-report__note">時間: {Math.round(workout.durationSeconds / 60)}分</p>
+                  ) : null}
+                  {workout.distanceMeters != null ? (
+                    <p className="daily-report__note">距離: {(workout.distanceMeters / 1000).toFixed(2)}km</p>
+                  ) : null}
+                  {workout.activeCalories != null ? (
+                    <p className="daily-report__note">消費カロリー: {Math.round(workout.activeCalories)}kcal</p>
+                  ) : null}
+                  {workout.avgHeartRate != null ? (
+                    <p className="daily-report__note">平均心拍: {Math.round(workout.avgHeartRate)}bpm</p>
+                  ) : null}
+                  {workout.notes ? <p className="daily-report__note">メモ: {workout.notes}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="daily-report__empty">🏃 まだワークアウト記録がありません</p>
+          )}
+        </section>
+      </div>
     </Modal>
   )
 }

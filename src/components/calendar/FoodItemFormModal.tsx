@@ -216,142 +216,142 @@ export function FoodItemFormModal({ isOpen, onClose, onSaved, foodItems, initial
 
   return (
     <Modal ariaLabel="新しい食材を登録" maxWidth={560} onOverlayClick={onClose} className="food-item-form-modal">
-        <div className="food-item-form-modal__header">
-          <h3>新しい食材を登録</h3>
-          <ModalCloseButton onClick={onClose} />
-        </div>
+      <div className="food-item-form-modal__header">
+        <h3>新しい食材を登録</h3>
+        <ModalCloseButton onClick={onClose} />
+      </div>
 
-        <div className="food-item-form-modal__body">
-          {/* Gemini画像解析による食事入力（指示書2026-09-14）：栄養成分表示ラベルの
-              写真から各フィールドを下書き入力する。失敗してもエラー表示のみで、
-              下の手入力フォームはそのまま使える。 */}
-          <MealPhotoAnalyzeSection
-            hint="label"
-            buttonLabel="📷 栄養成分表示ラベルを撮影"
-            description="パッケージの栄養成分表示ラベルを撮影すると、AIが数値を自動入力します。内容を確認してから登録してください。"
-            onResult={handlePhotoResult}
+      <div className="food-item-form-modal__body">
+        {/* Gemini画像解析による食事入力（指示書2026-09-14）：栄養成分表示ラベルの
+            写真から各フィールドを下書き入力する。失敗してもエラー表示のみで、
+            下の手入力フォームはそのまま使える。 */}
+        <MealPhotoAnalyzeSection
+          hint="label"
+          buttonLabel="📷 栄養成分表示ラベルを撮影"
+          description="パッケージの栄養成分表示ラベルを撮影すると、AIが数値を自動入力します。内容を確認してから登録してください。"
+          onResult={handlePhotoResult}
+        />
+
+        <label className="calendar-detail__field">
+          <span>食材名</span>
+          <input
+            type="text"
+            value={newFood.name}
+            onChange={(event) => handleFieldChange('name', event.target.value)}
+            placeholder="例: ゆで卵"
           />
-
-          <label className="calendar-detail__field">
-            <span>食材名</span>
-            <input
-              type="text"
-              value={newFood.name}
-              onChange={(event) => handleFieldChange('name', event.target.value)}
-              placeholder="例: ゆで卵"
-            />
-            {errors.name ? <p className="calendar-detail__error">{errors.name}</p> : null}
-          </label>
-          <label className="calendar-detail__field">
-            <span>絵文字（任意）</span>
-            <input
-              type="text"
-              value={newFood.emoji}
-              onChange={(event) => handleFieldChange('emoji', event.target.value)}
-              maxLength={4}
-              placeholder={DEFAULT_FOOD_EMOJI}
-            />
-          </label>
-          <div className="calendar-detail__inline-fields">
-            {QUICK_FOOD_EMOJIS.map(({ emoji, label }) => (
-              <button
-                key={emoji}
-                type="button"
-                className="calendar-detail__secondary-button"
-                title={label}
-                onClick={() => handleFieldChange('emoji', emoji)}
-              >
-                {emoji} {label}
-              </button>
-            ))}
-          </div>
-          <label className="calendar-detail__field">
-            <span>カテゴリ（任意）</span>
-            <input
-              type="text"
-              value={newFood.category}
-              onChange={(event) => handleFieldChange('category', event.target.value)}
-              placeholder="例: 主食 / 主菜 / 副菜 / 果物"
-            />
-          </label>
-          <div className="calendar-detail__inline-fields">
-            <label className="calendar-detail__field">
-              <span>基準量</span>
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={newFood.servingAmount}
-                onChange={(event) => handleFieldChange('servingAmount', event.target.value)}
-                placeholder="100"
-              />
-            </label>
-            <label className="calendar-detail__field">
-              <span>単位</span>
-              <input
-                type="text"
-                value={newFood.servingUnit}
-                onChange={(event) => handleFieldChange('servingUnit', event.target.value)}
-                placeholder="g / 個 / 食分 など"
-              />
-            </label>
-          </div>
-          {errors.servingAmount ? <p className="calendar-detail__error">{errors.servingAmount}</p> : null}
-          <p className="calendar-detail__description">
-            下のカロリー・PFCは「基準量あたり」の値を入力してください（例: 卵1個なら基準量1・単位「個」）
-          </p>
-          <div className="calendar-detail__inline-fields">
-            <label className="calendar-detail__field">
-              <span>カロリー (kcal)</span>
-              <input type="number" min="0" value={newFood.calories} onChange={(event) => handleFieldChange('calories', event.target.value)} />
-            </label>
-            <label className="calendar-detail__field">
-              <span>タンパク質 (g)</span>
-              <input type="number" min="0" value={newFood.protein} onChange={(event) => handleFieldChange('protein', event.target.value)} />
-            </label>
-          </div>
-          <div className="calendar-detail__inline-fields">
-            <label className="calendar-detail__field">
-              <span>脂質 (g)</span>
-              <input type="number" min="0" value={newFood.fat} onChange={(event) => handleFieldChange('fat', event.target.value)} />
-            </label>
-            <label className="calendar-detail__field">
-              <span>炭水化物 (g)</span>
-              <input
-                type="number"
-                min="0"
-                value={newFood.carbohydrates}
-                onChange={(event) => handleFieldChange('carbohydrates', event.target.value)}
-              />
-            </label>
-          </div>
-          {errors.calories ? <p className="calendar-detail__error">{errors.calories}</p> : null}
+          {errors.name ? <p className="calendar-detail__error">{errors.name}</p> : null}
+        </label>
+        <label className="calendar-detail__field">
+          <span>絵文字（任意）</span>
+          <input
+            type="text"
+            value={newFood.emoji}
+            onChange={(event) => handleFieldChange('emoji', event.target.value)}
+            maxLength={4}
+            placeholder={DEFAULT_FOOD_EMOJI}
+          />
+        </label>
+        <div className="calendar-detail__inline-fields">
+          {QUICK_FOOD_EMOJIS.map(({ emoji, label }) => (
+            <button
+              key={emoji}
+              type="button"
+              className="calendar-detail__secondary-button"
+              title={label}
+              onClick={() => handleFieldChange('emoji', emoji)}
+            >
+              {emoji} {label}
+            </button>
+          ))}
         </div>
+        <label className="calendar-detail__field">
+          <span>カテゴリ（任意）</span>
+          <input
+            type="text"
+            value={newFood.category}
+            onChange={(event) => handleFieldChange('category', event.target.value)}
+            placeholder="例: 主食 / 主菜 / 副菜 / 果物"
+          />
+        </label>
+        <div className="calendar-detail__inline-fields">
+          <label className="calendar-detail__field">
+            <span>基準量</span>
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={newFood.servingAmount}
+              onChange={(event) => handleFieldChange('servingAmount', event.target.value)}
+              placeholder="100"
+            />
+          </label>
+          <label className="calendar-detail__field">
+            <span>単位</span>
+            <input
+              type="text"
+              value={newFood.servingUnit}
+              onChange={(event) => handleFieldChange('servingUnit', event.target.value)}
+              placeholder="g / 個 / 食分 など"
+            />
+          </label>
+        </div>
+        {errors.servingAmount ? <p className="calendar-detail__error">{errors.servingAmount}</p> : null}
+        <p className="calendar-detail__description">
+          下のカロリー・PFCは「基準量あたり」の値を入力してください（例: 卵1個なら基準量1・単位「個」）
+        </p>
+        <div className="calendar-detail__inline-fields">
+          <label className="calendar-detail__field">
+            <span>カロリー (kcal)</span>
+            <input type="number" min="0" value={newFood.calories} onChange={(event) => handleFieldChange('calories', event.target.value)} />
+          </label>
+          <label className="calendar-detail__field">
+            <span>タンパク質 (g)</span>
+            <input type="number" min="0" value={newFood.protein} onChange={(event) => handleFieldChange('protein', event.target.value)} />
+          </label>
+        </div>
+        <div className="calendar-detail__inline-fields">
+          <label className="calendar-detail__field">
+            <span>脂質 (g)</span>
+            <input type="number" min="0" value={newFood.fat} onChange={(event) => handleFieldChange('fat', event.target.value)} />
+          </label>
+          <label className="calendar-detail__field">
+            <span>炭水化物 (g)</span>
+            <input
+              type="number"
+              min="0"
+              value={newFood.carbohydrates}
+              onChange={(event) => handleFieldChange('carbohydrates', event.target.value)}
+            />
+          </label>
+        </div>
+        {errors.calories ? <p className="calendar-detail__error">{errors.calories}</p> : null}
+      </div>
 
-        <div className="food-item-form-modal__footer">
-          {duplicateFoodSuggestion ? (
-            <div className="calendar-detail__warning">
-              「{newFood.name.trim()}」という類似の食材「{duplicateFoodSuggestion.name}」が既に存在します。それでも新規登録しますか？
-              <div className="calendar-detail__inline-fields">
-                <button type="button" className="calendar-detail__secondary-button" onClick={performCreate}>
-                  はい（新規登録する）
-                </button>
-                <button type="button" className="calendar-detail__secondary-button" onClick={handleUseSimilarFoodItem}>
-                  いいえ（「{duplicateFoodSuggestion.name}」を使う）
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="calendar-detail__actions">
-              <button type="button" className="calendar-detail__button" onClick={handleSubmit} disabled={isSaving}>
-                {isSaving ? '登録中...' : 'この食材を登録する'}
+      <div className="food-item-form-modal__footer">
+        {duplicateFoodSuggestion ? (
+          <div className="calendar-detail__warning">
+            「{newFood.name.trim()}」という類似の食材「{duplicateFoodSuggestion.name}」が既に存在します。それでも新規登録しますか？
+            <div className="calendar-detail__inline-fields">
+              <button type="button" className="calendar-detail__secondary-button" onClick={performCreate}>
+                はい（新規登録する）
               </button>
-              <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
-                キャンセル
+              <button type="button" className="calendar-detail__secondary-button" onClick={handleUseSimilarFoodItem}>
+                いいえ（「{duplicateFoodSuggestion.name}」を使う）
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="calendar-detail__actions">
+            <button type="button" className="calendar-detail__button" onClick={handleSubmit} disabled={isSaving}>
+              {isSaving ? '登録中...' : 'この食材を登録する'}
+            </button>
+            <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
+              キャンセル
+            </button>
+          </div>
+        )}
+      </div>
     </Modal>
   )
 }

@@ -153,73 +153,73 @@ export function RestTimerModal({ onClose }: RestTimerModalProps) {
       </div>
 
       <div className="rest-timer-modal__body">
-          {phase === 'idle' ? (
-            <>
-              <div className="rest-timer-modal__duration metric-value">{durationSeconds}秒</div>
+        {phase === 'idle' ? (
+          <>
+            <div className="rest-timer-modal__duration metric-value">{durationSeconds}秒</div>
 
-              <div className="rest-timer-modal__quick-select">
-                {QUICK_DURATIONS_SECONDS.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`rest-timer-modal__quick-button ${
-                      durationSeconds === value ? 'rest-timer-modal__quick-button--active' : ''
-                    }`}
-                    onClick={() => setDurationSeconds(value)}
-                  >
-                    {value}秒
-                  </button>
-                ))}
-              </div>
-
-              <div className="rest-timer-modal__stepper">
+            <div className="rest-timer-modal__quick-select">
+              {QUICK_DURATIONS_SECONDS.map((value) => (
                 <button
+                  key={value}
                   type="button"
-                  className="btn-icon"
-                  onClick={() => adjustDuration(-STEP_SECONDS)}
-                  aria-label={`${STEP_SECONDS}秒減らす`}
+                  className={`rest-timer-modal__quick-button ${
+                    durationSeconds === value ? 'rest-timer-modal__quick-button--active' : ''
+                  }`}
+                  onClick={() => setDurationSeconds(value)}
                 >
-                  −
+                  {value}秒
                 </button>
-                <span className="rest-timer-modal__stepper-label">±{STEP_SECONDS}秒</span>
-                <button
-                  type="button"
-                  className="btn-icon"
-                  onClick={() => adjustDuration(STEP_SECONDS)}
-                  aria-label={`${STEP_SECONDS}秒増やす`}
-                >
-                  +
-                </button>
-              </div>
+              ))}
+            </div>
 
-              <button type="button" className="btn-primary rest-timer-modal__start" onClick={handleStart}>
-                休憩開始
-              </button>
-            </>
-          ) : (
-            <>
-              <div
-                className={`rest-timer-modal__countdown metric-value ${
-                  phase === 'finished' ? 'rest-timer-modal__countdown--finished' : ''
-                }`}
+            <div className="rest-timer-modal__stepper">
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => adjustDuration(-STEP_SECONDS)}
+                aria-label={`${STEP_SECONDS}秒減らす`}
               >
-                {formatCountdown(remainingMs)}
-              </div>
-              {phase === 'finished' ? <p className="rest-timer-modal__finished-label">⏰ 時間になりました</p> : null}
+                −
+              </button>
+              <span className="rest-timer-modal__stepper-label">±{STEP_SECONDS}秒</span>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => adjustDuration(STEP_SECONDS)}
+                aria-label={`${STEP_SECONDS}秒増やす`}
+              >
+                +
+              </button>
+            </div>
 
-              <div className="rest-timer-modal__actions">
-                {phase === 'finished' ? (
-                  <button type="button" className="btn-primary" onClick={handleStart}>
-                    もう一度（{durationSeconds}秒）
-                  </button>
-                ) : null}
-                <button type="button" className="btn-secondary" onClick={handleReset}>
-                  {phase === 'finished' ? '設定に戻る' : 'リセット'}
+            <button type="button" className="btn-primary rest-timer-modal__start" onClick={handleStart}>
+              休憩開始
+            </button>
+          </>
+        ) : (
+          <>
+            <div
+              className={`rest-timer-modal__countdown metric-value ${
+                phase === 'finished' ? 'rest-timer-modal__countdown--finished' : ''
+              }`}
+            >
+              {formatCountdown(remainingMs)}
+            </div>
+            {phase === 'finished' ? <p className="rest-timer-modal__finished-label">⏰ 時間になりました</p> : null}
+
+            <div className="rest-timer-modal__actions">
+              {phase === 'finished' ? (
+                <button type="button" className="btn-primary" onClick={handleStart}>
+                  もう一度（{durationSeconds}秒）
                 </button>
-              </div>
-            </>
-          )}
-        </div>
+              ) : null}
+              <button type="button" className="btn-secondary" onClick={handleReset}>
+                {phase === 'finished' ? '設定に戻る' : 'リセット'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </Modal>
   )
 }

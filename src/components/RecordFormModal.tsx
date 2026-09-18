@@ -188,93 +188,93 @@ export function RecordFormModal({
       </div>
 
       <div className="record-form-modal__body">
-          {request.type === 'training' && request.trainingEdit ? (
-            <TrainingEditListFlow
-              key={formKey}
-              trainingLogs={trainingLogs}
-              setTrainingLogs={setTrainingLogs}
-              mealLogs={mealLogs}
-              dailyConditions={dailyConditions}
-              selectedDate={request.date}
-              schedulesForMdCheck={modalSchedules}
-              onClose={onClose}
-            />
-          ) : null}
+        {request.type === 'training' && request.trainingEdit ? (
+          <TrainingEditListFlow
+            key={formKey}
+            trainingLogs={trainingLogs}
+            setTrainingLogs={setTrainingLogs}
+            mealLogs={mealLogs}
+            dailyConditions={dailyConditions}
+            selectedDate={request.date}
+            schedulesForMdCheck={modalSchedules}
+            onClose={onClose}
+          />
+        ) : null}
 
-          {request.type === 'training' && !request.trainingEdit ? (
-            <TrainingExerciseEditModal
-              key={formKey}
-              trainingLogs={trainingLogs}
-              setTrainingLogs={setTrainingLogs}
-              mealLogs={mealLogs}
-              dailyConditions={dailyConditions}
-              selectedDate={request.date}
-              trainingLogExerciseId={request.trainingLogExerciseId}
-              schedulesForMdCheck={modalSchedules}
-              onClose={onClose}
-            />
-          ) : null}
+        {request.type === 'training' && !request.trainingEdit ? (
+          <TrainingExerciseEditModal
+            key={formKey}
+            trainingLogs={trainingLogs}
+            setTrainingLogs={setTrainingLogs}
+            mealLogs={mealLogs}
+            dailyConditions={dailyConditions}
+            selectedDate={request.date}
+            trainingLogExerciseId={request.trainingLogExerciseId}
+            schedulesForMdCheck={modalSchedules}
+            onClose={onClose}
+          />
+        ) : null}
 
-          {request.type === 'workout' && !isLoadingSideData ? (
-            <WorkoutEditListFlow
-              key={formKey}
-              workouts={modalWorkouts}
-              setWorkouts={setModalWorkouts}
-              selectedDate={request.date}
-              onClose={onClose}
-            />
-          ) : null}
+        {request.type === 'workout' && !isLoadingSideData ? (
+          <WorkoutEditListFlow
+            key={formKey}
+            workouts={modalWorkouts}
+            setWorkouts={setModalWorkouts}
+            selectedDate={request.date}
+            onClose={onClose}
+          />
+        ) : null}
 
-          {request.type === 'meal' ? (
-            <MealLogWizardModal
-              key={formKey}
-              mealLogs={mealLogs}
-              setMealLogs={setMealLogs}
-              selectedDate={request.date}
-              mealLogId={request.mealLogId}
-              onClose={onClose}
-            />
-          ) : null}
+        {request.type === 'meal' ? (
+          <MealLogWizardModal
+            key={formKey}
+            mealLogs={mealLogs}
+            setMealLogs={setMealLogs}
+            selectedDate={request.date}
+            mealLogId={request.mealLogId}
+            onClose={onClose}
+          />
+        ) : null}
 
-          {request.type === 'condition' ? (
-            <ConditionForm
-              key={formKey}
-              dailyConditions={dailyConditions}
-              setDailyConditions={setDailyConditions}
-              selectedDate={request.date}
-              isConditionFormOpen={isConditionFormOpen}
-              setIsConditionFormOpen={setIsConditionFormOpen}
-              setIsFormOpen={() => {}}
-              setIsMealFormOpen={() => {}}
-              autoOpenToken={autoOpenToken}
-            />
-          ) : null}
+        {request.type === 'condition' ? (
+          <ConditionForm
+            key={formKey}
+            dailyConditions={dailyConditions}
+            setDailyConditions={setDailyConditions}
+            selectedDate={request.date}
+            isConditionFormOpen={isConditionFormOpen}
+            setIsConditionFormOpen={setIsConditionFormOpen}
+            setIsFormOpen={() => {}}
+            setIsMealFormOpen={() => {}}
+            autoOpenToken={autoOpenToken}
+          />
+        ) : null}
 
-          {request.type === 'schedule' && !isLoadingSideData ? (
-            <ScheduleForm
-              key={formKey}
-              schedules={modalSchedules}
-              setSchedules={setModalSchedules}
-              selectedDate={request.date}
-              isScheduleFormOpen={isScheduleFormOpen}
-              setIsScheduleFormOpen={setIsScheduleFormOpen}
-              autoOpenToken={autoOpenToken}
-              autoOpenScheduleId={request.scheduleId}
-              autoSelectTemplateId={request.templateId}
-            />
-          ) : null}
+        {request.type === 'schedule' && !isLoadingSideData ? (
+          <ScheduleForm
+            key={formKey}
+            schedules={modalSchedules}
+            setSchedules={setModalSchedules}
+            selectedDate={request.date}
+            isScheduleFormOpen={isScheduleFormOpen}
+            setIsScheduleFormOpen={setIsScheduleFormOpen}
+            autoOpenToken={autoOpenToken}
+            autoOpenScheduleId={request.scheduleId}
+            autoSelectTemplateId={request.templateId}
+          />
+        ) : null}
 
-          {request.type === 'sport' && !isLoadingSideData ? (
-            <SportLogForm
-              key={formKey}
-              sportLogs={modalSportLogs}
-              setSportLogs={setModalSportLogs}
-              selectedDate={request.date}
-              sportLogId={request.sportLogId}
-              onClose={onClose}
-            />
-          ) : null}
-        </div>
+        {request.type === 'sport' && !isLoadingSideData ? (
+          <SportLogForm
+            key={formKey}
+            sportLogs={modalSportLogs}
+            setSportLogs={setModalSportLogs}
+            selectedDate={request.date}
+            sportLogId={request.sportLogId}
+            onClose={onClose}
+          />
+        ) : null}
+      </div>
     </Modal>
   )
 }

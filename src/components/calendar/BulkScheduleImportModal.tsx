@@ -613,203 +613,203 @@ export function BulkScheduleImportModal({
       </div>
 
       <div className="bulk-import-modal__body">
+        <section className="bulk-import-modal__section">
+          <p className="bulk-import-modal__description">
+            下のプロンプトをコピーしてChatGPTやGeminiなどのAIに渡し、出力されたJSONをそのまま次の欄に貼り付けてください。
+            予定・トレーニング実績・食事記録・体調記録を日付ごとにまとめて取り込めます。
+          </p>
+          <pre className="bulk-import-modal__prompt">{PROMPT_TEXT}</pre>
+          <button type="button" className="calendar-detail__secondary-button" onClick={handleCopyPrompt}>
+            {copyStatus === 'copied' ? 'コピーしました ✓' : copyStatus === 'error' ? 'コピーに失敗しました' : 'プロンプトをコピー'}
+          </button>
+        </section>
+
+        <section className="bulk-import-modal__section">
+          <label className="calendar-detail__field calendar-detail__field--full">
+            <span>AIの出力結果（JSON）を貼り付け</span>
+            <textarea
+              className="bulk-import-modal__textarea"
+              rows={6}
+              value={jsonText}
+              onChange={(event) => {
+                setJsonText(event.target.value)
+                setParsedItems(null)
+                setParseError(null)
+              }}
+              placeholder='[{"date": "2026-08-20", "schedule": {"title": "上半身トレーニング"}}]'
+            />
+          </label>
+          {parseError ? <p className="calendar-detail__form-error">{parseError}</p> : null}
+        </section>
+
+        {parsedItems ? (
           <section className="bulk-import-modal__section">
-            <p className="bulk-import-modal__description">
-              下のプロンプトをコピーしてChatGPTやGeminiなどのAIに渡し、出力されたJSONをそのまま次の欄に貼り付けてください。
-              予定・トレーニング実績・食事記録・体調記録を日付ごとにまとめて取り込めます。
-            </p>
-            <pre className="bulk-import-modal__prompt">{PROMPT_TEXT}</pre>
-            <button type="button" className="calendar-detail__secondary-button" onClick={handleCopyPrompt}>
-              {copyStatus === 'copied' ? 'コピーしました ✓' : copyStatus === 'error' ? 'コピーに失敗しました' : 'プロンプトをコピー'}
-            </button>
-          </section>
+            <h4>プレビュー（{parsedItems.length}日分）</h4>
+            <div className="bulk-import-modal__days">
+              {parsedItems.map((item, dayIndex) => {
+                const hasExistingTrainingLog = trainingLogs.some((log) => log.date === item.date)
+                const hasExistingCondition = dailyConditions.some((condition) => condition.date === item.date)
 
-          <section className="bulk-import-modal__section">
-            <label className="calendar-detail__field calendar-detail__field--full">
-              <span>AIの出力結果（JSON）を貼り付け</span>
-              <textarea
-                className="bulk-import-modal__textarea"
-                rows={6}
-                value={jsonText}
-                onChange={(event) => {
-                  setJsonText(event.target.value)
-                  setParsedItems(null)
-                  setParseError(null)
-                }}
-                placeholder='[{"date": "2026-08-20", "schedule": {"title": "上半身トレーニング"}}]'
-              />
-            </label>
-            {parseError ? <p className="calendar-detail__form-error">{parseError}</p> : null}
-          </section>
+                return (
+                  <div key={item.date} className="bulk-import-modal__day">
+                    <p className="bulk-import-modal__day-date">{item.date}</p>
 
-          {parsedItems ? (
-            <section className="bulk-import-modal__section">
-              <h4>プレビュー（{parsedItems.length}日分）</h4>
-              <div className="bulk-import-modal__days">
-                {parsedItems.map((item, dayIndex) => {
-                  const hasExistingTrainingLog = trainingLogs.some((log) => log.date === item.date)
-                  const hasExistingCondition = dailyConditions.some((condition) => condition.date === item.date)
+                    {item.schedule ? (
+                      <p className="bulk-import-modal__day-row">
+                        📅 予定: {item.schedule.emoji} {item.schedule.title}
+                        {item.schedule.templateName ? (
+                          item.schedule.templateId ? (
+                            <span className="bulk-import-modal__template-match"> （{item.schedule.templateName}）</span>
+                          ) : (
+                            <span className="bulk-import-modal__template-nomatch"> （{item.schedule.templateName}・未一致）</span>
+                          )
+                        ) : null}
+                      </p>
+                    ) : null}
 
-                  return (
-                    <div key={item.date} className="bulk-import-modal__day">
-                      <p className="bulk-import-modal__day-date">{item.date}</p>
-
-                      {item.schedule ? (
-                        <p className="bulk-import-modal__day-row">
-                          📅 予定: {item.schedule.emoji} {item.schedule.title}
-                          {item.schedule.templateName ? (
-                            item.schedule.templateId ? (
-                              <span className="bulk-import-modal__template-match"> （{item.schedule.templateName}）</span>
-                            ) : (
-                              <span className="bulk-import-modal__template-nomatch"> （{item.schedule.templateName}・未一致）</span>
-                            )
-                          ) : null}
-                        </p>
-                      ) : null}
-
-                      {item.training ? (
-                        <div className="bulk-import-modal__day-row">
-                          🏋️ トレーニング実績
-                          <span className="bulk-import-modal__day-note">
-                            {hasExistingTrainingLog ? '（既存の実績に種目を追加）' : '（新規実績として作成）'}
-                          </span>
-                          <ul className="bulk-import-modal__day-list">
-                            {item.training.exercises.map((exercise, index) => (
-                              <li key={`${exercise.name}-${index}`}>
-                                {exercise.exerciseId ? (
-                                  exercise.name
-                                ) : exercise.suggestedMatch ? (
-                                  <span className="bulk-import-modal__suggestion">
-                                    「{exercise.name}」は「{exercise.suggestedMatch.name}」と同じ種目ですか？
-                                    <span className="bulk-import-modal__suggestion-actions">
-                                      <button
-                                        type="button"
-                                        className="calendar-detail__secondary-button"
-                                        onClick={() => handleAcceptExerciseSuggestion(dayIndex, index)}
-                                      >
-                                        はい
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="calendar-detail__secondary-button"
-                                        onClick={() => handleDeclineExerciseSuggestion(dayIndex, index)}
-                                      >
-                                        いいえ
-                                      </button>
-                                    </span>
+                    {item.training ? (
+                      <div className="bulk-import-modal__day-row">
+                        🏋️ トレーニング実績
+                        <span className="bulk-import-modal__day-note">
+                          {hasExistingTrainingLog ? '（既存の実績に種目を追加）' : '（新規実績として作成）'}
+                        </span>
+                        <ul className="bulk-import-modal__day-list">
+                          {item.training.exercises.map((exercise, index) => (
+                            <li key={`${exercise.name}-${index}`}>
+                              {exercise.exerciseId ? (
+                                exercise.name
+                              ) : exercise.suggestedMatch ? (
+                                <span className="bulk-import-modal__suggestion">
+                                  「{exercise.name}」は「{exercise.suggestedMatch.name}」と同じ種目ですか？
+                                  <span className="bulk-import-modal__suggestion-actions">
+                                    <button
+                                      type="button"
+                                      className="calendar-detail__secondary-button"
+                                      onClick={() => handleAcceptExerciseSuggestion(dayIndex, index)}
+                                    >
+                                      はい
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="calendar-detail__secondary-button"
+                                      onClick={() => handleDeclineExerciseSuggestion(dayIndex, index)}
+                                    >
+                                      いいえ
+                                    </button>
                                   </span>
-                                ) : (
-                                  <span className="bulk-import-modal__template-nomatch">{exercise.name}（未一致・スキップ）</span>
-                                )}
-                                {exercise.sets.length > 0 ? ` ${exercise.sets.length}セット` : ''}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
+                                </span>
+                              ) : (
+                                <span className="bulk-import-modal__template-nomatch">{exercise.name}（未一致・スキップ）</span>
+                              )}
+                              {exercise.sets.length > 0 ? ` ${exercise.sets.length}セット` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
 
-                      {item.meals && item.meals.length > 0 ? (
-                        <div className="bulk-import-modal__day-row">
-                          🍚 食事（新規記録として追加）
-                          <ul className="bulk-import-modal__day-list">
-                            {item.meals.map((meal, mealIndex) => (
-                              <li key={`${meal.typeLabel}-${mealIndex}`}>
-                                {meal.typeLabel}:{' '}
-                                {meal.items.map((foodItem, foodIndex) => (
-                                  <span key={`${foodItem.name}-${foodIndex}`}>
-                                    {foodIndex > 0 ? '・' : ''}
-                                    {foodItem.foodItemId ? (
-                                      foodItem.name
-                                    ) : foodItem.suggestedMatch ? (
-                                      <span className="bulk-import-modal__suggestion">
-                                        「{foodItem.name}」は「{foodItem.suggestedMatch.name}」と同じ食材ですか？
-                                        <span className="bulk-import-modal__suggestion-actions">
-                                          <button
-                                            type="button"
-                                            className="calendar-detail__secondary-button"
-                                            onClick={() => handleAcceptFoodSuggestion(dayIndex, mealIndex, foodIndex)}
-                                          >
-                                            はい
-                                          </button>
-                                          <button
-                                            type="button"
-                                            className="calendar-detail__secondary-button"
-                                            onClick={() => handleDeclineFoodSuggestion(dayIndex, mealIndex, foodIndex)}
-                                          >
-                                            いいえ
-                                          </button>
-                                        </span>
+                    {item.meals && item.meals.length > 0 ? (
+                      <div className="bulk-import-modal__day-row">
+                        🍚 食事（新規記録として追加）
+                        <ul className="bulk-import-modal__day-list">
+                          {item.meals.map((meal, mealIndex) => (
+                            <li key={`${meal.typeLabel}-${mealIndex}`}>
+                              {meal.typeLabel}:{' '}
+                              {meal.items.map((foodItem, foodIndex) => (
+                                <span key={`${foodItem.name}-${foodIndex}`}>
+                                  {foodIndex > 0 ? '・' : ''}
+                                  {foodItem.foodItemId ? (
+                                    foodItem.name
+                                  ) : foodItem.suggestedMatch ? (
+                                    <span className="bulk-import-modal__suggestion">
+                                      「{foodItem.name}」は「{foodItem.suggestedMatch.name}」と同じ食材ですか？
+                                      <span className="bulk-import-modal__suggestion-actions">
+                                        <button
+                                          type="button"
+                                          className="calendar-detail__secondary-button"
+                                          onClick={() => handleAcceptFoodSuggestion(dayIndex, mealIndex, foodIndex)}
+                                        >
+                                          はい
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="calendar-detail__secondary-button"
+                                          onClick={() => handleDeclineFoodSuggestion(dayIndex, mealIndex, foodIndex)}
+                                        >
+                                          いいえ
+                                        </button>
                                       </span>
-                                    ) : (
-                                      <span className="bulk-import-modal__template-nomatch">{foodItem.name}（未一致）</span>
-                                    )}
-                                  </span>
-                                ))}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
+                                    </span>
+                                  ) : (
+                                    <span className="bulk-import-modal__template-nomatch">{foodItem.name}（未一致）</span>
+                                  )}
+                                </span>
+                              ))}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
 
-                      {item.condition ? (
-                        <p className="bulk-import-modal__day-row">
-                          📋 体調:
-                          {item.condition.weight != null ? ` 体重${item.condition.weight}kg` : ''}
-                          {item.condition.sleepHours != null ? ` 睡眠${item.condition.sleepHours}h` : ''}
-                          {item.condition.fatigue != null ? ` 疲労度${item.condition.fatigue}/5` : ''}
-                          <span className="bulk-import-modal__day-note">{hasExistingCondition ? '（既存の記録を上書き）' : '（新規作成）'}</span>
-                        </p>
-                      ) : null}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {scheduleItems.length > 0 ? (
-                <div className="calendar-detail__field">
-                  <span>予定の取り込みモード</span>
-                  <label className="bulk-import-modal__radio">
-                    <input
-                      type="radio"
-                      name="bulk-import-mode"
-                      checked={importMode === 'append'}
-                      onChange={() => setImportMode('append')}
-                    />
-                    既存予定に残して追加（追加登録）
-                  </label>
-                  <label className="bulk-import-modal__radio">
-                    <input
-                      type="radio"
-                      name="bulk-import-mode"
-                      checked={importMode === 'overwrite'}
-                      onChange={() => setImportMode('overwrite')}
-                    />
-                    期間内の既存予定を削除して置き換え（上書き登録）
-                  </label>
-                </div>
-              ) : null}
-
-              {submitError ? <p className="calendar-detail__form-error">{submitError}</p> : null}
-            </section>
-          ) : null}
-        </div>
-
-        <div className="bulk-import-modal__footer">
-          {parsedItems ? (
-            <div className="calendar-detail__actions">
-              <button type="button" className="calendar-detail__button" onClick={handleImport} disabled={isSubmitting}>
-                {isSubmitting ? '登録中...' : `${parsedItems.length}日分を登録する`}
-              </button>
-              <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSubmitting}>
-                キャンセル
-              </button>
+                    {item.condition ? (
+                      <p className="bulk-import-modal__day-row">
+                        📋 体調:
+                        {item.condition.weight != null ? ` 体重${item.condition.weight}kg` : ''}
+                        {item.condition.sleepHours != null ? ` 睡眠${item.condition.sleepHours}h` : ''}
+                        {item.condition.fatigue != null ? ` 疲労度${item.condition.fatigue}/5` : ''}
+                        <span className="bulk-import-modal__day-note">{hasExistingCondition ? '（既存の記録を上書き）' : '（新規作成）'}</span>
+                      </p>
+                    ) : null}
+                  </div>
+                )
+              })}
             </div>
-          ) : (
-            <button type="button" className="calendar-detail__button" onClick={handleParse} disabled={!jsonText.trim()}>
-              解析してプレビュー
+
+            {scheduleItems.length > 0 ? (
+              <div className="calendar-detail__field">
+                <span>予定の取り込みモード</span>
+                <label className="bulk-import-modal__radio">
+                  <input
+                    type="radio"
+                    name="bulk-import-mode"
+                    checked={importMode === 'append'}
+                    onChange={() => setImportMode('append')}
+                  />
+                  既存予定に残して追加（追加登録）
+                </label>
+                <label className="bulk-import-modal__radio">
+                  <input
+                    type="radio"
+                    name="bulk-import-mode"
+                    checked={importMode === 'overwrite'}
+                    onChange={() => setImportMode('overwrite')}
+                  />
+                  期間内の既存予定を削除して置き換え（上書き登録）
+                </label>
+              </div>
+            ) : null}
+
+            {submitError ? <p className="calendar-detail__form-error">{submitError}</p> : null}
+          </section>
+        ) : null}
+      </div>
+
+      <div className="bulk-import-modal__footer">
+        {parsedItems ? (
+          <div className="calendar-detail__actions">
+            <button type="button" className="calendar-detail__button" onClick={handleImport} disabled={isSubmitting}>
+              {isSubmitting ? '登録中...' : `${parsedItems.length}日分を登録する`}
             </button>
-          )}
-        </div>
+            <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSubmitting}>
+              キャンセル
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="calendar-detail__button" onClick={handleParse} disabled={!jsonText.trim()}>
+            解析してプレビュー
+          </button>
+        )}
+      </div>
     </Modal>
   )
 }

@@ -85,64 +85,64 @@ export function WeeklyACWRDetailModal({ seriesPoints, chronicDaysAvailable, days
 
       <div className="weekly-acwr-detail__body">
         <div className="weekly-acwr-detail__score-row">
-            <span className="weekly-acwr-detail__score metric-value">{latest.acwr.toFixed(2)}</span>
-            <span className={`weekly-acwr-detail__badge weekly-acwr-detail__badge--${TIER_TONE[insight.tier]}`}>{insight.title}</span>
-          </div>
-
-          {chronicDaysAvailable < 28 ? (
-            <p className="weekly-acwr-detail__note">直近{chronicDaysAvailable}日分のデータで算出</p>
-          ) : null}
-
-          <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="progress-graph__svg weekly-acwr-detail__svg" aria-hidden="true">
-            {bands.map((band) => (
-              <rect
-                key={band.tone + band.from}
-                x={MARGIN_LEFT}
-                y={bandY(band.to)}
-                width={DISPLAY_WIDTH}
-                height={Math.max(0, bandY(band.from) - bandY(band.to))}
-                className={`weekly-acwr-detail__band weekly-acwr-detail__band--${band.tone}`}
-              />
-            ))}
-            {ticks.map((tick) => (
-              <g key={tick.y}>
-                <line x1={MARGIN_LEFT} y1={tick.y} x2={CHART_WIDTH - MARGIN_RIGHT} y2={tick.y} className="progress-graph__gridline" />
-                <text x={MARGIN_LEFT - 6} y={tick.y + 3} className="progress-graph__axis-label" textAnchor="end">
-                  {tick.label}
-                </text>
-              </g>
-            ))}
-            <polyline points={points.join(' ')} fill="none" className="progress-graph__line weekly-acwr-detail__line" />
-            {points.map((point, index) => {
-              const [cx, cy] = point.split(',').map(Number)
-              const isSpike = availablePoints[index].acwr > 1.5
-              return (
-                <circle
-                  key={availablePoints[index].date}
-                  cx={cx}
-                  cy={cy}
-                  r={isSpike ? 4.5 : 3}
-                  className={`progress-graph__dot weekly-acwr-detail__dot ${isSpike ? 'weekly-acwr-detail__dot--spike' : ''}`}
-                  onClick={() => setSelectedDate(availablePoints[index].date)}
-                />
-              )
-            })}
-          </svg>
-
-          {selectedPoint ? (
-            <p className="chart-card__tooltip">
-              {selectedPoint.date.replace(/-/g, '/')}｜ACWR: {selectedPoint.acwr.toFixed(2)}
-            </p>
-          ) : null}
-
-          <div className="progress-graph__labels">
-            {availablePoints.map((point, index) =>
-              shouldShowLabel(index, availablePoints.length) ? <span key={point.date}>{formatShortDate(point.date)}</span> : null,
-            )}
-          </div>
-
-          <p className="weekly-acwr-detail__insight-body">{insight.body}</p>
+          <span className="weekly-acwr-detail__score metric-value">{latest.acwr.toFixed(2)}</span>
+          <span className={`weekly-acwr-detail__badge weekly-acwr-detail__badge--${TIER_TONE[insight.tier]}`}>{insight.title}</span>
         </div>
+
+        {chronicDaysAvailable < 28 ? (
+          <p className="weekly-acwr-detail__note">直近{chronicDaysAvailable}日分のデータで算出</p>
+        ) : null}
+
+        <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="progress-graph__svg weekly-acwr-detail__svg" aria-hidden="true">
+          {bands.map((band) => (
+            <rect
+              key={band.tone + band.from}
+              x={MARGIN_LEFT}
+              y={bandY(band.to)}
+              width={DISPLAY_WIDTH}
+              height={Math.max(0, bandY(band.from) - bandY(band.to))}
+              className={`weekly-acwr-detail__band weekly-acwr-detail__band--${band.tone}`}
+            />
+          ))}
+          {ticks.map((tick) => (
+            <g key={tick.y}>
+              <line x1={MARGIN_LEFT} y1={tick.y} x2={CHART_WIDTH - MARGIN_RIGHT} y2={tick.y} className="progress-graph__gridline" />
+              <text x={MARGIN_LEFT - 6} y={tick.y + 3} className="progress-graph__axis-label" textAnchor="end">
+                {tick.label}
+              </text>
+            </g>
+          ))}
+          <polyline points={points.join(' ')} fill="none" className="progress-graph__line weekly-acwr-detail__line" />
+          {points.map((point, index) => {
+            const [cx, cy] = point.split(',').map(Number)
+            const isSpike = availablePoints[index].acwr > 1.5
+            return (
+              <circle
+                key={availablePoints[index].date}
+                cx={cx}
+                cy={cy}
+                r={isSpike ? 4.5 : 3}
+                className={`progress-graph__dot weekly-acwr-detail__dot ${isSpike ? 'weekly-acwr-detail__dot--spike' : ''}`}
+                onClick={() => setSelectedDate(availablePoints[index].date)}
+              />
+            )
+          })}
+        </svg>
+
+        {selectedPoint ? (
+          <p className="chart-card__tooltip">
+            {selectedPoint.date.replace(/-/g, '/')}｜ACWR: {selectedPoint.acwr.toFixed(2)}
+          </p>
+        ) : null}
+
+        <div className="progress-graph__labels">
+          {availablePoints.map((point, index) =>
+            shouldShowLabel(index, availablePoints.length) ? <span key={point.date}>{formatShortDate(point.date)}</span> : null,
+          )}
+        </div>
+
+        <p className="weekly-acwr-detail__insight-body">{insight.body}</p>
+      </div>
     </Modal>
   )
 }

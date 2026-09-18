@@ -380,202 +380,202 @@ export function DishFormModal({
     // Fragment：DishFormModal のオーバーレイと、その外側に置く FoodItemFormModal を並べる。
     <>
     <Modal ariaLabel={heading} maxWidth={560} onOverlayClick={onClose} className="dish-form-modal">
-        <div className="dish-form-modal__header">
-          <h3>{heading}</h3>
-          <ModalCloseButton onClick={onClose} />
+      <div className="dish-form-modal__header">
+        <h3>{heading}</h3>
+        <ModalCloseButton onClick={onClose} />
+      </div>
+
+      <div className="dish-form-modal__body">
+        {error ? <p className="calendar-detail__form-error">{error}</p> : null}
+
+        <label className="calendar-detail__field">
+          <span>料理名</span>
+          <input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="例: 親子丼" />
+        </label>
+
+        {/* AI材料提案（2026年9月7日）：料理名から材料の下書きを生成してフォームへ
+            追加する。DBには書き込まず、あくまで編集可能な下書き。失敗時はエラー表示のみ。 */}
+        <div className="dish-form-modal__ai-suggest">
+          <button
+            type="button"
+            className="calendar-detail__secondary-button"
+            onClick={handleSuggestIngredients}
+            disabled={isSuggesting || !name.trim()}
+          >
+            {isSuggesting ? 'AIが考え中...' : '✨ AIで材料を提案'}
+          </button>
+          <p className="calendar-detail__description">
+            料理名からAIが材料と概算分量を下書きします。内容を確認・編集してから保存してください。
+          </p>
+          {suggestInfo ? <p className="dish-form-modal__ai-info">{suggestInfo}</p> : null}
+          {suggestError ? <p className="calendar-detail__form-error">{suggestError}</p> : null}
         </div>
 
-        <div className="dish-form-modal__body">
-          {error ? <p className="calendar-detail__form-error">{error}</p> : null}
-
+        <div className="calendar-detail__inline-fields">
           <label className="calendar-detail__field">
-            <span>料理名</span>
-            <input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="例: 親子丼" />
+            <span>カテゴリ</span>
+            <select value={category} onChange={(event) => setCategory(event.target.value as DishCategory)}>
+              <option value="">選択してください</option>
+              {DISH_CATEGORIES.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </label>
+          <label className="calendar-detail__field">
+            <span>絵文字（任意）</span>
+            <input
+              type="text"
+              value={emoji}
+              onChange={(event) => setEmoji(event.target.value)}
+              maxLength={4}
+              placeholder={DEFAULT_FOOD_EMOJI}
+            />
+          </label>
+        </div>
 
-          {/* AI材料提案（2026年9月7日）：料理名から材料の下書きを生成してフォームへ
-              追加する。DBには書き込まず、あくまで編集可能な下書き。失敗時はエラー表示のみ。 */}
-          <div className="dish-form-modal__ai-suggest">
-            <button
-              type="button"
-              className="calendar-detail__secondary-button"
-              onClick={handleSuggestIngredients}
-              disabled={isSuggesting || !name.trim()}
-            >
-              {isSuggesting ? 'AIが考え中...' : '✨ AIで材料を提案'}
-            </button>
-            <p className="calendar-detail__description">
-              料理名からAIが材料と概算分量を下書きします。内容を確認・編集してから保存してください。
-            </p>
-            {suggestInfo ? <p className="dish-form-modal__ai-info">{suggestInfo}</p> : null}
-            {suggestError ? <p className="calendar-detail__form-error">{suggestError}</p> : null}
-          </div>
+        <GenreFoodPicker key={pickerResetKey} foodItems={availableFoodItems} onSelect={addItem} onFoodItemDeleted={onFoodItemDeleted} />
 
-          <div className="calendar-detail__inline-fields">
-            <label className="calendar-detail__field">
-              <span>カテゴリ</span>
-              <select value={category} onChange={(event) => setCategory(event.target.value as DishCategory)}>
-                <option value="">選択してください</option>
-                {DISH_CATEGORIES.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="calendar-detail__field">
-              <span>絵文字（任意）</span>
-              <input
-                type="text"
-                value={emoji}
-                onChange={(event) => setEmoji(event.target.value)}
-                maxLength={4}
-                placeholder={DEFAULT_FOOD_EMOJI}
-              />
-            </label>
-          </div>
+        {items.length > 0 ? (
+          <div className="calendar-detail__log-list">
+            {items.map((item) => {
+              const foodItem = availableFoodItems.find((food) => food.id === item.foodItemId)
+              const isUnlinked = !item.foodItemId || !foodItem
+              const unit = unitForItem(item)
+              const aiOriginLabel =
+                !isUnlinked && item.aiOrigin === 'auto-created'
+                  ? '✨ AIが新規食材として自動登録'
+                  : !isUnlinked && item.aiOrigin === 'auto-link-similar'
+                    ? '✨ 類似食材に自動で紐付け'
+                    : null
+              return (
+                <div
+                  key={item.key}
+                  className={`calendar-detail__meal-item${isUnlinked ? ' dish-form-modal__meal-item--unlinked' : ''}`}
+                >
+                  <div className="calendar-detail__meal-head">
+                    <span>
+                      {isUnlinked
+                        ? `⚠️ 未登録の食材（要確認）: ${item.aiSuggestedName ?? '不明な食材'}`
+                        : `${foodItem?.emoji ?? DEFAULT_FOOD_EMOJI} ${foodItem?.name ?? '不明な食材'}`}
+                    </span>
+                    <button type="button" className="calendar-detail__delete-button" onClick={() => removeItem(item.key)}>
+                      削除
+                    </button>
+                  </div>
 
-          <GenreFoodPicker key={pickerResetKey} foodItems={availableFoodItems} onSelect={addItem} onFoodItemDeleted={onFoodItemDeleted} />
-
-          {items.length > 0 ? (
-            <div className="calendar-detail__log-list">
-              {items.map((item) => {
-                const foodItem = availableFoodItems.find((food) => food.id === item.foodItemId)
-                const isUnlinked = !item.foodItemId || !foodItem
-                const unit = unitForItem(item)
-                const aiOriginLabel =
-                  !isUnlinked && item.aiOrigin === 'auto-created'
-                    ? '✨ AIが新規食材として自動登録'
-                    : !isUnlinked && item.aiOrigin === 'auto-link-similar'
-                      ? '✨ 類似食材に自動で紐付け'
-                      : null
-                return (
-                  <div
-                    key={item.key}
-                    className={`calendar-detail__meal-item${isUnlinked ? ' dish-form-modal__meal-item--unlinked' : ''}`}
-                  >
-                    <div className="calendar-detail__meal-head">
-                      <span>
-                        {isUnlinked
-                          ? `⚠️ 未登録の食材（要確認）: ${item.aiSuggestedName ?? '不明な食材'}`
-                          : `${foodItem?.emoji ?? DEFAULT_FOOD_EMOJI} ${foodItem?.name ?? '不明な食材'}`}
-                      </span>
-                      <button type="button" className="calendar-detail__delete-button" onClick={() => removeItem(item.key)}>
-                        削除
-                      </button>
+                  {aiOriginLabel ? (
+                    <div className="dish-form-modal__ai-origin">
+                      <span>{aiOriginLabel}</span>
+                      <label className="calendar-detail__field">
+                        <span>別の食材に変更</span>
+                        <select
+                          value=""
+                          onChange={(event) => {
+                            if (event.target.value) {
+                              linkItemToFood(item.key, event.target.value)
+                            }
+                          }}
+                        >
+                          <option value="">そのまま使う</option>
+                          {availableFoodItems.map((food) => (
+                            <option key={food.id} value={food.id}>
+                              {food.emoji ?? DEFAULT_FOOD_EMOJI} {food.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
+                  ) : null}
 
-                    {aiOriginLabel ? (
-                      <div className="dish-form-modal__ai-origin">
-                        <span>{aiOriginLabel}</span>
-                        <label className="calendar-detail__field">
-                          <span>別の食材に変更</span>
-                          <select
-                            value=""
-                            onChange={(event) => {
-                              if (event.target.value) {
-                                linkItemToFood(item.key, event.target.value)
-                              }
-                            }}
-                          >
-                            <option value="">そのまま使う</option>
-                            {availableFoodItems.map((food) => (
-                              <option key={food.id} value={food.id}>
-                                {food.emoji ?? DEFAULT_FOOD_EMOJI} {food.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                    ) : null}
-
-                    {isUnlinked ? (
-                      <div className="dish-form-modal__unlinked-actions">
-                        {item.aiSimilarFoodItemId ? (
-                          <button
-                            type="button"
-                            className="calendar-detail__secondary-button"
-                            onClick={() => linkItemToFood(item.key, item.aiSimilarFoodItemId as string)}
-                          >
-                            「{item.aiSimilarLabel}」を使う
-                          </button>
-                        ) : null}
-                        <label className="calendar-detail__field">
-                          <span>食材を選んで紐付け</span>
-                          <select
-                            value=""
-                            onChange={(event) => {
-                              if (event.target.value) {
-                                linkItemToFood(item.key, event.target.value)
-                              }
-                            }}
-                          >
-                            <option value="">選択してください</option>
-                            {availableFoodItems.map((food) => (
-                              <option key={food.id} value={food.id}>
-                                {food.emoji ?? DEFAULT_FOOD_EMOJI} {food.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                  {isUnlinked ? (
+                    <div className="dish-form-modal__unlinked-actions">
+                      {item.aiSimilarFoodItemId ? (
                         <button
                           type="button"
                           className="calendar-detail__secondary-button"
-                          onClick={() => setFoodItemModalInitialName(item.aiSuggestedName ?? '')}
+                          onClick={() => linkItemToFood(item.key, item.aiSimilarFoodItemId as string)}
                         >
-                          新規食材として登録
+                          「{item.aiSimilarLabel}」を使う
                         </button>
+                      ) : null}
+                      <label className="calendar-detail__field">
+                        <span>食材を選んで紐付け</span>
+                        <select
+                          value=""
+                          onChange={(event) => {
+                            if (event.target.value) {
+                              linkItemToFood(item.key, event.target.value)
+                            }
+                          }}
+                        >
+                          <option value="">選択してください</option>
+                          {availableFoodItems.map((food) => (
+                            <option key={food.id} value={food.id}>
+                              {food.emoji ?? DEFAULT_FOOD_EMOJI} {food.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        className="calendar-detail__secondary-button"
+                        onClick={() => setFoodItemModalInitialName(item.aiSuggestedName ?? '')}
+                      >
+                        新規食材として登録
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <div className="calendar-detail__inline-fields">
+                    <label className="calendar-detail__field">
+                      <span>{isUnlinked ? '分量（g）' : formatDishAmountLabel(unit)}</span>
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={item.amount}
+                        onChange={(event) => handleAmountChange(item.key, event.target.value)}
+                      />
+                    </label>
+                    {!isUnlinked ? (
+                      <div className="calendar-detail__field">
+                        <span>単位</span>
+                        {/* 料理レシピの単位不一致・再発防止（2026年9月4日）：単位は
+                            食材の基準単位（serving_unit）に固定。ユーザーは編集不可。 */}
+                        <input type="text" value={unit} readOnly disabled aria-label="単位（食材の基準単位に固定）" />
                       </div>
                     ) : null}
-
-                    <div className="calendar-detail__inline-fields">
-                      <label className="calendar-detail__field">
-                        <span>{isUnlinked ? '分量（g）' : formatDishAmountLabel(unit)}</span>
-                        <input
-                          type="number"
-                          min="0.1"
-                          step="0.1"
-                          value={item.amount}
-                          onChange={(event) => handleAmountChange(item.key, event.target.value)}
-                        />
-                      </label>
-                      {!isUnlinked ? (
-                        <div className="calendar-detail__field">
-                          <span>単位</span>
-                          {/* 料理レシピの単位不一致・再発防止（2026年9月4日）：単位は
-                              食材の基準単位（serving_unit）に固定。ユーザーは編集不可。 */}
-                          <input type="text" value={unit} readOnly disabled aria-label="単位（食材の基準単位に固定）" />
-                        </div>
-                      ) : null}
-                    </div>
                   </div>
-                )
-              })}
-            </div>
-          ) : null}
-
-          <div className="calendar-detail__meal-totals">
-            合計（倍率1.0あたり）: {Math.round(previewTotals.calories)}kcal / P{Math.round(previewTotals.protein)}g F
-            {Math.round(previewTotals.fat)}g C{Math.round(previewTotals.carbohydrates)}g
+                </div>
+              )
+            })}
           </div>
-        </div>
+        ) : null}
 
-        <div className="dish-form-modal__footer">
-          <div className="calendar-detail__actions">
-            <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving}>
-              {isSaving
-                ? isEditing
-                  ? '更新中...'
-                  : '登録中...'
-                : isEditing
-                  ? 'この内容で更新する'
-                  : 'この料理を登録する'}
-            </button>
-            <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
-              キャンセル
-            </button>
-          </div>
+        <div className="calendar-detail__meal-totals">
+          合計（倍率1.0あたり）: {Math.round(previewTotals.calories)}kcal / P{Math.round(previewTotals.protein)}g F
+          {Math.round(previewTotals.fat)}g C{Math.round(previewTotals.carbohydrates)}g
         </div>
+      </div>
+
+      <div className="dish-form-modal__footer">
+        <div className="calendar-detail__actions">
+          <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving}>
+            {isSaving
+              ? isEditing
+                ? '更新中...'
+                : '登録中...'
+              : isEditing
+                ? 'この内容で更新する'
+                : 'この料理を登録する'}
+          </button>
+          <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
+            キャンセル
+          </button>
+        </div>
+      </div>
     </Modal>
 
     {/* 未登録食材の「新規食材として登録」用。DishFormModal のオーバーレイの外側に
