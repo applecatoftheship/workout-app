@@ -27,7 +27,6 @@ import { fetchSportLogs } from '../api/sportLogs'
 import { fetchWorkouts } from '../api/workouts'
 import { fetchNotifications, markNotificationRead } from '../api/notifications'
 import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, toJstDateKeyFromIso, weekDays } from '../utils/calendarHelpers'
-import { APP_VIEW_PATHS } from '../utils/appViewPaths'
 // 総挙上重量サマリー（指示書「推定1RM・PR・総挙上重量のビジュアル化」2026-09-15）：
 // ACWRGaugeCard・目標ストリップと同じく「常に今週を示すべき指標」として、
 // 週送りストリップのweekOffsetには連動させない（下記currentWeek*参照）。
@@ -721,34 +720,6 @@ export function Dashboard({
   const todayDetailTitle = isViewingToday ? '今日の内容' : `${selectedDateShortLabel}の内容`
   const nutritionDetailTitle = isViewingToday ? '今日の食事・PFC' : `${selectedDateShortLabel}の食事・PFC`
 
-  const quickLinks = [
-    {
-      title: '月間カレンダー',
-      description: '今月の予定と達成状況を確認',
-      badge: 'Calendar',
-      targetView: 'calendar' as const,
-    },
-    {
-      title: 'トレーニング記録',
-      description: 'セット数と負荷を振り返る',
-      badge: 'Log',
-      targetView: 'calendar' as const,
-      query: `?date=${todayString}&tab=training`,
-    },
-    {
-      title: '食事・PFC記録',
-      description: '栄養バランスを管理する',
-      badge: 'Meal',
-      targetView: 'dashboard' as const,
-    },
-    {
-      title: '進捗グラフ',
-      description: '体重と体調の推移を見る',
-      badge: 'Trend',
-      targetView: 'progress' as const,
-    },
-  ]
-
   return (
     <>
       <div className="dashboard-header">
@@ -1139,23 +1110,6 @@ export function Dashboard({
       </section>
 
       <GoalPanel goals={goals} setGoals={setGoals} trainingLogs={trainingLogs} dailyConditions={dailyConditions} today={today} />
-
-      <section className="links-section" aria-label="機能メニュー">
-        {quickLinks.map((link) => (
-          <button
-            key={link.title}
-            type="button"
-            className="link-card"
-            onClick={() => {
-              navigate(APP_VIEW_PATHS[link.targetView] + (link.query ?? ''))
-            }}
-          >
-            <span className="link-card__badge">{link.badge}</span>
-            <strong>{link.title}</strong>
-            <p>{link.description}</p>
-          </button>
-        ))}
-      </section>
 
       {isTimerOpen ? <RestTimerModal onClose={() => setIsTimerOpen(false)} /> : null}
       {isWeeklyACWRDetailOpen ? (
