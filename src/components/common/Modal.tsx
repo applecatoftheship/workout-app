@@ -41,6 +41,11 @@ type ModalProps = {
    *  ConfirmDialogは既存の'alertdialog'（確認・警告の割り込み操作であることを
    *  支援技術に伝える意味的な違いがあるため）を維持する。 */
   role?: 'dialog' | 'alertdialog'
+  /** オーバーレイのpadding（"上下 左右"の2値ショートハンド文字列）。省略時は
+   *  全モーダル共通の"24px 12px"。ConfirmDialogのみ既存の見た目に合わせ
+   *  "24px 16px"を渡す。mobileFullscreen={false}時のセーフエリア加算にも
+   *  この値がそのまま使われる。 */
+  overlayPadding?: string
   /** オーバーレイ（背景）クリック時に呼ぶ。既存実装のonCloseをそのまま渡す想定。 */
   onOverlayClick: () => void
   /** カード側に追加するクラス名（例："record-form-modal"）。
@@ -59,6 +64,7 @@ export function Modal({
   disableMaxHeight,
   mobileFullscreen,
   role,
+  overlayPadding,
   onOverlayClick,
   className,
   children,
@@ -68,6 +74,11 @@ export function Modal({
   }
   if (mobileMaxWidth) {
     style['--modal-mobile-max-width'] = mobileMaxWidth
+  }
+  if (overlayPadding) {
+    const [blockValue, inlineValue] = overlayPadding.trim().split(/\s+/)
+    style['--modal-overlay-padding-block'] = blockValue
+    style['--modal-overlay-padding-inline'] = inlineValue ?? blockValue
   }
   if (disableMaxHeight) {
     style['--modal-max-height'] = 'none'

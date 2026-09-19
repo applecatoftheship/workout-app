@@ -35,9 +35,9 @@ export function AvatarCropModal({ imageSrc, onCancel, onConfirm }: AvatarCropMod
     <Modal
       ariaLabel="アイコンを調整"
       maxWidth={420}
+      mobileMaxWidth="420px"
       align="center"
       disableMaxHeight
-      mobileFullscreen={false}
       onOverlayClick={onCancel}
       className="avatar-crop-modal"
     >

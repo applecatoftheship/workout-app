@@ -1,11 +1,14 @@
 /*
  * オーバーレイ・カード土台（position/background/max-width/border-radius/
  * box-shadow/animation等）はStep2bでsrc/components/common/Modal.cssへ統合した
- * （align="center"・disableMaxHeight・mobileFullscreen={false}をModalへ渡す形に
+ * （align="center"・disableMaxHeight・mobileMaxWidth="420px"をModalへ渡す形に
  * 移行。元々max-height指定を持たないダイアログだったためdisableMaxHeightで
- * 無効化し、モバイル640px以下でもフルスクリーン化せず元の実装同様デスクトップ値
- * 420pxのまま・角丸もvar(--radius-lg)のまま変わらないようmobileFullscreen={false}
- * を明示している）。
+ * 無効化した。移行前のモバイル640px以下は、Step2a移行8ファイルと同じ
+ * "フルスクリーン化"パターン（padding:0・align-items:stretch・
+ * margin:auto 0.75rem・width:calc(100% - 1.5rem)・border-radius:1rem）が
+ * 適用されており、max-width指定だけがなくデスクトップ値420pxが実質の上限に
+ * なっていたため、mobileFullscreenは省略（既定のtrueのまま）し、
+ * mobileMaxWidth="420px"のみでこの上限を再現している）。
  * ここにはavatar-crop-modal固有のヘッダー・本文・フッターのレイアウトのみ残す。
  */
 .avatar-crop-modal__header {

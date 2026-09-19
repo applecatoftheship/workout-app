@@ -20,6 +20,7 @@ export function ConfirmDialog({ message, confirmLabel, cancelLabel, onConfirm, o
       align="center"
       zIndex={200}
       mobileFullscreen={false}
+      overlayPadding="24px 16px"
       role="alertdialog"
       onOverlayClick={onCancel}
       className="confirm-dialog"
