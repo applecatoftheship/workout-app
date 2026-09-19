@@ -215,12 +215,12 @@
 
 /*
  * Phase3（グラフ系列色分け）向けの先行追加。今回のPhase1では未使用の
- * プレースホルダー。依頼文の記法上、chart-training・chart-cardioの2トークンが
- * 起点色#52B788を共有する形で読めたため同値としている（用途上の区別が必要に
- * なった場合はPhase3実装時に値を分ける想定）。
+ * プレースホルダー。chart-trainingは--color-deco-bronzeと同値（2026年9月19日、
+ * John指示で#52B788→#D4AF37に変更）、chart-cardioは#52B788のまま
+ * （用途上の区別が必要になった場合はPhase3実装時にさらに値を調整する想定）。
  */
 :root {
-  --color-chart-training: #52B788;
+  --color-chart-training: #D4AF37;
   --color-chart-cardio: #52B788;
   --color-chart-nutrition: #E07A5F;
 }
