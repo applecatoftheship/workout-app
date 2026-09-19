@@ -65,8 +65,20 @@
   stroke-linecap: round;
 }
 
+/* グラフ主データ線のネオン発光演出（2026年9月19日）：移動平均線・ボリューム線・
+   1RM線・トレ×栄養統合グラフの各線など「最も強調表示される系列」にのみ適用する
+   共通修飾クラス。破線＋drop-shadowの2プロパティをここに集約し、色modifier側
+   （--ma-weight等）は`color`（drop-shadowの発光色にcurrentColorとして使われる）を
+   追加するのみにとどめる。対象外（--actual・--target-line・--line--ideal）には
+   適用しない。 */
+.progress-graph__line--emphasis {
+  stroke-dasharray: 7 4;
+  filter: drop-shadow(0 0 var(--chart-glow-blur, 3px) currentColor);
+}
+
 .progress-graph__line--accent {
   stroke: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .progress-graph__line--warning {
@@ -232,6 +244,15 @@
   stroke-width: 2;
 }
 
+/* 主データ線のドットマーカー強調（2026年9月19日）：.progress-graph__dot
+   （実測/実データ用の共通stroke-width:2）とは別に、主データ線側のドットにのみ
+   適用する。cascadeの都合上、上書き対象の.progress-graph__dotより後ろに
+   定義する必要があるため、この位置に置いている（同じ詳細度0,1,0のため、
+   ソース順で後にある方が優先される）。 */
+.progress-graph__dot--emphasis {
+  stroke-width: 2.5;
+}
+
 .progress-graph__legend-dot--actual {
   background: var(--color-actual-line);
   opacity: 0.6;
@@ -287,14 +308,17 @@
 
 .progress-graph__line--ma-weight {
   stroke: var(--color-ma-weight);
+  color: var(--color-ma-weight);
 }
 
 .progress-graph__line--ma-sleep {
   stroke: var(--color-ma-sleep);
+  color: var(--color-ma-sleep);
 }
 
 .progress-graph__line--ma-fatigue {
   stroke: var(--color-ma-fatigue);
+  color: var(--color-ma-fatigue);
 }
 
 .progress-graph__dot--ma-weight {
@@ -331,6 +355,7 @@
 
 .progress-graph__line--volume {
   stroke: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .progress-graph__dot--volume {
@@ -339,6 +364,28 @@
 
 .progress-graph__legend-dot--volume {
   background: var(--color-accent);
+}
+
+/* トレーニング×栄養 統合グラフ（Phase3、2026年9月19日）：従来はJSX側の
+   インラインstyleでstroke色のみ指定していたが、ネオン発光装飾
+   （.progress-graph__line--emphasisのcurrentColor参照）にcolorも必要なため、
+   他チャートと同じ専用modifierクラスに統一した。 */
+.progress-graph__line--chart-training {
+  stroke: var(--color-chart-training);
+  color: var(--color-chart-training);
+}
+
+.progress-graph__line--chart-nutrition {
+  stroke: var(--color-chart-nutrition);
+  color: var(--color-chart-nutrition);
+}
+
+.progress-graph__dot--chart-training {
+  fill: var(--color-chart-training);
+}
+
+.progress-graph__dot--chart-nutrition {
+  fill: var(--color-chart-nutrition);
 }
 
 /* 部位バランス円グラフ（トレーニング画面刷新v2、2026年8月18日） */

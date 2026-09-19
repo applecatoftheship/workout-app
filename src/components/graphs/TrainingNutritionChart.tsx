@@ -102,14 +102,12 @@ export function TrainingNutritionChart({
         <polyline
           points={trainingPoints.join(' ')}
           fill="none"
-          className="progress-graph__line"
-          style={{ stroke: 'var(--color-chart-training)' }}
+          className="progress-graph__line progress-graph__line--chart-training progress-graph__line--emphasis"
         />
         <polyline
           points={nutritionPoints.join(' ')}
           fill="none"
-          className="progress-graph__line"
-          style={{ stroke: 'var(--color-chart-nutrition)' }}
+          className="progress-graph__line progress-graph__line--chart-nutrition progress-graph__line--emphasis"
         />
         {trainingPoints.map((point, index) => {
           const [cx, cy] = point.split(',').map(Number)
@@ -120,9 +118,8 @@ export function TrainingNutritionChart({
               key={`training-${day.date}`}
               cx={cx}
               cy={cy}
-              r="3"
-              style={{ fill: 'var(--color-chart-training)' }}
-              className="progress-graph__dot"
+              r="4"
+              className="progress-graph__dot progress-graph__dot--chart-training progress-graph__dot--emphasis"
               onClick={() => setSelectedDate(day.date)}
             />
           )
@@ -136,9 +133,8 @@ export function TrainingNutritionChart({
               key={`nutrition-${day.date}`}
               cx={cx}
               cy={cy}
-              r="3"
-              style={{ fill: 'var(--color-chart-nutrition)' }}
-              className="progress-graph__dot"
+              r="4"
+              className="progress-graph__dot progress-graph__dot--chart-nutrition progress-graph__dot--emphasis"
               onClick={() => setSelectedDate(day.date)}
             />
           )

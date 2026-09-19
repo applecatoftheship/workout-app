@@ -75,7 +75,11 @@ export function FatigueChart({ periodFatigueSeries, periodFatigueMA }: FatigueCh
         ))}
         <path d={areaPath} className="progress-graph__area progress-graph__area--ma-fatigue" />
         <polyline points={actualPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--actual" />
-        <polyline points={maPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--ma-fatigue" />
+        <polyline
+          points={maPoints.join(' ')}
+          fill="none"
+          className="progress-graph__line progress-graph__line--ma-fatigue progress-graph__line--emphasis"
+        />
         {actualPoints.map((point, index) => {
           const [cx, cy] = point.split(',').map(Number)
           const seriesPoint = periodFatigueSeries[index]
@@ -100,7 +104,7 @@ export function FatigueChart({ periodFatigueSeries, periodFatigueMA }: FatigueCh
               cx={cx}
               cy={cy}
               r="4"
-              className="progress-graph__dot progress-graph__dot--ma-fatigue"
+              className="progress-graph__dot progress-graph__dot--ma-fatigue progress-graph__dot--emphasis"
               onClick={() => setSelectedDate(periodFatigueSeries[index].date)}
             />
           )

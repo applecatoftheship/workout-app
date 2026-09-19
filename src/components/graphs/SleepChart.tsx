@@ -86,7 +86,11 @@ export function SleepChart({ periodSleepSeries, periodSleepMA, targetSleepHours 
         />
         <path d={areaPath} className="progress-graph__area progress-graph__area--ma-sleep" />
         <polyline points={actualPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--actual" />
-        <polyline points={maPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--ma-sleep" />
+        <polyline
+          points={maPoints.join(' ')}
+          fill="none"
+          className="progress-graph__line progress-graph__line--ma-sleep progress-graph__line--emphasis"
+        />
         {actualPoints.map((point, index) => {
           const [cx, cy] = point.split(',').map(Number)
           const seriesPoint = periodSleepSeries[index]
@@ -111,7 +115,7 @@ export function SleepChart({ periodSleepSeries, periodSleepMA, targetSleepHours 
               cx={cx}
               cy={cy}
               r="4"
-              className="progress-graph__dot progress-graph__dot--ma-sleep"
+              className="progress-graph__dot progress-graph__dot--ma-sleep progress-graph__dot--emphasis"
               onClick={() => setSelectedDate(periodSleepSeries[index].date)}
             />
           )

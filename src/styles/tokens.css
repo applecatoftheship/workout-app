@@ -47,6 +47,11 @@
   --color-danger-text: #7A2C26;
   --color-nav-bg: rgba(255, 255, 255, 0.82);
   --shadow-card: 0 1px 2px rgba(20,20,20,0.04), 0 8px 24px rgba(20,20,20,0.05);
+  /* グラフのネオン発光演出（2026年9月19日）：主データ線に適用するdrop-shadowの
+     ぼかし幅。--color-deco-gold等とは異なり、これは意図的にテーマごとに値を
+     変える（ライトモードでダークと同じ強さの発光を使うと「インクのにじみ」の
+     ように見えるため控えめにする）。 */
+  --chart-glow-blur: 2px;
 
   /* Radius */
   --radius-sm: 10px;
@@ -118,6 +123,7 @@
     --color-danger-text: #F2B0A8;
     --color-nav-bg: rgba(20, 24, 29, 0.82);
     --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
+    --chart-glow-blur: 4px;
   }
 }
 
@@ -146,6 +152,7 @@
   --color-danger-text: #F2B0A8;
   --color-nav-bg: rgba(20, 24, 29, 0.82);
   --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
+  --chart-glow-blur: 4px;
 }
 
 .metric-value {

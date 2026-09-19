@@ -92,7 +92,11 @@ export function TrainingVolumeChart({ periodDailyVolume, periodVolumeMA, totalVo
         ))}
         <path d={areaPath} className="progress-graph__area" fill="url(#volumeAreaGradient)" />
         <polyline points={actualPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--actual" />
-        <polyline points={maPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--volume" />
+        <polyline
+          points={maPoints.join(' ')}
+          fill="none"
+          className="progress-graph__line progress-graph__line--volume progress-graph__line--emphasis"
+        />
         {actualPoints.map((point, index) => {
           const [cx, cy] = point.split(',').map(Number)
           return (
@@ -112,8 +116,8 @@ export function TrainingVolumeChart({ periodDailyVolume, periodVolumeMA, totalVo
               key={`ma-${periodDailyVolume[index].date}`}
               cx={cx}
               cy={cy}
-              r="3.5"
-              className="progress-graph__dot progress-graph__dot--volume"
+              r="4"
+              className="progress-graph__dot progress-graph__dot--volume progress-graph__dot--emphasis"
             />
           )
         })}

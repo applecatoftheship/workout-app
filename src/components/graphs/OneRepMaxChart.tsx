@@ -68,7 +68,11 @@ export function OneRepMaxChart({ exercises, selectedExerciseId, onSelectExercise
           ))}
           {/* 1点のみの場合はpolylineを描かず（点が1つだと線にならない）ドットのみ表示する。 */}
           {points.length > 1 ? (
-            <polyline points={plotted.join(' ')} fill="none" className="progress-graph__line progress-graph__line--accent" />
+            <polyline
+              points={plotted.join(' ')}
+              fill="none"
+              className="progress-graph__line progress-graph__line--accent progress-graph__line--emphasis"
+            />
           ) : null}
           {plotted.map((point, index) => {
             const [cx, cy] = point.split(',').map(Number)
@@ -78,7 +82,7 @@ export function OneRepMaxChart({ exercises, selectedExerciseId, onSelectExercise
                 cx={cx}
                 cy={cy}
                 r="4"
-                className="progress-graph__dot progress-graph__dot--accent"
+                className="progress-graph__dot progress-graph__dot--accent progress-graph__dot--emphasis"
                 onClick={() => setSelectedDate(points[index].date)}
               />
             )

@@ -116,7 +116,11 @@ export function WeightChart({ periodWeightSeries, periodWeightMA, targetWeight, 
         ) : null}
         <path d={areaPath} className="progress-graph__area" fill="url(#weightAreaGradient)" />
         <polyline points={actualPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--actual" />
-        <polyline points={maPoints.join(' ')} fill="none" className="progress-graph__line progress-graph__line--ma-weight" />
+        <polyline
+          points={maPoints.join(' ')}
+          fill="none"
+          className="progress-graph__line progress-graph__line--ma-weight progress-graph__line--emphasis"
+        />
         {actualPoints.map((point, index) => {
           const [cx, cy] = point.split(',').map(Number)
           const seriesPoint = periodWeightSeries[index]
@@ -141,7 +145,7 @@ export function WeightChart({ periodWeightSeries, periodWeightMA, targetWeight, 
               cx={cx}
               cy={cy}
               r="4"
-              className="progress-graph__dot progress-graph__dot--ma-weight"
+              className="progress-graph__dot progress-graph__dot--ma-weight progress-graph__dot--emphasis"
               onClick={() => setSelectedDate(periodWeightSeries[index].date)}
             />
           )
