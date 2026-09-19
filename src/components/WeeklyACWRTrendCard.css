@@ -3,7 +3,11 @@
   flex-direction: column;
   gap: var(--space-sm);
   width: 100%;
-  border: 0;
+  /* アールデコ調UI刷新 Phase1（2026年9月19日）：旧border:0（buttonのUA既定枠線
+     リセット用）は、同じ詳細度の.panel-cardゴールドボーダー（src/App.css）と
+     cascade順で衝突し、このカードにだけ枠線が反映されなくなるバグを誘発して
+     いたため削除した。.panel-card側が明示的なborder値を持つため、UA既定の
+     button枠線はそちらのルールだけで正しく上書きされる。 */
   cursor: pointer;
   text-align: left;
   font-family: inherit;

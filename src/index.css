@@ -18,6 +18,15 @@
 @import '@fontsource/inter/latin-ext-600.css';
 @import '@fontsource/inter/latin-700.css';
 @import '@fontsource/inter/latin-ext-700.css';
+/* アールデコ調UI刷新 Phase1（2026年9月19日）：数値表示専用フォント。本文全体の
+   フォントはInterのまま変更せず、--font-numeric（src/styles/tokens.css）経由で
+   .metric-value（カロリーリング中央値・ACWR数値・1RM/PR等の数値表示に既存で
+   付与されている共通クラス）にのみ適用する。Interと同じ理由でlatin・latin-ext
+   サブセットの標準体のみ、600・700の2ウェイトに限定する。 */
+@import '@fontsource/montserrat/latin-600.css';
+@import '@fontsource/montserrat/latin-ext-600.css';
+@import '@fontsource/montserrat/latin-700.css';
+@import '@fontsource/montserrat/latin-ext-700.css';
 @import './styles/tokens.css';
 @import './styles/buttons.css';
 

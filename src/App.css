@@ -22,6 +22,12 @@
 .link-card {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+  /* アールデコ調UI刷新 Phase1（2026年9月19日）：極細ゴールドボーダー。
+     --radius-lg・--shadow-cardは維持したまま、境界線のみ追加する形。
+     --color-deco-gold自体は不透明色のため、color-mix()で30%不透明度に
+     落として使う（16進数のrgba値をここに決め打ちすると、tokens.css側で
+     --color-deco-goldの値を変更した際にここだけ追従しなくなるため）。 */
+  border: 1px solid color-mix(in srgb, var(--color-deco-gold) 30%, transparent);
 }
 
 .panel-card {

@@ -560,6 +560,22 @@ export function Dashboard({
     () => [{ name: 'calorie', value: calorieRingRate, fill: 'var(--color-accent)' }],
     [calorieRingRate],
   )
+  // アールデコ調UI刷新 Phase1（2026年9月19日）：カロリーリング弧の先端に
+  // 装飾ドットを置くための座標計算。リング本体（下記RadialBarChart）の
+  // width/height=180・innerRadius=70/outerRadius=86・startAngle=90・
+  // endAngle=-270と完全に一致させる必要があるため、ここで値を揃えて算出する
+  // （リング本体の色・機能自体は変更していない、装飾のみの追加）。
+  const calorieRingOrnamentPosition = useMemo(() => {
+    const centerX = 90
+    const centerY = 90
+    const radius = (70 + 86) / 2
+    const angleDeg = 90 - 360 * (calorieRingRate / 100)
+    const angleRad = (angleDeg * Math.PI) / 180
+    return {
+      left: centerX + radius * Math.cos(angleRad),
+      top: centerY - radius * Math.sin(angleRad),
+    }
+  }, [calorieRingRate])
 
   // 移動平均（スプリント2、2026年8月17日）：DBにはキャッシュせず、ACWR機能と同じ方針で
   // 呼び出しのたびにdailyConditionsから動的計算する。統計カードのメイン表示を
@@ -807,6 +823,13 @@ export function Dashboard({
             <PolarAngleAxis type="number" domain={[0, 100]} tick={false} axisLine={false} />
             <RadialBar background={{ fill: 'var(--color-ring-track)' }} dataKey="value" cornerRadius={20} />
           </RadialBarChart>
+          {calorieRingRate > 0 ? (
+            <span
+              className="calorie-ring__ornament"
+              aria-hidden="true"
+              style={{ left: `${calorieRingOrnamentPosition.left}px`, top: `${calorieRingOrnamentPosition.top}px` }}
+            />
+          ) : null}
           <div className="calorie-ring__center">
             <span className="calorie-ring__value metric-value reveal-fade">{todayMealTotals.calories}</span>
             <span className="calorie-ring__goal reveal-fade">/ {periodizationTarget.calorieTarget} kcal</span>

@@ -64,6 +64,11 @@
 
   /* Typography */
   --font-base: 'Inter', -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  /* アールデコ調UI刷新 Phase1（2026年9月19日）：数値表示専用フォント。
+     .metric-value（下記参照）にのみ適用し、本文全体のフォントは変更しない。
+     Montserratはラテン文字のみのフォントのため、和文・記号等のフォールバックは
+     --font-baseにそのまま委ねる。 */
+  --font-numeric: 'Montserrat', var(--font-base);
   --font-size-caption: 11px;
   --font-size-body-sm: 12.5px;
   --font-size-body: 13.5px;
@@ -130,6 +135,17 @@
 
 .metric-value {
   font-variant-numeric: tabular-nums;
+  /* アールデコ調UI刷新 Phase1（2026年9月19日）：既存の.metric-value
+     （カロリーリング中央値・ACWRスコア/負荷値・1RM・自己ベスト等、アプリ全体で
+     「数値表示」を意味する共通クラスとして既に使われていた）にMontserratを
+     適用する形にした。ダッシュボードのカロリーリング・ACWRサマリーカードに
+     限定した個別クラスでの上書きも検討したが、既存のセマンティックな
+     共通クラスを拡張する方が実装が単純で一貫性もあるため、対象範囲を
+     「既存.metric-value使用箇所全体」とする判断とした（依頼文の「他に
+     1RM/PR等の数値表示コンポーネントがあれば同様に適用して構いません」を
+     踏まえた判断。週間ストリップの日付・統計カードの数値等、依頼文で
+     明示されていない箇所にも及ぶ点は完了報告で明示する）。 */
+  font-family: var(--font-numeric);
 }
 
 /*
@@ -182,4 +198,29 @@
  */
 :root {
   --color-modal-overlay: rgba(18, 24, 27, 0.55);
+}
+
+/*
+ * アールデコ調UI刷新 Phase1（2026年9月19日）：ダッシュボード装飾で使う
+ * シャンパンゴールド／アンティークブロンズ。--color-ma-*・--color-bp-*と
+ * 同じ考え方でライト/ダーク共通の固定値とした（負荷状態等の機能色ではなく、
+ * カード境界線・リング装飾専用の演出色のため）。panel-cardの境界線
+ * （src/App.css）ではこのgoldを20〜40%程度の不透明度で使用するため、単体の
+ * 濃さとしてはライト/ダーク双方の背景で視認できる中間的な明度を選んでいる。
+ */
+:root {
+  --color-deco-gold: #E6C687;
+  --color-deco-bronze: #D4AF37;
+}
+
+/*
+ * Phase3（グラフ系列色分け）向けの先行追加。今回のPhase1では未使用の
+ * プレースホルダー。依頼文の記法上、chart-training・chart-cardioの2トークンが
+ * 起点色#52B788を共有する形で読めたため同値としている（用途上の区別が必要に
+ * なった場合はPhase3実装時に値を分ける想定）。
+ */
+:root {
+  --color-chart-training: #52B788;
+  --color-chart-cardio: #52B788;
+  --color-chart-nutrition: #E07A5F;
 }

@@ -148,6 +148,21 @@
   height: 180px;
 }
 
+/* アールデコ調UI刷新 Phase1（2026年9月19日）：カロリーリング弧の先端の装飾
+   ドット。位置はDashboard.tsx側で弧の実際の進捗角度から算出し、インライン
+   style（left/top）で都度指定する。リング本体の色（--color-accent）・機能は
+   変更していない、装飾のみの追加。 */
+.calorie-ring__ornament {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-deco-bronze);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--color-deco-bronze) 70%, transparent);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 .calorie-ring__center {
   position: absolute;
   top: 50%;
@@ -522,7 +537,6 @@
 
 .link-card {
   background: var(--color-bg-surface);
-  border: 0;
   padding: 10px 8px;
   text-align: center;
   display: flex;
