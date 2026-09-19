@@ -1092,7 +1092,7 @@ export function Dashboard({
           <div className="accordion-body">
             <p className="panel-card__description">1日の栄養進捗を目標値と比較して表示します。</p>
             {todayMealLogs.length === 0 ? (
-              <p className="no-record">{isViewingToday ? '今日の食事記録はありません' : 'この日の食事記録はありません'}</p>
+              <p className="no-record">{isViewingToday ? '今日はまだ食事記録がありません' : 'この日はまだ食事記録がありません'}</p>
             ) : (
               <div className="nutrition-grid">
                 {[

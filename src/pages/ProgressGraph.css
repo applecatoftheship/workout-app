@@ -2,6 +2,9 @@
   background: var(--color-bg-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+  /* アールデコ調UI刷新 Phase2（2026年9月19日）：panel-card（src/App.css）と
+     同じ極細ゴールドボーダーをグラフ画面の外枠にも適用。 */
+  border: 1px solid color-mix(in srgb, var(--color-deco-gold) 25%, transparent);
   padding: var(--space-md) var(--space-lg);
   display: flex;
   flex-direction: column;
@@ -30,7 +33,10 @@
 
 .progress-graph__tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Phase3（2026年9月19日）でトレーニング×栄養タブを追加し4→5タブになったため
+     列数を合わせて更新（固定4カラムのままだと5個目のタブがはみ出す/折り返す
+     レイアウト崩れになるため）。 */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
 }
 

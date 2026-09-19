@@ -22,7 +22,7 @@ export function PersonalBestList({ personalBests }: PersonalBestListProps) {
     return (
       <div className="progress-graph__chart-wrapper">
         <h3 className="chart-card__title">自己ベスト（PR）</h3>
-        <p className="progress-graph__empty">記録がまだありません</p>
+        <p className="progress-graph__empty">まだ自己ベストの記録がありません</p>
       </div>
     )
   }

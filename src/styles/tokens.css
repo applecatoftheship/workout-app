@@ -69,12 +69,27 @@
      Montserratはラテン文字のみのフォントのため、和文・記号等のフォールバックは
      --font-baseにそのまま委ねる。 */
   --font-numeric: 'Montserrat', var(--font-base);
+  /* UIブラッシュアップPhase4（2026年9月19日）：スケール拡張。2026年9月18日の
+     Phase1では、既存の--font-size-caption(11px)〜--font-size-metric-lg(30px)の
+     刻み幅に対して、実際にハードコードされていた値（週間ストリップの
+     バッジ6px・軸ラベル7px・カレンダー日別バッジ8px・RestTimerModalの
+     2.75rem/3.5rem・Celebrationメダル48px等）が離れすぎており、既存トークンへの
+     置き換えが視覚的な差分を生むため見送っていた（同日コミットで実際に一部を
+     置き換えてから差分を確認し、元に戻す形で確定した経緯がある）。
+     --font-size-micro・--font-size-displayを両端に追加しスケールの刻みを広げる。
+     ただし各ハードコード値は微妙に異なる（6px/7px/8pxはいずれも1px刻みで違う）ため、
+     新トークンを追加しただけで全箇所を機械的に置き換えると同じ問題を再発するリスクが
+     ある。このコミットでは値が完全一致する箇所のみ置き換え（MonthlyCalendar.cssの
+     calendar-day__item-badge、8pxで完全一致）、他は今後の置き換え候補として
+     ハードコードのまま残している。 */
+  --font-size-micro: 8px;
   --font-size-caption: 11px;
   --font-size-body-sm: 12.5px;
   --font-size-body: 13.5px;
   --font-size-title: 18px;
   --font-size-metric: 26px;
   --font-size-metric-lg: 30px;
+  --font-size-display: 40px;
 }
 
 @media (prefers-color-scheme: dark) {

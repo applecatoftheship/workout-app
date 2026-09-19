@@ -44,7 +44,7 @@ export function OneRepMaxChart({ exercises, selectedExerciseId, onSelectExercise
 
   let chartBody: ReactNode
   if (points.length === 0) {
-    chartBody = <p className="progress-graph__empty">この種目・この期間の記録はありません</p>
+    chartBody = <p className="progress-graph__empty">この種目・この期間の記録はまだありません</p>
   } else {
     const values = points.map((point) => point.value)
     // computeScale/valueToXは値が1件・全件同値でもパディングして安全にスケールする

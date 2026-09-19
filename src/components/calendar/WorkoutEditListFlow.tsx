@@ -124,7 +124,7 @@ export function WorkoutEditListFlow({ workouts, setWorkouts, selectedDate, onClo
           ))}
         </div>
       ) : (
-        <p className="calendar-detail__empty">🏃 この日のワークアウト記録はまだありません</p>
+        <p className="calendar-detail__empty">🏃 まだワークアウト記録がありません</p>
       )}
       <div className="calendar-detail__actions">
         <button type="button" className="calendar-detail__secondary-button" onClick={onClose}>

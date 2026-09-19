@@ -67,13 +67,20 @@
   flex-wrap: wrap;
 }
 
+/* UIブラッシュアップPhase4（2026年9月19日）：ボタン3系統統合の一環として、
+   .calendar-detail__button/.calendar-detail__secondary-button（CalendarForms.css）
+   の基底プロパティ（border/radius-pillトークン/padding/font-weight/font-size）と
+   完全に一致させた（旧値：border-radius 999pxハードコード・font-weight 500・
+   font-size body(13.5px)）。JSX側のクラス名統合（3系統を1系統へリネーム）は
+   影響範囲が広く高リスクなため見送り、値レベルでの統一に留めている
+   （詳細は完了報告時のコメント参照）。 */
 .button {
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 9px 16px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-body-sm);
 }
 
 .button--primary {

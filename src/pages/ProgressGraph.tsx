@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { BodyPart, DailyCondition, TrainingLog } from '../types'
+import type { BodyPart, DailyCondition, MealLog, TrainingLog } from '../types'
 import './ProgressGraph.css'
 import '../components/graphs/ChartCommon.css'
 import { TrainingChart } from '../components/graphs/TrainingChart'
@@ -12,6 +12,7 @@ import { PersonalBestList } from '../components/graphs/PersonalBestList'
 import { WeightChart } from '../components/graphs/WeightChart'
 import { SleepChart } from '../components/graphs/SleepChart'
 import { FatigueChart } from '../components/graphs/FatigueChart'
+import { TrainingNutritionChart } from '../components/graphs/TrainingNutritionChart'
 import {
   buildDateList,
   buildDisplayFatigueSeries,
@@ -78,6 +79,9 @@ function sumDailyVolumeByBodyPart(logs: TrainingLog[]) {
 
 const chartTabs = [
   { id: 'training' as const, label: 'トレーニング' },
+  // トレーニング×栄養 統合グラフ（Phase3、2026年9月19日新設）：負荷（ボリューム）と
+  // 栄養（カロリー/PFC）を1画面で関連付けて見られるようにするための新タブ。
+  { id: 'trainingNutrition' as const, label: 'トレ×栄養' },
   { id: 'weight' as const, label: '体重' },
   { id: 'sleep' as const, label: '睡眠' },
   { id: 'fatigue' as const, label: '疲労度' },
@@ -95,16 +99,23 @@ const periodTabs: { id: Period; label: string }[] = [
 export function ProgressGraph({
   trainingLogs,
   dailyConditions,
+  mealLogs,
   targetWeight,
   targetSleepHours,
   monthlyTrainingGoal,
+  dailyCalorieGoal,
 }: {
   trainingLogs: TrainingLog[]
   dailyConditions: DailyCondition[]
+  // トレーニング×栄養 統合グラフ（Phase3、2026年9月19日新設）用。既存のtraining_logs系
+  // データに加え、meal_logs系データもこの画面で初めて受け取る（既存の体重・睡眠・疲労度
+  // グラフはdailyConditions由来のため、mealLogsはこの統合グラフ専用）。
+  mealLogs: MealLog[]
   targetWeight: number
   targetSleepHours: number
   weeklyTrainingGoal: number
   monthlyTrainingGoal: number
+  dailyCalorieGoal: number
 }) {
   const [selectedChart, setSelectedChart] = useState<ChartType>('training')
   const [period, setPeriod] = useState<Period>('week')
@@ -209,6 +220,34 @@ export function ProgressGraph({
         ...(trainingByDate.get(date) ?? { sets: 0, volume: 0, completed: false, hasLog: false }),
       })),
     [periodDates, trainingByDate],
+  )
+
+  // トレーニング×栄養 統合グラフ（Phase3、2026年9月19日新設）：MealLogは保存時点の
+  // food_itemsデータで確定させたスナップショット値（calories/protein/fat/
+  // carbohydrates）を持つため、food_items側を都度JOINして再計算する必要はない
+  // （既存のDashboard.tsx todayMealTotalsと同じ考え方をperiod全体に拡張）。
+  // ACWR・移動平均と同じくDBキャッシュせず呼び出しのたびに動的集計する。
+  const mealTotalsByDate = useMemo(() => {
+    const map = new Map<string, { calories: number; protein: number; fat: number; carbohydrates: number }>()
+    mealLogs.forEach((log) => {
+      const existing = map.get(log.date) ?? { calories: 0, protein: 0, fat: 0, carbohydrates: 0 }
+      map.set(log.date, {
+        calories: existing.calories + log.calories,
+        protein: existing.protein + log.protein,
+        fat: existing.fat + log.fat,
+        carbohydrates: existing.carbohydrates + log.carbohydrates,
+      })
+    })
+    return map
+  }, [mealLogs])
+
+  const periodNutritionDays = useMemo(
+    () =>
+      periodDates.map((date) => ({
+        date,
+        ...(mealTotalsByDate.get(date) ?? { calories: 0, protein: 0, fat: 0, carbohydrates: 0 }),
+      })),
+    [periodDates, mealTotalsByDate],
   )
 
   // 推定1RM推移・自己ベスト（PR）一覧（指示書2026-09-15）：
@@ -410,6 +449,14 @@ export function ProgressGraph({
             />
             <PersonalBestList personalBests={personalBests} />
           </>
+        ) : null}
+        {selectedChart === 'trainingNutrition' ? (
+          <TrainingNutritionChart
+            periodDates={periodDates}
+            periodTrainingDays={periodTrainingDays}
+            periodNutritionDays={periodNutritionDays}
+            dailyCalorieGoal={dailyCalorieGoal}
+          />
         ) : null}
         {selectedChart === 'weight' ? (
           <WeightChart

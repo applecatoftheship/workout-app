@@ -81,7 +81,7 @@ export function TrainingEditListFlow({
           ))}
         </div>
       ) : (
-        <p className="calendar-detail__empty">🏋️ この日のトレーニング記録はまだありません</p>
+        <p className="calendar-detail__empty">🏋️ まだトレーニング記録がありません</p>
       )}
       <div className="calendar-detail__actions">
         <button type="button" className="calendar-detail__secondary-button" onClick={onClose}>

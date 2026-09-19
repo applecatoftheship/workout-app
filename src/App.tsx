@@ -234,10 +234,12 @@ function AppShell() {
               <ProgressGraph
                 trainingLogs={trainingLogs}
                 dailyConditions={dailyConditions}
+                mealLogs={mealLogs}
                 targetWeight={goals.targetWeight}
                 targetSleepHours={goals.targetSleepHours}
                 weeklyTrainingGoal={goals.weeklyTrainingGoal}
                 monthlyTrainingGoal={goals.monthlyTrainingGoal}
+                dailyCalorieGoal={goals.dailyCalorieGoal}
               />
             }
           />
