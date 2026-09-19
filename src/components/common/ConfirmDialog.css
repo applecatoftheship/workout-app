@@ -1,26 +1,12 @@
-.confirm-dialog__overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--color-modal-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
-  z-index: 200;
-  animation: modal-overlay-fade-in 0.2s ease-out;
-}
-
+/*
+ * オーバーレイ・カード土台（position/background/max-width/border-radius/
+ * box-shadow/animation等）はStep2bでsrc/components/common/Modal.cssへ統合した
+ * （align="center"・zIndex={200}・mobileFullscreen={false}をModalへ渡す形に移行）。
+ * ここにはconfirm-dialog固有の内側レイアウト（padding・gap）のみ残す。
+ */
 .confirm-dialog {
-  width: 100%;
-  max-width: 360px;
-  background: var(--color-bg-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
   padding: 20px;
-  display: flex;
-  flex-direction: column;
   gap: var(--space-lg);
-  animation: modal-content-pop-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .confirm-dialog__message {
@@ -40,11 +26,4 @@
 .confirm-dialog__actions .btn-secondary,
 .confirm-dialog__actions .btn-danger {
   flex: 1 1 0;
-}
-
-@media (max-width: 640px) {
-  .confirm-dialog__overlay {
-    padding-top: calc(24px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  }
 }

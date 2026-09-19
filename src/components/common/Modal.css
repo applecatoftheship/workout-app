@@ -1,5 +1,5 @@
 /*
- * 共有モーダル土台（UIブラッシュアップPhase2 Step2a、2026年9月18日）。
+ * 共有モーダル土台（UIブラッシュアップPhase2 Step2a・2b、2026年9月18〜19日）。
  * NotificationModal・RecordFormModal・WeeklyACWRDetailModal・
  * BulkScheduleImportModal・DailyReportModal・DishFormModal・
  * FoodItemFormModal・RestTimerModalの8個で完全一致していたオーバーレイ・
@@ -12,17 +12,24 @@
  * （Modal.tsxのprops参照）。
  * ヘッダー・本文・フッター等モーダル固有のレイアウトは対象外で、各ファイルの
  * CSSにそのまま残している。
+ *
+ * Step2bでConfirmDialog（align=center・zIndex=200・mobileFullscreen=false）・
+ * AvatarCropModal（align=center・disableMaxHeight・mobileFullscreen=false）を
+ * 追加移行するにあたり、
+ * align-items/z-index/max-heightもCSSカスタムプロパティ経由に変更した
+ * （Modal.tsxのprops参照。値を渡さない既存8ファイルはすべて従来通りのfallback
+ * 値＝flex-start/100/calc(100vh - 48px)・80dvhが適用されるため無変更）。
  */
 .modal__overlay {
   position: fixed;
   inset: 0;
   background: var(--color-modal-overlay);
   display: flex;
-  align-items: flex-start;
+  align-items: var(--modal-align-items, flex-start);
   justify-content: center;
   padding: 24px 12px;
   overflow-y: auto;
-  z-index: 100;
+  z-index: var(--modal-z-index, 100);
   animation: modal-overlay-fade-in 0.2s ease-out;
 }
 
@@ -34,7 +41,7 @@
   box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 48px);
+  max-height: var(--modal-max-height, calc(100vh - 48px));
   animation: modal-content-pop-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -50,5 +57,21 @@
     max-width: var(--modal-mobile-max-width, 32rem);
     max-height: var(--modal-mobile-max-height, 80dvh);
     border-radius: 1rem;
+  }
+
+  /* mobileFullscreen={false}指定時のみ適用（ConfirmDialog）。640px以下でも
+     デスクトップ同様の中央寄せ・角丸カードのまま、セーフエリア分のみ
+     オーバーレイ余白に加算する（ConfirmDialogの移行前CSSと同じ意図）。 */
+  .modal__overlay--no-mobile-fullscreen {
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 12px calc(24px + env(safe-area-inset-bottom, 0px)) 12px;
+    align-items: var(--modal-align-items, flex-start);
+  }
+
+  .modal__overlay--no-mobile-fullscreen .modal {
+    margin: 0;
+    width: 100%;
+    max-width: var(--modal-max-width);
+    max-height: var(--modal-max-height, calc(100vh - 48px));
+    border-radius: var(--radius-lg);
   }
 }

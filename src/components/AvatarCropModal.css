@@ -1,26 +1,13 @@
-.avatar-crop-modal__overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--color-modal-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 12px;
-  z-index: 100;
-  animation: modal-overlay-fade-in 0.2s ease-out;
-}
-
-.avatar-crop-modal {
-  width: 100%;
-  max-width: 420px;
-  background: var(--color-bg-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  display: flex;
-  flex-direction: column;
-  animation: modal-content-pop-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
+/*
+ * オーバーレイ・カード土台（position/background/max-width/border-radius/
+ * box-shadow/animation等）はStep2bでsrc/components/common/Modal.cssへ統合した
+ * （align="center"・disableMaxHeight・mobileFullscreen={false}をModalへ渡す形に
+ * 移行。元々max-height指定を持たないダイアログだったためdisableMaxHeightで
+ * 無効化し、モバイル640px以下でもフルスクリーン化せず元の実装同様デスクトップ値
+ * 420pxのまま・角丸もvar(--radius-lg)のまま変わらないようmobileFullscreen={false}
+ * を明示している）。
+ * ここにはavatar-crop-modal固有のヘッダー・本文・フッターのレイアウトのみ残す。
+ */
 .avatar-crop-modal__header {
   flex-shrink: 0;
   display: flex;
@@ -82,17 +69,6 @@
 }
 
 @media (max-width: 640px) {
-  .avatar-crop-modal__overlay {
-    padding: 0;
-    align-items: stretch;
-  }
-
-  .avatar-crop-modal {
-    margin: auto 0.75rem;
-    width: calc(100% - 1.5rem);
-    border-radius: 1rem;
-  }
-
   .avatar-crop-modal__header {
     padding-top: calc(14px + env(safe-area-inset-top, 0px));
   }

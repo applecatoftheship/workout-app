@@ -1,3 +1,4 @@
+import { Modal } from './Modal'
 import './ConfirmDialog.css'
 
 // 既存モーダル（RecordFormModal・RestTimerModal等）はタイトルバー＋X閉じるボタンを
@@ -13,24 +14,25 @@ type ConfirmDialogProps = {
 
 export function ConfirmDialog({ message, confirmLabel, cancelLabel, onConfirm, onCancel }: ConfirmDialogProps) {
   return (
-    <div className="confirm-dialog__overlay" role="presentation" onClick={onCancel}>
-      <div
-        className="confirm-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-label={message}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <p className="confirm-dialog__message">{message}</p>
-        <div className="confirm-dialog__actions">
-          <button type="button" className="btn-secondary" onClick={onCancel}>
-            {cancelLabel}
-          </button>
-          <button type="button" className="btn-danger" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        </div>
+    <Modal
+      ariaLabel={message}
+      maxWidth={360}
+      align="center"
+      zIndex={200}
+      mobileFullscreen={false}
+      role="alertdialog"
+      onOverlayClick={onCancel}
+      className="confirm-dialog"
+    >
+      <p className="confirm-dialog__message">{message}</p>
+      <div className="confirm-dialog__actions">
+        <button type="button" className="btn-secondary" onClick={onCancel}>
+          {cancelLabel}
+        </button>
+        <button type="button" className="btn-danger" onClick={onConfirm}>
+          {confirmLabel}
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }

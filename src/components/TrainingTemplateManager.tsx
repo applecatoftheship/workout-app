@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
 import './calendar/CalendarForms.css'
+// .button/.button--primary等はGoalPanel.cssで定義されている。従来は
+// GoalPanel.tsxと同一チャンクで読み込まれることに暗黙に依存していたが
+// （Phase 0で発見したRecordFormModalのCSS依存漏れと同種の潜在バグ）、
+// 将来どちらかが別のReact.lazyチャンクに分割された場合に無スタイル描画に
+// なるのを防ぐため、明示的にimportする（Phase2 Step2b、2026年9月19日）。
+import './GoalPanel.css'
 import { createTrainingTemplate, deleteTrainingTemplate, fetchTrainingTemplates, updateTrainingTemplate } from '../api/trainingTemplates'
 import { fetchExercises } from '../api/trainingLogs'
 import { useToast } from '../hooks/useToast'
