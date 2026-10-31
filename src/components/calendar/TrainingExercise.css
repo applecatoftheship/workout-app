@@ -109,3 +109,13 @@
 .training-exercise-form__copy {
   background: var(--color-bg-elevated);
 }
+
+/* 記録画面の色合い改善（2026年11月1日）：「変更」「前回をコピー」は補助操作のため
+   文字だけのボタンにする（塗り＝保存、枠線＝キャンセル、文字のみ＝補助）。 */
+.training-exercise-form__change,
+.training-exercise-form__copy {
+  background: transparent;
+  padding: 6px 8px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

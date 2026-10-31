@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterExercises, getRecentExerciseIds, hasExactExerciseMatch, normalizeExerciseQuery } from '../exerciseSelectorHelpers'
+import { bodyPartColorVar, filterExercises, getRecentExerciseIds, hasExactExerciseMatch, normalizeExerciseQuery } from '../exerciseSelectorHelpers'
 import type { ExerciseDefinition, TrainingLog } from '../../types'
 
 const exercises: ExerciseDefinition[] = [
@@ -62,5 +62,16 @@ describe('hasExactExerciseMatch', () => {
     expect(hasExactExerciseMatch(exercises, 'べんちぷれす')).toBe(true)
     expect(hasExactExerciseMatch(exercises, 'ベンチ')).toBe(false)
     expect(hasExactExerciseMatch(exercises, '  ')).toBe(true)
+  })
+})
+
+describe('bodyPartColorVar', () => {
+  it('部位ごとの色トークンを返す', () => {
+    expect(bodyPartColorVar('胸')).toBe('var(--color-bp-chest)')
+    expect(bodyPartColorVar('有酸素')).toBe('var(--color-bp-cardio)')
+  })
+  it('部位が無い場合は「その他」の色', () => {
+    expect(bodyPartColorVar(null)).toBe('var(--color-bp-other)')
+    expect(bodyPartColorVar(undefined)).toBe('var(--color-bp-other)')
   })
 })

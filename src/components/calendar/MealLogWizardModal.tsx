@@ -814,7 +814,7 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
         <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving || items.length === 0}>
           {isSaving ? '保存中...' : '保存する'}
         </button>
-        <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
+        <button type="button" className="calendar-detail__secondary-button record-form__cancel" onClick={onClose} disabled={isSaving}>
           キャンセル
         </button>
       </div>

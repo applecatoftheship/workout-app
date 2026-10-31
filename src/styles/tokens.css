@@ -97,16 +97,22 @@
   --font-size-display: 40px;
 }
 
+/* ダークテーマの灰色（2026年11月1日、John承認）：背景・カード・枠線の明るさの差が
+   小さすぎた（コントラスト比1.06〜1.12）ため、Radix Colors の slateDark（@radix-ui/colors 3.0.0）
+   に置き換えた。base=slate1, surface=slate3, elevated=slate5, border=slate7, ring-track=slate6,
+   text-primary=slate12, text-secondary=slate11, text-muted=slate10, nav-bg=slate2。
+   1段ごとの差は約1.2（Apple iOS・Material のダークテーマと同水準）。調査は
+   project docs ui-color-model-research_2026-11-01.md。 */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-bg-base: #0E1217;
-    --color-bg-surface: #181D23;
-    --color-bg-elevated: #1D2229;
-    --color-border: #262B32;
-    --color-ring-track: #2B3544;
-    --color-text-primary: #E2E8F0;
-    --color-text-secondary: #9B9FA6;
-    --color-text-muted: #6B7078;
+    --color-bg-base: #111113;
+    --color-bg-surface: #212225;
+    --color-bg-elevated: #2E3135;
+    --color-border: #43484E;
+    --color-ring-track: #363A3F;
+    --color-text-primary: #EDEEF0;
+    --color-text-secondary: #B0B4BA;
+    --color-text-muted: #777B84;
     --color-accent: #FF7A33;
     --color-accent-soft: #3A2417;
     --color-accent-text: #FFB088;
@@ -121,21 +127,21 @@
     --color-danger: #E2685F;
     --color-danger-soft: #3A211F;
     --color-danger-text: #F2B0A8;
-    --color-nav-bg: rgba(20, 24, 29, 0.82);
+    --color-nav-bg: rgba(24, 25, 27, 0.82);
     --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
     --chart-glow-blur: 4px;
   }
 }
 
 [data-theme="dark"] {
-  --color-bg-base: #0E1217;
-  --color-bg-surface: #181D23;
-  --color-bg-elevated: #1D2229;
-  --color-border: #262B32;
-  --color-ring-track: #2B3544;
-  --color-text-primary: #E2E8F0;
-  --color-text-secondary: #9B9FA6;
-  --color-text-muted: #6B7078;
+  --color-bg-base: #111113;
+  --color-bg-surface: #212225;
+  --color-bg-elevated: #2E3135;
+  --color-border: #43484E;
+  --color-ring-track: #363A3F;
+  --color-text-primary: #EDEEF0;
+  --color-text-secondary: #B0B4BA;
+  --color-text-muted: #777B84;
   --color-accent: #FF7A33;
   --color-accent-soft: #3A2417;
   --color-accent-text: #FFB088;
@@ -150,7 +156,7 @@
   --color-danger: #E2685F;
   --color-danger-soft: #3A211F;
   --color-danger-text: #F2B0A8;
-  --color-nav-bg: rgba(20, 24, 29, 0.82);
+  --color-nav-bg: rgba(24, 25, 27, 0.82);
   --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
   --chart-glow-blur: 4px;
 }

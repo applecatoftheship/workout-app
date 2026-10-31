@@ -70,8 +70,19 @@
 
 .exercise-selector__item-meta {
   flex-shrink: 0;
-  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
   font-size: var(--font-size-caption);
+}
+
+/* 記録画面の色合い改善（2026年11月1日）：部位を色の点＋文字で示す（色だけに頼らない）。 */
+.exercise-selector__part-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .exercise-selector__empty,

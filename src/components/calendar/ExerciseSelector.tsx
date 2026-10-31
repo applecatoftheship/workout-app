@@ -3,7 +3,7 @@ import { createExercise, deleteExercise } from '../../api/trainingLogs'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useToast } from '../../hooks/useToast'
 import type { BodyPart, ExerciseDefinition } from '../../types'
-import { filterExercises, hasExactExerciseMatch } from '../../utils/exerciseSelectorHelpers'
+import { bodyPartColorVar, filterExercises, hasExactExerciseMatch } from '../../utils/exerciseSelectorHelpers'
 import { findMostSimilarName } from '../../utils/nameMatching'
 import { SwipeableRow } from '../common/SwipeableRow'
 import './ExerciseSelector.css'
@@ -146,6 +146,11 @@ export function ExerciseSelector({
                 <button type="button" className="exercise-selector__item" onClick={() => onSelect(exercise)}>
                   <span className="exercise-selector__item-name">{exercise.name}</span>
                   <span className="exercise-selector__item-meta">
+                    <span
+                      className="exercise-selector__part-dot"
+                      style={{ background: bodyPartColorVar(exercise.bodyPart) }}
+                      aria-hidden="true"
+                    />
                     {exercise.bodyPart}
                     {exercise.equipmentType ? `・${exercise.equipmentType}` : ''}
                   </span>

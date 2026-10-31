@@ -92,3 +92,20 @@ export function hasExactExerciseMatch(exercises: ExerciseDefinition[], query: st
   }
   return exercises.some((exercise) => normalizeExerciseQuery(exercise.name) === normalizedQuery)
 }
+
+// 記録画面の色合い改善（2026年11月1日）：種目一覧で部位を色の点＋文字で示すための対応表。
+// 色は tokens.css の --color-bp-*（グラフ画面の部位別ボリュームと同じ色）。
+const BODY_PART_COLOR_VARS: Record<BodyPart, string> = {
+  胸: 'var(--color-bp-chest)',
+  肩: 'var(--color-bp-shoulder)',
+  腕: 'var(--color-bp-arm)',
+  背: 'var(--color-bp-back)',
+  脚: 'var(--color-bp-leg)',
+  腹: 'var(--color-bp-core)',
+  有酸素: 'var(--color-bp-cardio)',
+  その他: 'var(--color-bp-other)',
+}
+
+export function bodyPartColorVar(bodyPart: BodyPart | null | undefined): string {
+  return (bodyPart && BODY_PART_COLOR_VARS[bodyPart]) || BODY_PART_COLOR_VARS['その他']
+}

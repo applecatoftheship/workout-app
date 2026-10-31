@@ -19,6 +19,14 @@
   color: var(--color-accent-text);
 }
 
+/* 記録画面の色合い改善（2026年11月1日）：トレーニング・食事の記録画面の「キャンセル」は
+   枠線だけのボタンにし、塗りつぶしの「保存する」と強弱をつける（塗り＝主操作1つ）。 */
+.calendar-detail__secondary-button.record-form__cancel {
+  background: transparent;
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1.5px var(--color-border);
+}
+
 .calendar-detail__log-list {
   display: flex;
   flex-direction: column;

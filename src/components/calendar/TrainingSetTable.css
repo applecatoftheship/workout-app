@@ -70,6 +70,15 @@
   font-variant-numeric: tabular-nums;
   /* iOS Safari の自動拡大を避けるため16px固定 */
   font-size: 16px;
+  /* 記録画面の色合い改善（2026年11月1日）：入力した値は太字、前回値（placeholder）は
+     細字・薄色にして「前回値」と「入力値」を見分けられるようにする。 */
+  font-weight: 700;
+}
+
+.training-set-table__input::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 400;
+  opacity: 1;
 }
 
 .training-set-table__add {
