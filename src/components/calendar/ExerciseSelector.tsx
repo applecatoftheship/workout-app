@@ -44,6 +44,9 @@ export function ExerciseSelector({
   const [duplicateConfirmed, setDuplicateConfirmed] = useState(false)
   const [isRegistering, setIsRegistering] = useState(false)
   const [registerError, setRegisterError] = useState<string | null>(null)
+  // 候補が見つかっている間は新規登録欄を畳んでおき、ボタンで開く（入力中の画面を散らかさないため）。
+  // 候補が0件のときは最初から開く。
+  const [isRegisterExpanded, setIsRegisterExpanded] = useState(false)
 
   const results = useMemo(
     () => filterExercises(exercises, { query, bodyPart, recentIds: recentExerciseIds }),
@@ -58,6 +61,7 @@ export function ExerciseSelector({
     setQuery(value)
     setDuplicateConfirmed(false)
     setRegisterError(null)
+    setIsRegisterExpanded(false)
   }
 
   const handleDelete = async (exercise: ExerciseDefinition) => {
@@ -104,6 +108,7 @@ export function ExerciseSelector({
   }
 
   const registerBodyPart = newBodyPart || bodyPart
+  const showRegisterForm = canRegister && (results.length === 0 || isRegisterExpanded)
 
   return (
     <div className="exercise-selector">
@@ -153,7 +158,13 @@ export function ExerciseSelector({
         <p className="exercise-selector__empty">この部位に登録済みの種目がありません</p>
       ) : null}
 
-      {canRegister ? (
+      {canRegister && !showRegisterForm ? (
+        <button type="button" className="exercise-selector__register-toggle" onClick={() => setIsRegisterExpanded(true)}>
+          ＋「{trimmedQuery}」を新しい種目として登録
+        </button>
+      ) : null}
+
+      {showRegisterForm ? (
         <div className="exercise-selector__register">
           <p className="exercise-selector__register-title">「{trimmedQuery}」を新しい種目として登録</p>
           {similarMatch && !duplicateConfirmed ? (

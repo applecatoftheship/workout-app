@@ -107,3 +107,14 @@
   gap: var(--space-xs);
   margin-top: var(--space-xs);
 }
+
+.exercise-selector__register-toggle {
+  align-self: flex-start;
+  border: 0;
+  padding: var(--space-xs) 0;
+  background: transparent;
+  color: var(--color-accent-text);
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
