@@ -4,6 +4,7 @@ import { formatSetSummary } from '../../utils/calendarHelpers'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import type { TrainingLog, TrainingLogExercise } from '../../types'
+import { SwipeableRow } from '../common/SwipeableRow'
 import './TrainingExercise.css'
 import './CalendarForms.css'
 
@@ -17,11 +18,15 @@ import './CalendarForms.css'
 // 「編集」「削除」導線を出さず表示専用カードになる（TrainingSummary の閲覧サマリー
 // 用）。onEdit を渡すと編集＋削除ボタンを表示する（TrainingEditListFlow の
 // 「記録を編集」一覧用）。
+//
+// 記録リストのスワイプ操作化（2026年10月31日）：常時表示の「編集」「削除」ボタンを撤去し、
+// onEdit を渡した場合はカードを左スワイプすると「編集」「削除」が現れる方式に変更した
+// （common/SwipeableRow.tsx）。削除は従来どおり useConfirm の確認を経てから実行する。
 
 type TrainingExerciseCardProps = {
   exercise: TrainingLogExercise
   setTrainingLogs: Dispatch<SetStateAction<TrainingLog[]>>
-  /** 未指定なら表示専用（編集・削除ボタンを出さない）。 */
+  /** 未指定なら表示専用（スワイプ操作なし）。指定すると左スワイプで「編集」「削除」を出す。 */
   onEdit?: () => void
 }
 
@@ -51,24 +56,29 @@ export function TrainingExerciseCard({ exercise, setTrainingLogs, onEdit }: Trai
     }
   }
 
-  return (
+  const card = (
     <div className="training-exercise-card">
       <div className="training-exercise-card__head">
         <span className="training-exercise-card__name">{exerciseName}</span>
-        {onEdit ? (
-          <div className="training-exercise-card__actions">
-            <button type="button" className="calendar-detail__edit-button" onClick={onEdit}>
-              編集
-            </button>
-            <button type="button" className="calendar-detail__delete-button" onClick={handleDelete}>
-              削除
-            </button>
-          </div>
-        ) : null}
       </div>
       <p className="training-exercise-card__summary">
         {exercise.sets.length > 0 ? `${exercise.sets.length}セット (${formatSetSummary(exercise.sets)})` : '記録なし'}
       </p>
     </div>
+  )
+
+  if (!onEdit) {
+    return card
+  }
+
+  return (
+    <SwipeableRow
+      actions={[
+        { key: 'edit', label: '編集', tone: 'accent', onClick: onEdit },
+        { key: 'delete', label: '削除', tone: 'danger', onClick: handleDelete },
+      ]}
+    >
+      {card}
+    </SwipeableRow>
   )
 }

@@ -14,6 +14,7 @@ import { fetchTrainingLogs, upsertTrainingLogMeta } from '../../api/trainingLogs
 import { TrainingExerciseCard } from './TrainingExerciseCard'
 import { MealLogCard } from './MealLogCard'
 import { SportLogCard } from './SportLogCard'
+import { SwipeHint } from '../common/SwipeableRow'
 import { useToast } from '../../hooks/useToast'
 import './CalendarForms.css'
 
@@ -71,13 +72,23 @@ type TrainingSummaryProps = {
   /** その日の記録一覧 → 選択 → 編集、という画面遷移を開く
    *  （トレーニング実績編集UIの画面遷移化、2026年9月3日）。 */
   onEditRecords: () => void
+  /** 種目カードの左スワイプ「編集」から、その種目の編集画面を直接開く
+   *  （記録リストのスワイプ操作化、2026年10月31日）。 */
+  onEditExercise: (trainingLogExerciseId: string) => void
 }
 
 // 種目カード＋編集モーダル分離（2026年8月28日）：日次メタ情報（完了/未完了・
 // 終了時刻・メモ）は種目カード一覧の上に常時表示する小さな設定欄として独立させる
 // （設計チーム承認済み、実装方針提案の3-2）。種目の追加・削除とは別のtraining_logs
 // 本体のみを更新するupsertTrainingLogMetaを使うため、他の種目データには一切触れない。
-export function TrainingSummary({ trainingLogs, setTrainingLogs, selectedDate, onAddExercise, onEditRecords }: TrainingSummaryProps) {
+export function TrainingSummary({
+  trainingLogs,
+  setTrainingLogs,
+  selectedDate,
+  onAddExercise,
+  onEditRecords,
+  onEditExercise,
+}: TrainingSummaryProps) {
   const { showToast } = useToast()
   const dayLog = trainingLogs.find((log) => log.date === selectedDate)
   const [meta, setMeta] = useState<TrainingMetaState>(() => buildMetaState(dayLog))
@@ -173,12 +184,22 @@ export function TrainingSummary({ trainingLogs, setTrainingLogs, selectedDate, o
       </div>
 
       {dayLog && dayLog.exercises.length > 0 ? (
-        <div className="training-exercise-grid">
-          {dayLog.exercises.map((exercise) => (
-            // 表示専用（編集・削除は「記録を編集」の画面遷移側に集約、2026年9月3日）。
-            <TrainingExerciseCard key={exercise.id} exercise={exercise} setTrainingLogs={setTrainingLogs} />
-          ))}
-        </div>
+        <>
+          <SwipeHint />
+          <div className="training-exercise-grid">
+            {dayLog.exercises.map((exercise) => (
+              // 2026年9月3日に表示専用化（編集・削除は「記録を編集」の画面遷移側に集約）
+              // していたが、記録リストのスワイプ操作化（2026年10月31日）により、
+              // 常時ボタンは出さず左スワイプで「編集」「削除」を出す形でここでも操作可能にした。
+              <TrainingExerciseCard
+                key={exercise.id}
+                exercise={exercise}
+                setTrainingLogs={setTrainingLogs}
+                onEdit={() => exercise.id && onEditExercise(exercise.id)}
+              />
+            ))}
+          </div>
+        </>
       ) : (
         <p className="calendar-detail__empty">🏋️ まだトレーニング記録がありません</p>
       )}
@@ -315,6 +336,7 @@ export function MealSummary({ mealLogs, setMealLogs, selectedDate, onAdd, onEdit
           <div className="calendar-detail__meal-totals">
             合計: {totals.calories}kcal / P{totals.protein}g F{totals.fat}g C{totals.carbohydrates}g
           </div>
+          <SwipeHint />
           {groups.map((group) => (
             <div key={group.mealType} className="meal-type-group">
               <h5 className="meal-type-group__header">{getMealTypeLabel(group.mealType)}</h5>

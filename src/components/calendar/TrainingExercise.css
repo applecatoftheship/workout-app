@@ -47,12 +47,6 @@
   font-size: var(--font-size-body-sm);
 }
 
-.training-exercise-card__actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
 /* セット別詳細モードの色分けカード。意味的な区別ではなく視認性のための循環配色
    のため、部位色（--color-bp-*）ではなくトーン系トークンを4色循環で使う。 */
 .training-set-card {

@@ -1,0 +1,80 @@
+/* 記録リストのスワイプ操作化（2026年10月31日）。
+   既存トークンのみ使用（色：--color-accent-soft/-text・--color-danger-soft/-text、
+   角丸：--radius-md、余白：--space-*）。アクションボタンの配色は、撤去した常時表示の
+   「編集」「削除」ピル（.calendar-detail__edit-button / __delete-button）と同じ
+   ソフト配色体系を踏襲し、ライト/ダーク両テーマにトークン経由で追従させる。 */
+
+.swipeable-row {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  /* overflow: hidden で内側カードの box-shadow が切れるため、同じ影を外枠側に付け直す。 */
+  box-shadow: var(--shadow-card);
+}
+
+.swipeable-row__actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-xs);
+  padding-left: var(--space-sm);
+  /* 閉じている間は、角丸の縁からアクション色が滲まないよう透明にしておく。
+     visibility: hidden ではなく opacity にしているのは、Tabキーでフォーカスを
+     受け取って行を開けるようにするため。 */
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.swipeable-row--revealed .swipeable-row__actions,
+.swipeable-row__actions:focus-within {
+  opacity: 1;
+}
+
+.swipeable-row__action {
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-lg);
+  font-weight: 600;
+  font-size: var(--font-size-body-sm);
+  cursor: pointer;
+}
+
+.swipeable-row__action--accent {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.swipeable-row__action--danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}
+
+.swipeable-row__content {
+  position: relative;
+  z-index: 1;
+  /* 縦スクロールはブラウザに任せ、横方向のポインター移動だけをスワイプとして扱う。 */
+  touch-action: pan-y;
+  transition: transform 180ms ease;
+}
+
+.swipeable-row__content--dragging {
+  transition: none;
+  user-select: none;
+}
+
+.swipeable-row-hint {
+  margin: 0 0 var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swipeable-row__actions,
+  .swipeable-row__content {
+    transition: none;
+  }
+}

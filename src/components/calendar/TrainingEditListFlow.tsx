@@ -68,7 +68,7 @@ export function TrainingEditListFlow({
 
   return (
     <div className="calendar-detail__form">
-      <p className="calendar-detail__description">編集する種目を選んでください。</p>
+      <p className="calendar-detail__description">編集・削除する種目のカードを左にスワイプしてください。</p>
       {exercises.length > 0 ? (
         <div className="training-exercise-grid">
           {exercises.map((exercise) => (
