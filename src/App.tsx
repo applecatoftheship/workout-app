@@ -18,6 +18,7 @@ import { SplashScreen } from './components/SplashScreen'
 import { OfflineStatusBanner } from './components/OfflineStatusBanner'
 import { useOutboxSync } from './hooks/useOutboxSync'
 import { withOfflineCache } from './offline/offlineCache'
+import { prefetchOfflineReferenceData } from './offline/prefetchReferenceData'
 import { getNavigatorOnline } from './utils/networkErrors'
 import { applyAccentColor } from './utils/accentColor'
 import { Login } from './pages/Login'
@@ -191,6 +192,18 @@ function AppShell() {
   // 現在のテーマ（ライト/ダーク）の両方に応じてCSS変数（--color-accent等）を
   // document.documentElementへ動的上書きする。テーマ切り替え時も再適用が
   // 必要なため両方をdepsに含めている（src/utils/accentColor.ts参照）。
+  // オフライン記録対応・控えの先読み（2026年10月31日）：初回データ取得が終わってから
+  // （起動時の表示を待たせないよう少し間を置いて）、記録フォーム用の一覧の控えを作る。
+  useEffect(() => {
+    if (!isInitialLoadComplete || !user?.id) {
+      return
+    }
+    const timer = window.setTimeout(() => {
+      void prefetchOfflineReferenceData()
+    }, 2000)
+    return () => window.clearTimeout(timer)
+  }, [isInitialLoadComplete, user?.id])
+
   useEffect(() => {
     applyAccentColor(profile?.accentColor, theme)
   }, [profile?.accentColor, theme])
