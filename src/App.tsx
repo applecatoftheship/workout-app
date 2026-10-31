@@ -21,6 +21,7 @@ import { withOfflineCache } from './offline/offlineCache'
 import { prefetchOfflineReferenceData } from './offline/prefetchReferenceData'
 import { getNavigatorOnline } from './utils/networkErrors'
 import { applyAccentColor } from './utils/accentColor'
+import { importWithReload } from './utils/lazyReload'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import type { Goals } from './api/goals'
@@ -32,13 +33,15 @@ import type { DateString, DailyCondition, MealLog, Profile, TrainingLog } from '
 // にのみ必要、MealLogWizardModal等の大型フォームを内包し単体でも重い）も同様に分割対象と
 // した。Login/Signupは未ログイン時の初回表示に必須のため分割対象から除外している
 // （分割してもAuthGate側に別途Suspense境界が必要になるだけでメリットが薄いため）。
-const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })))
-const MonthlyCalendar = lazy(() => import('./pages/MonthlyCalendar').then((m) => ({ default: m.MonthlyCalendar })))
-const ProgressGraph = lazy(() => import('./pages/ProgressGraph').then((m) => ({ default: m.ProgressGraph })))
-const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
-const UserProfile = lazy(() => import('./pages/UserProfile').then((m) => ({ default: m.UserProfile })))
+// 2026年11月1日：デプロイ直後に古い画面から遅延読み込みすると真っ白になる問題への対策として、
+// 各 import を importWithReload で包む（失敗時に1回だけ自動再読み込み。詳細は utils/lazyReload.ts）。
+const Dashboard = lazy(() => importWithReload(() => import('./pages/Dashboard')).then((m) => ({ default: m.Dashboard })))
+const MonthlyCalendar = lazy(() => importWithReload(() => import('./pages/MonthlyCalendar')).then((m) => ({ default: m.MonthlyCalendar })))
+const ProgressGraph = lazy(() => importWithReload(() => import('./pages/ProgressGraph')).then((m) => ({ default: m.ProgressGraph })))
+const Settings = lazy(() => importWithReload(() => import('./pages/Settings')).then((m) => ({ default: m.Settings })))
+const UserProfile = lazy(() => importWithReload(() => import('./pages/UserProfile')).then((m) => ({ default: m.UserProfile })))
 const RecordFormModal = lazy(() =>
-  import('./components/RecordFormModal').then((m) => ({ default: m.RecordFormModal })),
+  importWithReload(() => import('./components/RecordFormModal')).then((m) => ({ default: m.RecordFormModal })),
 )
 
 // アプリ起動演出刷新（ART DECO CLASSICテーマ、2026年8月28日）：SplashScreen.tsxの
