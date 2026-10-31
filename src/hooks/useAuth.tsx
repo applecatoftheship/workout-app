@@ -1,6 +1,34 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import type { AuthError, Session, User } from '@supabase/supabase-js'
 import { supabase } from '../api/client'
+import { clearOfflineCache } from '../offline/offlineCache'
+
+// オフライン記録対応（2026年10月31日）：アクセストークンの有効期限（既定1時間）が
+// 切れた状態でオフラインのままアプリを起動すると、supabase-jsはトークン更新に
+// 通信エラーで失敗し、端末に保存済みのセッションを消さないまま session: null を
+// 返す（node_modules/@supabase/auth-js の GoTrueClient.__loadSession /
+// _callRefreshToken で確認済み：通信エラー（AuthRetryableFetchError）の場合は
+// _removeSession しない）。これをそのまま「未ログイン」と扱うと、オフラインでは
+// ログイン画面に戻されて記録できなくなるため、通信エラーが原因の場合に限り、
+// 端末に残っているセッションをそのまま使ってログイン状態を維持する。
+// オンライン復帰後はsupabase-jsの自動更新でトークンが更新され（TOKEN_REFRESHED）、
+// リフレッシュトークン自体が無効ならSIGNED_OUTでログイン画面に戻る（従来どおり）。
+function readStoredSessionForOffline(): Session | null {
+  try {
+    const key = Object.keys(localStorage).find((candidate) => /^sb-.+-auth-token$/.test(candidate))
+    if (!key) {
+      return null
+    }
+    const stored = JSON.parse(localStorage.getItem(key) ?? 'null') as Partial<Session> | null
+    if (!stored || typeof stored.refresh_token !== 'string' || !stored.user) {
+      return null
+    }
+    return stored as Session
+  } catch {
+    return null
+  }
+}
 
 // サインアップ失敗時のエラーメッセージ日本語化（2026年8月28日）：Supabase Authの
 // signUp()はエラー時、error.messageに"User already registered"等の英語の生文言を
@@ -94,6 +122,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             window.setTimeout(() => loadSession(true), 1500)
             return
           }
+          if (error && !data.session && isAuthRetryableFetchError(error)) {
+            setSession(readStoredSessionForOffline())
+            setIsLoading(false)
+            return
+          }
           setSession(data.session)
           setIsLoading(false)
         })
@@ -145,6 +178,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut()
+    // オフライン記録対応（2026年10月31日）：前のアカウントの控えデータを残さない。
+    // 未送信の記録（アウトボックス）はユーザーID付きで残し、同じアカウントで
+    // 再ログインした時に送信する（ここでは消さない）。
+    clearOfflineCache()
   }
 
   const updateEmail = async (newEmail: string): Promise<{ error: string | null }> => {

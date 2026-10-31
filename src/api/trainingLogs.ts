@@ -509,6 +509,66 @@ export async function insertTrainingLogExercise(
   return (data as { id: string }).id
 }
 
+// オフライン記録対応（2026年10月31日）：端末側で採番したidを指定して
+// training_log_exercises行を作成する。オフライン時に保存した記録の再送で、
+// 「サーバー側では作成済みだが応答が届かなかった」場合に同じ行を二重に作らない
+// ため、主キー重複（23505）は「作成済み」とみなして成功扱いにする。
+// 既存の insertTrainingLogExercise（サーバー側採番）は変更していない。
+export async function insertTrainingLogExerciseWithId(
+  id: string,
+  trainingLogId: string,
+  exerciseId: string,
+  orderIndex: number,
+): Promise<void> {
+  const userId = await getCurrentUserId()
+  const { error } = await supabase.from('training_log_exercises').insert({
+    id,
+    training_log_id: trainingLogId,
+    user_id: userId,
+    exercise_id: exerciseId,
+    order_index: orderIndex,
+  })
+
+  if (error && error.code !== '23505') {
+    throw error
+  }
+}
+
+// オフライン記録対応（2026年10月31日）：指定したtraining_logsの種目数（並び順の
+// 末尾＝新規種目のorder_indexを決めるため）。端末側の一覧ではなくサーバー上の
+// 件数を使う（オフライン中に他端末で追加された種目があってもずれないように）。
+export async function countTrainingLogExercises(trainingLogId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('training_log_exercises')
+    .select('id', { count: 'exact', head: true })
+    .eq('training_log_id', trainingLogId)
+
+  if (error) {
+    throw error
+  }
+
+  return count ?? 0
+}
+
+// オフライン記録対応（2026年10月31日）：対象日のtraining_logsが「完了」かどうか
+// （行が無ければnull）。再送後に予定の完了連動を行うかの判定に使う。
+export async function fetchTrainingLogCompleted(date: DateString): Promise<boolean | null> {
+  const userId = await getCurrentUserId()
+  const { data, error } = await supabase
+    .from('training_logs')
+    .select('completed')
+    .eq('user_id', userId)
+    .eq('log_date', date)
+    .limit(1)
+
+  if (error) {
+    throw error
+  }
+
+  const row = (data as { completed: boolean | null }[])[0]
+  return row ? !!row.completed : null
+}
+
 // 指定したtraining_log_exercise_idのtraining_setsのみを全削除してから再INSERTする。
 // 他のtraining_log_exercise_idのセットには一切影響しない（種目単位のスコープを
 // 保つための専用関数。日全体を対象とするupsertTrainingLogとは独立に用意する）。

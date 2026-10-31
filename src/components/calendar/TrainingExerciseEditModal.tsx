@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import {
-  ensureTrainingLogForDate,
   fetchExercises,
   fetchLatestExerciseRecord,
   fetchTrainingLogs,
-  insertTrainingLogExercise,
   replaceTrainingSets,
 } from '../../api/trainingLogs'
+import { useAuth } from '../../hooks/useAuth'
+import { enqueueOutbox } from '../../offline/outbox'
+import type { OutboxTrainingAddEntry } from '../../offline/outbox'
+import { withOfflineCache } from '../../offline/offlineCache'
+import { runTrainingAdd } from '../../offline/syncOutbox'
+import { getNavigatorOnline, isNetworkError } from '../../utils/networkErrors'
 import type { LatestExerciseRecord } from '../../api/trainingLogs'
 import { completeScheduleForDate } from '../../api/trainingSchedules'
 import { fetchSportLogs } from '../../api/sportLogs'
@@ -118,6 +122,7 @@ export function TrainingExerciseEditModal({
   const { showToast } = useToast()
   const confirm = useConfirm()
   const { showPRCelebration, showStreakCelebration } = useCelebration()
+  const { user } = useAuth()
 
   const [masterExercises, setMasterExercises] = useState<ExerciseDefinition[]>([])
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null)
@@ -162,7 +167,9 @@ export function TrainingExerciseEditModal({
   )
 
   const loadExercises = () => {
-    fetchExercises()
+    // オフライン記録対応（2026年10月31日）：オフラインでも種目を選べるよう、
+    // 最後に取得できた種目一覧を端末に控えておき、通信できない時はそれを使う。
+    withOfflineCache('exercises', () => fetchExercises())
       .then(setMasterExercises)
       .catch((error) => {
         console.error('Supabaseから種目一覧の取得に失敗しました', error)
@@ -434,13 +441,60 @@ export function TrainingExerciseEditModal({
       let targetId = trainingLogExerciseId
 
       if (!targetId) {
-        const trainingLogId = await ensureTrainingLogForDate(selectedDate)
-        const dayLog = trainingLogs.find((log) => log.date === selectedDate)
-        const nextOrderIndex = dayLog ? dayLog.exercises.length : 0
-        targetId = await insertTrainingLogExercise(trainingLogId, selectedExerciseId as string, nextOrderIndex)
-      }
+        // オフライン記録対応（2026年10月31日）：種目の新規追加は、端末側で採番した
+        // id で「追加操作」を組み立ててから実行する（src/offline/syncOutbox.ts の
+        // runTrainingAdd）。オフライン、または途中で通信が切れた場合は、その操作を
+        // 進捗ごと端末に保存し、オンライン復帰時に自動で再送する。
+        // 並び順（order_index）は端末の一覧ではなくサーバー上の件数から決める
+        // （従来は端末側の一覧 trainingLogs の件数を使っていた）。
+        if (!user) {
+          throw new Error('ログインが必要です')
+        }
+        const exerciseName = exerciseDefinition?.name ?? selectedExerciseName
+        let entry: OutboxTrainingAddEntry = {
+          kind: 'trainingAdd',
+          id: crypto.randomUUID(),
+          userId: user.id,
+          createdAt: new Date().toISOString(),
+          attempts: 0,
+          label: `${selectedDate.slice(5).replace('-', '/')} ${exerciseName} ${sets.length}セット`,
+          date: selectedDate,
+          exerciseId: selectedExerciseId as string,
+          trainingLogExerciseId: crypto.randomUUID(),
+          exerciseInserted: false,
+          sets,
+        }
 
-      await replaceTrainingSets(targetId, sets)
+        const saveToDevice = () => {
+          if (enqueueOutbox(entry)) {
+            showToast('オフラインのため端末に保存しました。オンラインに戻ると自動で反映します', 'info')
+            onClose()
+          } else {
+            setSummaryError('端末に保存できませんでした。ストレージの空き容量やプライベートブラウズ設定を確認してください')
+            showToast('トレーニング実績を保存できませんでした', 'error')
+          }
+        }
+
+        if (!getNavigatorOnline()) {
+          saveToDevice()
+          return
+        }
+        try {
+          entry = await runTrainingAdd(entry, (next) => {
+            entry = next
+          })
+        } catch (error) {
+          if (isNetworkError(error)) {
+            console.error('通信エラーのためトレーニング実績を端末に保存します', error)
+            saveToDevice()
+            return
+          }
+          throw error
+        }
+        targetId = entry.trainingLogExerciseId
+      } else {
+        await replaceTrainingSets(targetId, sets)
+      }
 
       const refreshed = await fetchTrainingLogs()
       setTrainingLogs(refreshed)
@@ -495,7 +549,12 @@ export function TrainingExerciseEditModal({
       onClose()
     } catch (error) {
       console.error('Supabaseへのトレーニング実績の保存に失敗しました', error)
-      setSummaryError('保存に失敗しました。もう一度お試しください')
+      // オフライン記録対応（2026年10月31日）：既存記録の編集はオフライン非対応。
+      if (trainingLogExerciseId && isNetworkError(error)) {
+        setSummaryError('オフライン中は既存の記録を編集できません。オンラインに戻ってから保存してください')
+      } else {
+        setSummaryError('保存に失敗しました。もう一度お試しください')
+      }
       showToast('トレーニング実績の保存に失敗しました', 'error')
     } finally {
       setIsSaving(false)

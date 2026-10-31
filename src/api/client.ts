@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { getDeviceId } from '../utils/deviceId'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -25,6 +25,13 @@ export const supabase = createClient(
 // 前提のため、ここではnullチェック失敗時にエラーを投げるだけに留める。
 export async function getCurrentUserId(): Promise<string> {
   const { data, error } = await supabase.auth.getUser()
+  // オフライン記録対応（2026年10月31日）：通信エラー（AuthRetryableFetchError）は
+  // 「未ログイン」ではないため、元のエラーのまま投げ直す（呼び出し元が通信エラーと
+  // 判定して端末保存に切り替えられるように。従来はここで「ログインが必要です」に
+  // 置き換わり、通信エラーと区別できなかった）。
+  if (error && isAuthRetryableFetchError(error)) {
+    throw error
+  }
   if (error || !data.user) {
     throw new Error('ログインが必要です')
   }

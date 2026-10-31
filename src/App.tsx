@@ -15,6 +15,10 @@ import { ConfirmProvider } from './hooks/useConfirm'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { CelebrationProvider } from './components/celebration/CelebrationProvider'
 import { SplashScreen } from './components/SplashScreen'
+import { OfflineStatusBanner } from './components/OfflineStatusBanner'
+import { useOutboxSync } from './hooks/useOutboxSync'
+import { withOfflineCache } from './offline/offlineCache'
+import { getNavigatorOnline } from './utils/networkErrors'
 import { applyAccentColor } from './utils/accentColor'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
@@ -69,6 +73,7 @@ const formattedDate = new Intl.DateTimeFormat('ja-JP', {
 function AppShell() {
   const { theme, setTheme } = useTheme()
   const { showToast } = useToast()
+  const { user } = useAuth()
   const [isRecordSheetOpen, setIsRecordSheetOpen] = useState(false)
   const [recordModalRequest, setRecordModalRequest] = useState<RecordModalRequest | null>(null)
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
@@ -106,7 +111,9 @@ function AppShell() {
       })
       .catch((error) => {
         console.error('Supabaseから体調記録の取得に失敗しました', error)
-        if (isMounted) {
+        // オフライン記録対応（2026年10月31日）：オフライン中は画面上部のバナーで
+        // 伝えるため、読み込み失敗のトーストは出さない（以下の目標・トレーニングも同様）。
+        if (isMounted && getNavigatorOnline()) {
           showToast('体調記録の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
@@ -119,12 +126,14 @@ function AppShell() {
       })
       .catch((error) => {
         console.error('Supabaseから目標設定の取得に失敗しました', error)
-        if (isMounted) {
+        if (isMounted && getNavigatorOnline()) {
           showToast('目標設定の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
 
-    const trainingLogsPromise = fetchTrainingLogs()
+    // オフライン記録対応（2026年10月31日）：トレーニング・食事の記録一覧は、
+    // オフライン時に最後に取得できた内容を表示できるよう端末に控えておく。
+    const trainingLogsPromise = withOfflineCache('trainingLogs', () => fetchTrainingLogs())
       .then((data) => {
         if (isMounted) {
           setTrainingLogs(data)
@@ -132,12 +141,12 @@ function AppShell() {
       })
       .catch((error) => {
         console.error('Supabaseからトレーニング記録の取得に失敗しました', error)
-        if (isMounted) {
+        if (isMounted && getNavigatorOnline()) {
           showToast('トレーニング記録の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
 
-    const mealLogsPromise = fetchMealLogs()
+    const mealLogsPromise = withOfflineCache('mealLogs', () => fetchMealLogs())
       .then((data) => {
         if (isMounted) {
           setMealLogs(data)
@@ -186,6 +195,25 @@ function AppShell() {
     applyAccentColor(profile?.accentColor, theme)
   }, [profile?.accentColor, theme])
 
+  // オフライン記録対応（2026年10月31日）：オフライン中に端末保存した記録の自動送信。
+  // 1件以上反映できたら一覧を取り直して画面に反映する。
+  const outbox = useOutboxSync({
+    userId: user?.id ?? null,
+    onSynced: (result) => {
+      showToast(`オフライン中の記録${result.synced.length}件を反映しました`, 'success')
+      if (result.synced.some((entry) => entry.kind === 'trainingAdd')) {
+        withOfflineCache('trainingLogs', () => fetchTrainingLogs())
+          .then(setTrainingLogs)
+          .catch((error) => console.error('Supabaseからトレーニング記録の再取得に失敗しました', error))
+      }
+      if (result.synced.some((entry) => entry.kind === 'mealUpsert')) {
+        withOfflineCache('mealLogs', () => fetchMealLogs())
+          .then(setMealLogs)
+          .catch((error) => console.error('Supabaseから食事記録の再取得に失敗しました', error))
+      }
+    },
+  })
+
   const openRecordModal = (request: Omit<RecordModalRequest, 'requestId'>) => {
     setRecordModalRequest({ ...request, requestId: Date.now() })
   }
@@ -195,6 +223,14 @@ function AppShell() {
       <SplashScreen isLoadComplete={isInitialLoadComplete} />
 
       <main className="app-shell">
+        <OfflineStatusBanner
+          isOnline={outbox.isOnline}
+          isSyncing={outbox.isSyncing}
+          pendingEntries={outbox.pendingEntries}
+          failedEntries={outbox.failedEntries}
+          onRetry={() => void outbox.retry()}
+          onDiscard={outbox.discard}
+        />
         <Suspense fallback={null}>
         <Routes>
           <Route

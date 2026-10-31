@@ -1,0 +1,80 @@
+/* オフライン記録対応（2026年10月31日）。既存トークンのみ使用（警告系：--color-warning-soft/-text）。 */
+
+.offline-status-banner {
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 0px));
+  z-index: 50;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+  box-shadow: var(--shadow-card);
+}
+
+.offline-status-banner__message {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+}
+
+.offline-status-banner__failed {
+  margin-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.offline-status-banner__failed-title {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+}
+
+.offline-status-banner__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.offline-status-banner__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--font-size-caption);
+}
+
+.offline-status-banner__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.offline-status-banner__discard,
+.offline-status-banner__retry {
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.offline-status-banner__discard {
+  flex-shrink: 0;
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}
+
+.offline-status-banner__retry {
+  align-self: flex-start;
+  background: var(--color-bg-elevated);
+  color: var(--color-warning-text);
+}
+
+.offline-status-banner__retry:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -9,7 +9,7 @@ import {
 import type { MealLogInput } from '../../api/mealLogs'
 import { createFoodItem, fetchFoodItems } from '../../api/foodItems'
 import { deleteDish, fetchDishesWithDetails, fetchMealSizes } from '../../api/dishes'
-import { getCurrentTimeHHMM, combineDateAndTimeToISO, extractTimeHHMMFromISO } from '../../utils/calendarHelpers'
+import { getCurrentTimeHHMM, combineDateAndTimeToISO, extractTimeHHMMFromISO, getMealTypeLabel } from '../../utils/calendarHelpers'
 import { matchDishIngredientSuggestions, resolveDraftAmount } from '../../utils/dishIngredientHelpers'
 import type { DishIngredientSuggestion } from '../../utils/dishIngredientHelpers'
 import { findMostSimilarName, matchByNameWithFallback } from '../../utils/nameMatching'
@@ -22,6 +22,10 @@ import type { MealFoodItemCardValue } from './MealFoodItemCard'
 import { MealPhotoAnalyzeSection } from './MealPhotoAnalyzeSection'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
+import { useAuth } from '../../hooks/useAuth'
+import { enqueueOutbox } from '../../offline/outbox'
+import { withOfflineCache } from '../../offline/offlineCache'
+import { getNavigatorOnline, isNetworkError } from '../../utils/networkErrors'
 import { DISH_CATEGORIES } from '../../types'
 import type { DateString, DishCategory, DishWithDetails, FoodItem, MealLog, MealSize, MealType } from '../../types'
 import './MealLogEntry.css'
@@ -104,6 +108,7 @@ type MealLogWizardModalProps = {
 export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLogId, onClose }: MealLogWizardModalProps) {
   const { showToast } = useToast()
   const confirm = useConfirm()
+  const { user } = useAuth()
 
   const isEditing = mealLogId !== undefined
 
@@ -147,8 +152,10 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
 
   const requestedFoodIdsRef = useRef<Set<string>>(new Set())
 
+  // オフライン記録対応（2026年10月31日）：オフラインでも食材・料理・サイズを
+  // 選べるよう、最後に取得できた一覧を端末に控えておき、通信できない時はそれを使う。
   const loadFoodItems = () => {
-    fetchFoodItems()
+    withOfflineCache('foodItems', () => fetchFoodItems())
       .then(setFoodItems)
       .catch((error) => {
         console.error('Supabaseから食材一覧の取得に失敗しました', error)
@@ -156,7 +163,7 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   }
 
   const loadDishes = () => {
-    fetchDishesWithDetails()
+    withOfflineCache('dishesWithDetails', () => fetchDishesWithDetails())
       .then(setDishes)
       .catch((error) => {
         console.error('Supabaseから料理一覧の取得に失敗しました', error)
@@ -166,7 +173,7 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   useEffect(() => {
     loadFoodItems()
     loadDishes()
-    fetchMealSizes()
+    withOfflineCache('mealSizes', () => fetchMealSizes())
       .then(setMealSizes)
       .catch((error) => {
         console.error('Supabaseからサイズ一覧の取得に失敗しました', error)
@@ -595,16 +602,62 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
       items: inputItems,
     }
 
+    // オフライン記録対応（2026年10月31日）：新規の食事記録は、オフライン、または
+    // 送信中に通信が切れた場合に端末へ保存し、オンライン復帰時に自動で再送する。
+    // id は端末側で採番済み（上の crypto.randomUUID()）で、送信は同じ id への upsert
+    // のため、再送しても二重登録にならない。既存記録の編集はオフライン非対応。
+    const saveToDevice = (): boolean => {
+      if (!user) {
+        return false
+      }
+      return enqueueOutbox({
+        kind: 'mealUpsert',
+        id: crypto.randomUUID(),
+        userId: user.id,
+        createdAt: new Date().toISOString(),
+        attempts: 0,
+        label: `${selectedDate.slice(5).replace('-', '/')} ${getMealTypeLabel(input.mealType)} ${input.dishName ?? `${input.items.length}品目`}`,
+        input,
+      })
+    }
+    const handleSavedToDevice = (saved: boolean) => {
+      if (saved) {
+        showToast('オフラインのため端末に保存しました。オンラインに戻ると自動で反映します', 'info')
+        onClose()
+      } else {
+        setSummaryError('端末に保存できませんでした。ストレージの空き容量やプライベートブラウズ設定を確認してください')
+        showToast('食事記録を保存できませんでした', 'error')
+      }
+    }
+    const isNewMeal = !mealLogId
+    if (isNewMeal && !getNavigatorOnline()) {
+      handleSavedToDevice(saveToDevice())
+      return
+    }
+
     setIsSaving(true)
     try {
-      await upsertMealLog(input)
+      try {
+        await upsertMealLog(input)
+      } catch (error) {
+        if (isNewMeal && isNetworkError(error)) {
+          console.error('通信エラーのため食事記録を端末に保存します', error)
+          handleSavedToDevice(saveToDevice())
+          return
+        }
+        throw error
+      }
       const refreshed = await fetchMealLogs()
       setMealLogs(refreshed)
       showToast('食事記録を保存しました', 'success')
       onClose()
     } catch (error) {
       console.error('Supabaseへの食事記録の保存に失敗しました', error)
-      setSummaryError('保存に失敗しました。もう一度お試しください')
+      setSummaryError(
+        !isNewMeal && isNetworkError(error)
+          ? 'オフライン中は既存の記録を編集できません。オンラインに戻ってから保存してください'
+          : '保存に失敗しました。もう一度お試しください',
+      )
       showToast('食事記録の保存に失敗しました', 'error')
     } finally {
       setIsSaving(false)
