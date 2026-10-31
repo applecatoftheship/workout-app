@@ -1,0 +1,109 @@
+/* 記録画面ブラッシュアップ（2026年11月1日）。既存トークンのみ使用。 */
+
+.exercise-selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.exercise-selector__search {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 10px 16px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  /* iOS Safari の自動拡大を避けるため16px固定（CalendarForms.css の入力欄と同じ方針） */
+  font-size: 16px;
+}
+
+.exercise-selector__chips {
+  display: flex;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.exercise-selector__chips::-webkit-scrollbar {
+  display: none;
+}
+
+.exercise-selector__section-label {
+  margin: var(--space-xs) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+}
+
+.exercise-selector__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.exercise-selector__item {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 12px var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.exercise-selector__item-name {
+  font-size: var(--font-size-body);
+  font-weight: 600;
+}
+
+.exercise-selector__item-meta {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.exercise-selector__empty,
+.exercise-selector__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.exercise-selector__hint {
+  text-align: right;
+}
+
+.exercise-selector__register {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.exercise-selector__register-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+}
+
+.exercise-selector__register-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}

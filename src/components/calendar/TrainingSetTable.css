@@ -1,0 +1,85 @@
+/* 記録画面ブラッシュアップ（2026年11月1日）。既存トークンのみ使用。 */
+
+.training-set-table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.training-set-table__header,
+.training-set-table__row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.training-set-table__header {
+  padding: 0 var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  text-align: center;
+}
+
+.training-set-table__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.training-set-table__row {
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+}
+
+.training-set-table__row--error {
+  border-color: var(--color-danger);
+}
+
+.training-set-table__index {
+  color: var(--color-text-secondary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.training-set-table__previous {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.training-set-table__input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 6px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  /* iOS Safari の自動拡大を避けるため16px固定 */
+  font-size: 16px;
+}
+
+.training-set-table__add {
+  align-self: stretch;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  background: transparent;
+  color: var(--color-accent-text);
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}

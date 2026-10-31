@@ -122,3 +122,54 @@
     grid-column: 1 / -1;
   }
 }
+
+/* 記録画面ブラッシュアップ（2026年11月1日）：トレーニング記録フォームの選択済み種目カード等。 */
+.calendar-detail__form.training-exercise-form {
+  gap: var(--space-md);
+}
+
+.training-exercise-form__selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+}
+
+.training-exercise-form__selected-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.training-exercise-form__selected-name {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-title);
+  font-weight: 700;
+}
+
+.training-exercise-form__selected-meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.training-exercise-form__change,
+.training-exercise-form__copy {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.training-exercise-form__copy {
+  background: var(--color-bg-elevated);
+}

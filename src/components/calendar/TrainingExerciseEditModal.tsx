@@ -19,20 +19,13 @@ import { getMatchDayStatus } from '../../utils/periodizationHelpers'
 import { detectPersonalRecords } from '../../utils/prHelpers'
 import { calculateCurrentStreak, isStreakMilestone } from '../../utils/streakHelpers'
 import { toDateKey } from '../../utils/chartHelpers'
-import {
-  bulkFromSets,
-  buildGhostPlaceholders,
-  detailedSetsFromBulk,
-  isUniformSets,
-  resolveInitialBulk,
-  shouldResetBulkForExercise,
-} from '../../utils/trainingSetHelpers'
+import { bulkFromSets } from '../../utils/trainingSetHelpers'
 import type { ComparableSet } from '../../utils/trainingSetHelpers'
-import { ExerciseNameInput } from './ExerciseNameInput'
-import { ExercisePicker } from './ExercisePicker'
-import { TrainingSetCard } from './TrainingSetCard'
+import { getRecentExerciseIds } from '../../utils/exerciseSelectorHelpers'
+import { ExerciseSelector } from './ExerciseSelector'
+import { TrainingSetTable } from './TrainingSetTable'
+import type { TrainingSetRowValue } from './TrainingSetTable'
 import { WorkoutForm } from './WorkoutForm'
-import type { TrainingSetCardValue } from './TrainingSetCard'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useCelebration } from '../celebration/CelebrationProvider'
@@ -64,24 +57,13 @@ function buildLegDayMdWarningMessage(mdStatus: string): string {
   return `⚠️ ${dayPhrase}です。下半身（脚）の高負荷トレーニングは疲労蓄積を防ぐため控えめを推奨します`
 }
 
-type Mode = 'bulk' | 'detailed'
-
-type BulkInput = { sets: string; reps: string; weight: string }
-
 let setKeyCounter = 0
 function createSetKey() {
   setKeyCounter += 1
   return `edit-set-${setKeyCounter}`
 }
 
-function toComparable(reps: string, weight: string): ComparableSet {
-  return {
-    reps: reps.trim() === '' ? null : Number(reps),
-    weight: weight.trim() === '' ? null : Number(weight),
-  }
-}
-
-function detailedInputFromComparable(sets: ComparableSet[]): TrainingSetCardValue[] {
+function rowsFromComparable(sets: ComparableSet[]): TrainingSetRowValue[] {
   return sets.map((set) => ({
     key: createSetKey(),
     reps: set.reps != null ? String(set.reps) : '',
@@ -89,12 +71,20 @@ function detailedInputFromComparable(sets: ComparableSet[]): TrainingSetCardValu
   }))
 }
 
+// 記録画面ブラッシュアップ（2026年11月1日）：新規追加時のセット行の初期状態。
+// 従来の一括モードの初期値（前回記録なし＝3セット×10回、前回記録あり＝空欄で
+// 前回値を薄く表示）と同じ考え方を、セット行の形に置き換えたもの。
+function initialRowsFor(previousSetsCount: number | null): TrainingSetRowValue[] {
+  if (previousSetsCount && previousSetsCount > 0) {
+    return Array.from({ length: previousSetsCount }, () => ({ key: createSetKey(), reps: '', weight: '' }))
+  }
+  return Array.from({ length: 3 }, () => ({ key: createSetKey(), reps: '10', weight: '' }))
+}
+
 type FormErrors = {
   name?: string
   sets?: string
-  reps?: string
-  weight?: string
-  detailed?: Array<{ reps?: string; weight?: string }>
+  rows?: Array<{ reps?: string; weight?: string }>
 }
 
 type TrainingExerciseEditModalProps = {
@@ -127,44 +117,22 @@ export function TrainingExerciseEditModal({
   const [masterExercises, setMasterExercises] = useState<ExerciseDefinition[]>([])
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null)
   const [selectedExerciseName, setSelectedExerciseName] = useState('')
-  const [mode, setMode] = useState<Mode>('bulk')
-  // 一括モードの初期値（2026年9月4日、ゴースト入力の追加対応）：
-  // 汎用既定値 3/10 は「前回記録が無い場合のフォールバック」に格下げした。
-  // 空で開始し、前回記録の取得結果が確定してから
-  //   - 前回記録なし → sets='3' / reps='10' を実値でセット（従来挙動）
-  //   - 前回記録あり → 空のまま（前回値を placeholder としてゴースト表示）
-  // で初期化する（取得完了前に 3/10 を出して後で消す＝ちらつきを避ける）。
-  const [bulk, setBulk] = useState<BulkInput>({ sets: '', reps: '', weight: '' })
-  const [detailedSets, setDetailedSets] = useState<TrainingSetCardValue[]>([])
+  // 記録画面ブラッシュアップ（2026年11月1日）：「一括入力」と「セット別詳細」の
+  // 2モードを廃止し、セット行（rows）に一本化した。
+  const [rows, setRows] = useState<TrainingSetRowValue[]>([])
   const [previousRecord, setPreviousRecord] = useState<LatestExerciseRecord | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  // 現在選択中の種目について、ユーザーが一括モードの欄を手入力したか
-  // （手入力済みなら前回記録の取得完了後も 3/10 を上書きしない）。
-  const bulkTouchedRef = useRef(false)
-  // 直近で「一括モードの入力をリセットした種目ID」。ExerciseNameInput は
-  // 打鍵ごとに onChange(name, matched?.id ?? null) を呼ぶため、単純に
-  // selectedExerciseId と比較すると「打鍵中に一時的に id=null になり、名前を
-  // 打ち直して同じ id に戻った」ケースでリセットが走り、入力済みの
-  // セット数・回数・重量が消えてしまう。実際に別の種目が確定したときだけ
-  // リセットするため、selectedExerciseId とは別にこの ref で判定する。
-  const lastResetExerciseIdRef = useRef<string | null>(null)
+  // 現在選択中の種目について、ユーザーがセット行を編集したか
+  // （編集済みなら前回記録の取得完了後も初期値で上書きしない）。
+  const rowsTouchedRef = useRef(false)
 
   const isNewExercise = trainingLogExerciseId === undefined
 
-  // ゴースト入力（前回値プレースホルダー、2026年9月4日）：新規種目追加時のみ、
-  // 前回記録を重量・回数欄の placeholder として薄く表示する。ワンタップ確定は
-  // 既存の「前回の内容をコピー」ボタン（handleCopyPrevious）が担う。
-  const ghost = useMemo(
-    () =>
-      buildGhostPlaceholders(
-        previousRecord?.sets.map((set) => ({ weight: set.weight, reps: set.reps })) ?? null,
-        isNewExercise,
-      ),
-    [previousRecord, isNewExercise],
-  )
+  // 記録画面ブラッシュアップ（2026年11月1日）：種目一覧の「最近の種目」用。
+  const recentExerciseIds = useMemo(() => getRecentExerciseIds(trainingLogs), [trainingLogs])
 
   const loadExercises = () => {
     // オフライン記録対応（2026年10月31日）：オフラインでも種目を選べるよう、
@@ -200,18 +168,7 @@ export function TrainingExerciseEditModal({
       reps: set.reps ?? null,
     }))
 
-    if (isUniformSets(comparable)) {
-      const { setsCount, weight, reps } = bulkFromSets(comparable)
-      setMode('bulk')
-      setBulk({
-        sets: String(setsCount),
-        weight: weight != null ? String(weight) : '',
-        reps: reps != null ? String(reps) : '',
-      })
-    } else {
-      setMode('detailed')
-      setDetailedSets(detailedInputFromComparable(comparable))
-    }
+    setRows(rowsFromComparable(comparable))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -223,11 +180,13 @@ export function TrainingExerciseEditModal({
       return
     }
     let cancelled = false
-    // 一括モードの初期値決定（取得結果が確定してから）。判定は resolveInitialBulk
-    // に集約（前回記録なし＝3/10、前回記録あり＝空のままゴースト表示、
-    // 手入力済み・編集時＝変更しない）。
-    const applyInitialBulk = (hasPreviousRecord: boolean) => {
-      setBulk((current) => resolveInitialBulk(hasPreviousRecord, isNewExercise, current, bulkTouchedRef.current) ?? current)
+    // セット行の初期値決定（取得結果が確定してから。前回記録なし＝3セット×10回、
+    // 前回記録あり＝前回と同じセット数の空欄で前回値を薄く表示、手入力済み・編集時＝変更しない）。
+    const applyInitialRows = (previousSetsCount: number | null) => {
+      if (!isNewExercise || rowsTouchedRef.current) {
+        return
+      }
+      setRows(initialRowsFor(previousSetsCount))
     }
     fetchLatestExerciseRecord(selectedExerciseId, selectedDate)
       .then((record) => {
@@ -235,7 +194,7 @@ export function TrainingExerciseEditModal({
           return
         }
         setPreviousRecord(record)
-        applyInitialBulk(!!record)
+        applyInitialRows(record ? record.sets.length : null)
       })
       .catch((error) => {
         if (cancelled) {
@@ -244,7 +203,7 @@ export function TrainingExerciseEditModal({
         console.error('Supabaseから前回の記録の取得に失敗しました', error)
         // 取得失敗時も「前回記録なし」として扱い、汎用既定値 3/10 を入れる
         // （変更前は useState 初期値が常に 3/10 だったため、その耐障害性を維持する）。
-        applyInitialBulk(false)
+        applyInitialRows(null)
       })
     return () => {
       cancelled = true
@@ -264,86 +223,51 @@ export function TrainingExerciseEditModal({
   // までは従来フォームのまま扱う。
   const isCardioNewEntry = isNewExercise && selectedExercise?.bodyPart === '有酸素'
 
-  const handleExerciseChosen = (name: string, exerciseId: string | null) => {
-    setSelectedExerciseName(name)
-    setSelectedExerciseId(exerciseId)
-    setErrors((current) => ({ ...current, name: undefined }))
-    // 実際に別の種目が確定したときだけ一括モードの入力状態をリセットする。
-    // 打鍵中に id=null になる／同じ種目名を打ち直して同じ id に戻る場合は
-    // リセットしない（入力済みの値を保持する）。
-    if (shouldResetBulkForExercise(exerciseId, lastResetExerciseIdRef.current)) {
-      lastResetExerciseIdRef.current = exerciseId
-      bulkTouchedRef.current = false
-      setBulk({ sets: '', reps: '', weight: '' })
+  const handleExerciseChosen = (exercise: ExerciseDefinition) => {
+    if (exercise.id !== selectedExerciseId) {
+      rowsTouchedRef.current = false
+      setRows([])
     }
+    setSelectedExerciseName(exercise.name)
+    setSelectedExerciseId(exercise.id ?? null)
+    setErrors((current) => ({ ...current, name: undefined }))
+  }
+
+  // 種目を選び直す（新規追加時のみ）。入力済みのセットは種目が変わった時点でリセットする。
+  const handleChangeExercise = () => {
+    setSelectedExerciseId(null)
+    setSelectedExerciseName('')
+    setPreviousRecord(null)
   }
 
   const handleExerciseCreated = (exercise: ExerciseDefinition) => {
     setMasterExercises((current) => [...current, exercise].sort((a, b) => a.name.localeCompare(b.name)))
   }
 
-  const handleBulkChange = (field: keyof BulkInput, value: string) => {
-    bulkTouchedRef.current = true
-    setBulk((current) => ({ ...current, [field]: value }))
+  const handleRowChange = (index: number, field: 'reps' | 'weight', value: string) => {
+    rowsTouchedRef.current = true
+    setRows((current) => current.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
   }
 
-  const handleDetailedChange = (index: number, field: 'reps' | 'weight', value: string) => {
-    setDetailedSets((current) => current.map((set, i) => (i === index ? { ...set, [field]: value } : set)))
+  const removeRow = (index: number) => {
+    rowsTouchedRef.current = true
+    setRows((current) => current.filter((_, i) => i !== index))
   }
 
-  const removeDetailedSet = (index: number) => {
-    setDetailedSets((current) => current.filter((_, i) => i !== index))
-  }
-
-  const addDetailedSet = () => {
-    setDetailedSets((current) => {
+  const addRow = () => {
+    rowsTouchedRef.current = true
+    setRows((current) => {
       const last = current[current.length - 1]
       return [...current, { key: createSetKey(), reps: last?.reps ?? '', weight: last?.weight ?? '' }]
     })
-  }
-
-  const switchToDetailed = () => {
-    // 一括モードのセット数が空（＝前回記録ありでゴースト表示中）の場合は、
-    // 前回のセット数分の空カードを作る（各カードはゴースト placeholder 付き）。
-    const setsCount = Math.max(1, Number(bulk.sets) || Number(ghost?.bulk.setsCount) || 1)
-    const comparable = toComparable(bulk.reps, bulk.weight)
-    setDetailedSets(detailedInputFromComparable(detailedSetsFromBulk(setsCount, comparable.weight, comparable.reps)))
-    setMode('detailed')
-  }
-
-  const switchToBulk = async () => {
-    if (detailedSets.length === 0) {
-      return
-    }
-    const comparable = detailedSets.map((set) => toComparable(set.reps, set.weight))
-    if (!isUniformSets(comparable)) {
-      const first = comparable[0]
-      const confirmed = await confirm(
-        `切り替えると1セット目の値（${first.weight != null ? `${first.weight}kg` : '-'}×${first.reps != null ? `${first.reps}回` : '-'}）に全セットの表示が置き換わります。続けますか？`,
-        { confirmLabel: 'はい', cancelLabel: 'いいえ' },
-      )
-      if (!confirmed) {
-        return
-      }
-    }
-    const { setsCount, weight, reps } = bulkFromSets(comparable)
-    setBulk({ sets: String(setsCount), weight: weight != null ? String(weight) : '', reps: reps != null ? String(reps) : '' })
-    setMode('bulk')
   }
 
   const handleCopyPrevious = () => {
     if (!previousRecord) {
       return
     }
-    const comparable: ComparableSet[] = previousRecord.sets.map((set) => ({ weight: set.weight, reps: set.reps }))
-    if (isUniformSets(comparable)) {
-      const { setsCount, weight, reps } = bulkFromSets(comparable)
-      setMode('bulk')
-      setBulk({ sets: String(setsCount), weight: weight != null ? String(weight) : '', reps: reps != null ? String(reps) : '' })
-    } else {
-      setMode('detailed')
-      setDetailedSets(detailedInputFromComparable(comparable))
-    }
+    rowsTouchedRef.current = true
+    setRows(rowsFromComparable(previousRecord.sets.map((set) => ({ weight: set.weight, reps: set.reps }))))
   }
 
   const validate = (): boolean => {
@@ -353,35 +277,13 @@ export function TrainingExerciseEditModal({
       return false
     }
 
-    if (mode === 'bulk') {
-      const setsValue = Number(bulk.sets)
-      const repsValue = Number(bulk.reps)
-      const weightValue = bulk.weight.trim() === '' ? NaN : Number(bulk.weight)
-      const next: FormErrors = {}
-
-      if (!Number.isFinite(setsValue) || setsValue < 1) {
-        next.sets = 'セット数は1以上の数値で入力してください'
-      }
-      if (!Number.isFinite(repsValue) || repsValue < 1) {
-        next.reps = '回数は1以上の数値で入力してください'
-      }
-      if (bulk.weight.trim() !== '' && (!Number.isFinite(weightValue) || weightValue < 0)) {
-        next.weight = '重量は0以上の数値で入力してください'
-      }
-
-      setErrors(next)
-      const hasError = Boolean(next.sets || next.reps || next.weight)
-      setSummaryError(hasError ? '入力内容にエラーがあります。各項目を確認してください' : null)
-      return !hasError
-    }
-
-    if (detailedSets.length === 0) {
+    if (rows.length === 0) {
       setErrors({ sets: '少なくとも1セット入力してください' })
       setSummaryError('入力内容にエラーがあります。各項目を確認してください')
       return false
     }
 
-    const detailedErrors = detailedSets.map((set) => {
+    const rowErrors = rows.map((set) => {
       const setError: { reps?: string; weight?: string } = {}
       const repsValue = Number(set.reps)
       const weightValue = set.weight.trim() === '' ? NaN : Number(set.weight)
@@ -396,24 +298,14 @@ export function TrainingExerciseEditModal({
       return setError
     })
 
-    setErrors({ detailed: detailedErrors })
-    const hasError = detailedErrors.some((setError) => setError.reps || setError.weight)
+    setErrors({ rows: rowErrors })
+    const hasError = rowErrors.some((setError) => setError.reps || setError.weight)
     setSummaryError(hasError ? '入力内容にエラーがあります。各項目を確認してください' : null)
     return !hasError
   }
 
   const buildSets = (): TrainingSet[] => {
-    if (mode === 'bulk') {
-      const count = Number(bulk.sets) || 0
-      return Array.from({ length: count }, (_, index) => ({
-        setNumber: index + 1,
-        reps: bulk.reps.trim() === '' ? undefined : Number(bulk.reps),
-        weight: bulk.weight.trim() === '' ? undefined : Number(bulk.weight),
-        isWarmup: false,
-      }))
-    }
-
-    return detailedSets.map((set, index) => ({
+    return rows.map((set, index) => ({
       setNumber: index + 1,
       reps: set.reps.trim() === '' ? undefined : Number(set.reps),
       weight: set.weight.trim() === '' ? undefined : Number(set.weight),
@@ -427,7 +319,7 @@ export function TrainingExerciseEditModal({
     }
 
     // 【追加仕様】保存前の確認ダイアログ（2026年8月28日）：「はい」を選んだ場合のみ
-    // 実際の保存処理に進む。「いいえ」の場合はformState（bulk/detailedSets等）を
+    // 実際の保存処理に進む。「いいえ」の場合はformState（セット行等）を
     // 一切変更せずreturnするため、モーダルの入力内容はそのまま保持される。
     const confirmed = await confirm('記録しますか？', { confirmLabel: 'はい', cancelLabel: 'いいえ' })
     if (!confirmed) {
@@ -561,132 +453,91 @@ export function TrainingExerciseEditModal({
     }
   }
 
+  // 前回記録の要約（例：「前回 10/19・40kg×10回×3セット」）。
   let previousHintText: string | null = null
   if (previousRecord) {
     const comparable: ComparableSet[] = previousRecord.sets.map((set) => ({ weight: set.weight, reps: set.reps }))
     const { setsCount, weight, reps } = bulkFromSets(comparable)
-    previousHintText = `前回（${previousRecord.logDate}）: ${weight != null ? `${weight}kg` : '-'} × ${reps != null ? `${reps}回` : '-'} × ${setsCount}セット`
+    const isUniform = comparable.every((set) => set.weight === comparable[0]?.weight && set.reps === comparable[0]?.reps)
+    const summary = isUniform
+      ? `${weight != null ? `${weight}kg` : '-'}×${reps != null ? `${reps}回` : '-'}×${setsCount}セット`
+      : `${setsCount}セット`
+    previousHintText = `前回 ${previousRecord.logDate.slice(5).replace('-', '/')}・${summary}`
   }
 
+  const selectedMeta = selectedExercise
+    ? `${selectedExercise.bodyPart}${selectedExercise.equipmentType ? `・${selectedExercise.equipmentType}` : ''}`
+    : ''
+
+  // 記録画面ブラッシュアップ（2026年11月1日）：
+  // ①種目を選ぶまでは種目選択（検索＋部位チップ＋一覧）だけを表示し、
+  // ②選んだら選択済みカード（「変更」で選び直し）＋前回記録＋セット行＋保存、の順に表示する。
   return (
-    <div className="calendar-detail__form">
+    <div className="calendar-detail__form training-exercise-form">
       {summaryError ? <p className="calendar-detail__form-error">{summaryError}</p> : null}
 
-      {isNewExercise ? (
-        <>
-          <ExercisePicker exercises={masterExercises} onSelect={(exerciseId, name) => handleExerciseChosen(name, exerciseId)} onExerciseDeleted={loadExercises} />
-          <ExerciseNameInput
-            exercises={masterExercises}
-            onExerciseCreated={handleExerciseCreated}
-            name={selectedExerciseName}
-            exerciseId={selectedExerciseId}
-            onChange={handleExerciseChosen}
-            error={errors.name}
-          />
-        </>
+      {isNewExercise && !selectedExerciseId ? (
+        <ExerciseSelector
+          exercises={masterExercises}
+          recentExerciseIds={recentExerciseIds}
+          onSelect={handleExerciseChosen}
+          onExerciseCreated={handleExerciseCreated}
+          onExerciseDeleted={loadExercises}
+          error={errors.name}
+        />
       ) : (
-        <p className="training-exercise-card__name">{selectedExerciseName}</p>
+        <div className="training-exercise-form__selected">
+          <div className="training-exercise-form__selected-text">
+            <span className="training-exercise-form__selected-name">{selectedExerciseName}</span>
+            {selectedMeta ? <span className="training-exercise-form__selected-meta">{selectedMeta}</span> : null}
+          </div>
+          {isNewExercise ? (
+            <button type="button" className="training-exercise-form__change" onClick={handleChangeExercise} disabled={isSaving}>
+              変更
+            </button>
+          ) : null}
+        </div>
       )}
 
       {isCardioNewEntry ? (
         <WorkoutForm activityType={selectedExerciseName} selectedDate={selectedDate} onClose={onClose} />
       ) : null}
 
-      {!isCardioNewEntry && previousHintText ? (
-        <div className="training-exercise-modal__previous">
-          <span>{previousHintText}</span>
-          <button type="button" className="calendar-detail__secondary-button" onClick={handleCopyPrevious}>
-            前回の内容をコピー
-          </button>
-        </div>
-      ) : null}
-
-      {!isCardioNewEntry && showLegDayMdWarning ? (
-        <p className="calendar-detail__warning">{buildLegDayMdWarningMessage(mdStatus as string)}</p>
-      ) : null}
-
-      {isCardioNewEntry ? null : mode === 'bulk' ? (
+      {selectedExerciseId && !isCardioNewEntry ? (
         <>
-          <button type="button" className="calendar-detail__secondary-button" onClick={switchToDetailed}>
-            セット別詳細モードに切り替える
-          </button>
-          <div className="calendar-detail__inline-fields">
-            <label className="calendar-detail__field">
-              <span>セット数</span>
-              <input
-                type="number"
-                min="1"
-                value={bulk.sets}
-                placeholder={ghost?.bulk.setsCount || undefined}
-                onChange={(event) => handleBulkChange('sets', event.target.value)}
-              />
-              {errors.sets ? <p className="calendar-detail__error">{errors.sets}</p> : null}
-            </label>
-            <label className="calendar-detail__field">
-              <span>回数</span>
-              <input
-                type="number"
-                min="1"
-                value={bulk.reps}
-                placeholder={ghost?.bulk.reps || '8'}
-                onChange={(event) => handleBulkChange('reps', event.target.value)}
-              />
-              {errors.reps ? <p className="calendar-detail__error">{errors.reps}</p> : null}
-            </label>
-          </div>
-          <label className="calendar-detail__field">
-            <span>重量 (kg)</span>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={bulk.weight}
-              placeholder={ghost?.bulk.weight || '60'}
-              onChange={(event) => handleBulkChange('weight', event.target.value)}
-            />
-            {errors.weight ? <p className="calendar-detail__error">{errors.weight}</p> : null}
-          </label>
-        </>
-      ) : (
-        <>
-          <button
-            type="button"
-            className="calendar-detail__secondary-button"
-            onClick={switchToBulk}
-            disabled={detailedSets.length === 0}
-          >
-            一括入力モードに切り替える
-          </button>
+          {previousHintText ? (
+            <div className="training-exercise-modal__previous">
+              <span>{previousHintText}</span>
+              <button type="button" className="training-exercise-form__copy" onClick={handleCopyPrevious}>
+                前回をコピー
+              </button>
+            </div>
+          ) : null}
+
+          {showLegDayMdWarning ? (
+            <p className="calendar-detail__warning">{buildLegDayMdWarningMessage(mdStatus as string)}</p>
+          ) : null}
+
           {errors.sets ? <p className="calendar-detail__error">{errors.sets}</p> : null}
-          {detailedSets.map((set, index) => (
-            <TrainingSetCard
-              key={set.key}
-              index={index}
-              value={set}
-              repsError={errors.detailed?.[index]?.reps}
-              weightError={errors.detailed?.[index]?.weight}
-              repsPlaceholder={ghost?.detailed[index]?.reps}
-              weightPlaceholder={ghost?.detailed[index]?.weight}
-              onChange={(field, value) => handleDetailedChange(index, field, value)}
-              onDelete={() => removeDetailedSet(index)}
-            />
-          ))}
-          <button type="button" className="calendar-detail__secondary-button" onClick={addDetailedSet}>
-            セットを追加
-          </button>
-        </>
-      )}
+          <TrainingSetTable
+            rows={rows}
+            previousSets={isNewExercise ? (previousRecord?.sets.map((set) => ({ weight: set.weight, reps: set.reps })) ?? null) : null}
+            errors={errors.rows}
+            onChange={handleRowChange}
+            onDelete={removeRow}
+            onAdd={addRow}
+          />
 
-      {isCardioNewEntry ? null : (
-        <div className="calendar-detail__actions">
-          <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? '保存中...' : '保存する'}
-          </button>
-          <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
-            キャンセル
-          </button>
-        </div>
-      )}
+          <div className="calendar-detail__actions">
+            <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? '保存中...' : '保存する'}
+            </button>
+            <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
+              キャンセル
+            </button>
+          </div>
+        </>
+      ) : null}
     </div>
   )
 }
