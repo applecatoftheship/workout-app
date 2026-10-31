@@ -1,0 +1,342 @@
+/* 記録画面ブラッシュアップ（2026年11月1日）：食事記録の1画面化。既存トークンのみ使用。 */
+
+.calendar-detail__form.meal-form {
+  gap: var(--space-md);
+}
+
+.meal-form__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.meal-form__section-title {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+}
+
+.meal-form__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.meal-form__meta .meal-picker__chips {
+  flex: 1;
+  min-width: 0;
+}
+
+.meal-form__time {
+  flex-shrink: 0;
+  width: 6.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 6px 10px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  /* iOS Safari の自動拡大を避けるため16px固定 */
+  font-size: 16px;
+}
+
+.meal-form__add-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.meal-form__segment {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+}
+
+.meal-form__segment-button {
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 7px 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meal-form__segment-button--active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.meal-form__totals {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-form__totals-kcal {
+  font-size: var(--font-size-title);
+  font-weight: 700;
+}
+
+.meal-form__totals-pfc {
+  font-size: var(--font-size-body-sm);
+}
+
+.meal-form__extra {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.meal-form__extra > summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+}
+
+.meal-form__extra[open] > summary {
+  margin-bottom: var(--space-sm);
+}
+
+.meal-form__extra-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* --- 食材・料理の選択一覧（FoodSelector / DishSelector） --- */
+
+.meal-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.meal-picker__search {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 10px 16px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  /* iOS Safari の自動拡大を避けるため16px固定 */
+  font-size: 16px;
+}
+
+.meal-picker__chips {
+  display: flex;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.meal-picker__chips::-webkit-scrollbar {
+  display: none;
+}
+
+.meal-picker__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.meal-picker__item {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 11px var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.meal-picker__item-name {
+  min-width: 0;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+}
+
+.meal-picker__item-meta {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-picker__empty,
+.meal-picker__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.meal-picker__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.meal-picker__link {
+  border: 0;
+  padding: var(--space-xs) 0;
+  background: transparent;
+  color: var(--color-accent-text);
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meal-picker__selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+}
+
+.meal-picker__selected-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.meal-picker__selected-name {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-weight: 700;
+}
+
+.meal-picker__selected-meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-picker__actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-sm);
+}
+
+.meal-picker__primary,
+.meal-picker__secondary {
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 9px 12px;
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meal-picker__primary {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.meal-picker__secondary {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+/* --- 選んだ食品の行（MealFoodItemCard） --- */
+
+.meal-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5rem auto auto;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+}
+
+.meal-item-row__name {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.meal-item-row__amount {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.meal-item-row__amount input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 4px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  /* iOS Safari の自動拡大を避けるため16px固定 */
+  font-size: 16px;
+}
+
+.meal-item-row__kcal {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.meal-item-row__remove {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body);
+  cursor: pointer;
+}
+
+.meal-item-row__error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.meal-picker__list.meal-form__selected-list {
+  max-height: none;
+  overflow: visible;
+}

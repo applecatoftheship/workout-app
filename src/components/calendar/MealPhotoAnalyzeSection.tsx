@@ -19,6 +19,9 @@ type MealPhotoAnalyzeSectionProps = {
   hint?: MealPhotoHint
   description: string
   buttonLabel?: string
+  /** 記録画面ブラッシュアップ（2026年11月1日）：'compact' は説明文と囲み枠を出さず、
+   * ボタンだけを小さく表示する（食事記録画面の検索欄の横に置く用。説明は title 属性で残す）。 */
+  variant?: 'default' | 'compact'
   onResult: (result: MealPhotoAnalysisResult) => void
 }
 
@@ -26,6 +29,7 @@ export function MealPhotoAnalyzeSection({
   hint,
   description,
   buttonLabel = '📷 写真から入力',
+  variant = 'default',
   onResult,
 }: MealPhotoAnalyzeSectionProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -59,7 +63,7 @@ export function MealPhotoAnalyzeSection({
   }
 
   return (
-    <div className="meal-photo-analyze">
+    <div className={`meal-photo-analyze${variant === 'compact' ? ' meal-photo-analyze--compact' : ''}`}>
       <input
         ref={inputRef}
         type="file"
@@ -74,10 +78,11 @@ export function MealPhotoAnalyzeSection({
         className="meal-photo-analyze__button"
         onClick={() => inputRef.current?.click()}
         disabled={isAnalyzing}
+        title={variant === 'compact' ? description : undefined}
       >
-        {isAnalyzing ? 'AIが写真を解析中...' : buttonLabel}
+        {isAnalyzing ? (variant === 'compact' ? '解析中…' : 'AIが写真を解析中...') : buttonLabel}
       </button>
-      <p className="calendar-detail__description">{description}</p>
+      {variant === 'compact' ? null : <p className="calendar-detail__description">{description}</p>}
       {error ? <p className="calendar-detail__form-error">{error}</p> : null}
     </div>
   )

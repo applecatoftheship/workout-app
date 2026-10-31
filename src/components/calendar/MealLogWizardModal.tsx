@@ -14,7 +14,8 @@ import { matchDishIngredientSuggestions, resolveDraftAmount } from '../../utils/
 import type { DishIngredientSuggestion } from '../../utils/dishIngredientHelpers'
 import { findMostSimilarName, matchByNameWithFallback } from '../../utils/nameMatching'
 import type { MealPhotoAnalysisResult, MealPhotoLabelDraft } from '../../utils/mealPhotoHelpers'
-import { GenreFoodPicker } from './GenreFoodPicker'
+import { FoodSelector } from './FoodSelector'
+import { DishSelector } from './DishSelector'
 import { DishFormModal } from './DishFormModal'
 import { FoodItemFormModal } from './FoodItemFormModal'
 import { MealFoodItemCard } from './MealFoodItemCard'
@@ -26,9 +27,10 @@ import { useAuth } from '../../hooks/useAuth'
 import { enqueueOutbox } from '../../offline/outbox'
 import { withOfflineCache } from '../../offline/offlineCache'
 import { getNavigatorOnline, isNetworkError } from '../../utils/networkErrors'
-import { DISH_CATEGORIES } from '../../types'
-import type { DateString, DishCategory, DishWithDetails, FoodItem, MealLog, MealSize, MealType } from '../../types'
+import { guessMealTypeFromTime } from '../../utils/mealFormHelpers'
+import type { DateString, DishWithDetails, FoodItem, MealLog, MealSize, MealType } from '../../types'
 import './MealLogEntry.css'
+import './MealForm.css'
 import './CalendarForms.css'
 
 // 食事記録画面の3ステップ画面遷移化（2026年9月3日、John承認済み）：
@@ -53,6 +55,14 @@ import './CalendarForms.css'
 // - 料理のサイズ倍率展開（handleAddDishToSelections）
 // - 保存前の確認ダイアログ（useConfirm）
 //
+// 記録画面ブラッシュアップ（2026年11月1日、John承認済み）：上記の3ステップを1画面に
+// まとめた（MyFitnessPal・MacroFactor 等の記録アプリと同じく、選びながら合計を見て
+// そのまま保存できるように）。上から「食事タイプ（時刻から自動推定・チップで変更）＋時刻」
+// 「食材｜料理の切替＋📷写真」「検索＋ジャンル/カテゴリ＋一覧（FoodSelector/DishSelector）」
+// 「選んだもの（量・kcal・×）＋合計」「料理名・メモ（任意、折りたたみ）」「保存」。
+// 上記の保持機能（前回量プレースホルダー・誤上書き防止・食材/料理の登録・料理の編集/削除・
+// サイズ倍率・確認ダイアログ・写真解析の未登録食材の解決）はすべて維持している。
+//
 // 「料理から選択」で追加した食品は保存時点でmeal_log_food_itemsへ個別食品として
 // フラット展開され、dish_idは保存されない（スキーマ変更なしの方針）。編集時に
 // 「これは元々どの料理だったか」をDBから再現する手段はないため、編集ステップ3では
@@ -69,14 +79,6 @@ function resolveAmount(amount: string, foodItem: FoodItem | undefined): number {
     return 0
   }
   return amount.trim() === '' ? foodItem.servingAmount : Number(amount)
-}
-
-type WizardStep = 1 | 2 | 3
-
-const STEP_LABELS: Record<WizardStep, string> = {
-  1: '食事タイプ',
-  2: '食材・料理',
-  3: '確認',
 }
 
 type FormErrors = {
@@ -112,12 +114,11 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
 
   const isEditing = mealLogId !== undefined
 
-  // 新規追加はステップ1から、編集はステップ3（確認画面）から開始する。
-  const [step, setStep] = useState<WizardStep>(isEditing ? 3 : 1)
-
   const [foodItems, setFoodItems] = useState<FoodItem[]>([])
-  const [mealType, setMealType] = useState<MealType | ''>('')
+  // 新規記録は現在時刻から食事タイプを推定して初期選択する（チップで変更可）。
+  // 編集時は下の読み込み処理で既存の値に置き換わる。
   const [mealTime, setMealTime] = useState(getCurrentTimeHHMM())
+  const [mealType, setMealType] = useState<MealType | ''>(() => (isEditing ? '' : guessMealTypeFromTime(getCurrentTimeHHMM())))
   const [notes, setNotes] = useState('')
   // 料理名の表示機能（2026年9月15日追加）：任意入力。料理プリセット選択時の自動
   // セット・Gemini画像解析（料理写真）の下書き反映・手動入力のいずれでも埋まる。
@@ -130,15 +131,9 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   const [dishes, setDishes] = useState<DishWithDetails[]>([])
   const [mealSizes, setMealSizes] = useState<MealSize[]>([])
   const [selectedDishId, setSelectedDishId] = useState('')
-  const [selectedDishCategory, setSelectedDishCategory] = useState<DishCategory | ''>('')
-  // 料理のキーワード検索（2026年9月7日）：登録済み料理が増え目的の料理を探しにくく
-  // なったため。GenreFoodPickerの「食材名で検索」と同じ独立フィルタの方針で、
-  // カテゴリ絞り込みとはAND（大文字小文字を区別しない部分一致）。
-  const [dishSearchQuery, setDishSearchQuery] = useState('')
   const [selectedMealSizeId, setSelectedMealSizeId] = useState('')
   const [isDishModalOpen, setIsDishModalOpen] = useState(false)
   const [editingDish, setEditingDish] = useState<DishWithDetails | null>(null)
-  const [isDeletingDish, setIsDeletingDish] = useState(false)
   const [isFoodItemModalOpen, setIsFoodItemModalOpen] = useState(false)
   // Gemini画像解析による食事入力（指示書2026-09-14）
   const [pendingPhotoIngredients, setPendingPhotoIngredients] = useState<PendingPhotoIngredient[]>([])
@@ -388,30 +383,9 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   }
 
   // 料理マスタ大幅拡充（2026年9月3日）：122件運用のためカテゴリで絞り込む。
-  const categoryFilteredDishes =
-    selectedDishCategory === '' ? dishes : dishes.filter((dish) => dish.category === selectedDishCategory)
-
-  // キーワード検索（カテゴリ絞り込みの結果にさらにAND）。
-  const visibleDishes = (() => {
-    const query = dishSearchQuery.trim().toLowerCase()
-    if (!query) {
-      return categoryFilteredDishes
-    }
-    return categoryFilteredDishes.filter((dish) => dish.name.toLowerCase().includes(query))
-  })()
-
   const selectedDish = dishes.find((dish) => dish.id === selectedDishId)
   const selectedMealSize = mealSizes.find((size) => size.id === selectedMealSizeId)
   const effectiveMultiplier = mealSizes.length > 0 ? selectedMealSize?.multiplier ?? 1 : 1
-
-  const dishPreviewTotals = selectedDish
-    ? {
-        calories: selectedDish.totalCalories * effectiveMultiplier,
-        protein: selectedDish.totalProtein * effectiveMultiplier,
-        fat: selectedDish.totalFat * effectiveMultiplier,
-        carbohydrates: selectedDish.totalCarbohydrates * effectiveMultiplier,
-      }
-    : null
 
   const handleAddDishToSelections = () => {
     if (!selectedDish) {
@@ -436,26 +410,25 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
     setErrors((current) => ({ ...current, items: undefined }))
   }
 
-  const handleDeleteDish = async () => {
-    if (!selectedDish?.id) {
+  const handleDeleteDish = async (dish: DishWithDetails) => {
+    if (!dish.id) {
       return
     }
-    const confirmed = await confirm(`「${selectedDish.name}」を削除しますか？この操作は取り消せません`)
+    const confirmed = await confirm(`「${dish.name}」を削除しますか？この操作は取り消せません`)
     if (!confirmed) {
       return
     }
 
-    setIsDeletingDish(true)
     try {
-      await deleteDish(selectedDish.id)
-      setSelectedDishId('')
+      await deleteDish(dish.id)
+      if (selectedDishId === dish.id) {
+        setSelectedDishId('')
+      }
       loadDishes()
       showToast('料理を削除しました', 'success')
     } catch (error) {
       console.error('Supabaseからの料理削除に失敗しました', error)
       showToast('削除に失敗しました。もう一度お試しください', 'error')
-    } finally {
-      setIsDeletingDish(false)
     }
   }
 
@@ -501,43 +474,8 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
     return !hasError
   }
 
-  const goBack = () => {
-    setSummaryError(null)
-    setStep((current) => (current === 3 ? 2 : 1))
-  }
-
-  const goToStep2 = () => {
-    if (!mealType) {
-      setErrors((current) => ({ ...current, mealType: '食事タイプは必須です' }))
-      setSummaryError('食事タイプを選択してください')
-      return
-    }
-    setErrors((current) => ({ ...current, mealType: undefined }))
-    setSummaryError(null)
-    setStep(2)
-  }
-
-  const goToStep3 = () => {
-    if (items.length === 0) {
-      setErrors((current) => ({ ...current, items: '少なくとも1つの食材を選択してください' }))
-      setSummaryError('食材または料理を1つ以上追加してください')
-      return
-    }
-    setErrors((current) => ({ ...current, items: undefined }))
-    setSummaryError(null)
-    setStep(3)
-  }
-
   const handleSave = async () => {
     if (!validate()) {
-      // バリデーションエラーの内容に応じて該当ステップへ誘導する。
-      if (!mealType) {
-        setStep(1)
-      } else if (items.length === 0) {
-        setStep(2)
-      } else {
-        setStep(3)
-      }
       return
     }
 
@@ -583,7 +521,6 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
           ? '選択した食材が見つかりません。食材を選び直してください'
           : '選択した食材の一部が見つかりませんでした。食材を選び直してください',
       )
-      setStep(2)
       return
     }
 
@@ -664,393 +601,219 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
     }
   }
 
-  return (
-    <div className="calendar-detail__form">
-      <div className="meal-wizard__steps">
-        {([1, 2, 3] as WizardStep[]).map((s) => (
-          <div
-            key={s}
-            className={`meal-wizard__step${step === s ? ' meal-wizard__step--active' : ''}`}
-            aria-current={step === s ? 'step' : undefined}
-          >
-            <span className="meal-wizard__step-num">{s}</span>
-            <span>{STEP_LABELS[s]}</span>
-          </div>
-        ))}
-      </div>
+  const mealTypeOptions: { value: MealType; label: string }[] = [
+    { value: 'breakfast', label: '朝食' },
+    { value: 'lunch', label: '昼食' },
+    { value: 'dinner', label: '夕食' },
+    { value: 'snack', label: '間食' },
+    { value: 'other', label: 'その他' },
+  ]
 
+  return (
+    <div className="calendar-detail__form meal-form">
       {summaryError ? <p className="calendar-detail__form-error">{summaryError}</p> : null}
 
-      {step === 1 ? (
-        <div className="calendar-detail__exercise-form">
-          <span>食事タイプ・時刻</span>
-          <label className="calendar-detail__field">
-            <span>食事タイプ</span>
-            <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>
-              <option value="">選択してください</option>
-              <option value="breakfast">朝食</option>
-              <option value="lunch">昼食</option>
-              <option value="dinner">夕食</option>
-              <option value="snack">間食</option>
-              <option value="other">その他</option>
-            </select>
-            {errors.mealType ? <p className="calendar-detail__error">{errors.mealType}</p> : null}
-          </label>
-
-          <label className="calendar-detail__field">
-            <span>食事時刻</span>
-            <input type="time" value={mealTime} onChange={(event) => setMealTime(event.target.value)} />
-          </label>
+      <section className="meal-form__section" aria-label="食事タイプと時刻">
+        <div className="meal-form__meta">
+          <div className="meal-picker__chips" role="group" aria-label="食事タイプ">
+            {mealTypeOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`calendar-detail__category-chip${mealType === option.value ? ' calendar-detail__category-chip--active' : ''}`}
+                aria-pressed={mealType === option.value}
+                onClick={() => {
+                  setMealType(option.value)
+                  setErrors((current) => ({ ...current, mealType: undefined }))
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <input
+            type="time"
+            className="meal-form__time"
+            value={mealTime}
+            onChange={(event) => setMealTime(event.target.value)}
+            aria-label="食事時刻"
+          />
         </div>
-      ) : null}
+        {errors.mealType ? <p className="calendar-detail__error">{errors.mealType}</p> : null}
+      </section>
 
-      {step === 2 ? (
-        <>
-          <div className="calendar-detail__exercise-form">
-            <span>食材・料理を追加</span>
-            <div className="calendar-detail__tabs calendar-detail__tabs--segment">
-              <button
-                type="button"
-                className={`calendar-detail__tab ${inputMode === 'food' ? 'calendar-detail__tab--active' : ''}`}
-                onClick={() => setInputMode('food')}
-              >
-                食材から選択（詳細入力）
-              </button>
-              <button
-                type="button"
-                className={`calendar-detail__tab ${inputMode === 'dish' ? 'calendar-detail__tab--active' : ''}`}
-                onClick={() => setInputMode('dish')}
-              >
-                料理から選択（一括入力）
-              </button>
-            </div>
-
-            {inputMode === 'food' ? (
-              <>
-                <MealPhotoAnalyzeSection
-                  description="料理の写真や栄養成分表示ラベルを撮影すると、AIが食材候補を下書き追加します。内容を確認してから保存してください。"
-                  onResult={handleMealPhotoResult}
-                />
-                <GenreFoodPicker foodItems={foodItems} onSelect={addFoodSelection} onFoodItemDeleted={loadFoodItems} />
-                <button
-                  type="button"
-                  className="calendar-detail__secondary-button"
-                  onClick={() => setIsFoodItemModalOpen(true)}
-                >
-                  ＋新しい食材を登録
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="calendar-detail__field calendar-detail__field--full">
-                  <span>カテゴリで絞り込み</span>
-                  <div className="calendar-detail__category-filter">
-                    <button
-                      type="button"
-                      className={`calendar-detail__category-chip${
-                        selectedDishCategory === '' ? ' calendar-detail__category-chip--active' : ''
-                      }`}
-                      onClick={() => {
-                        setSelectedDishCategory('')
-                        setSelectedDishId('')
-                      }}
-                    >
-                      すべて
-                    </button>
-                    {DISH_CATEGORIES.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`calendar-detail__category-chip${
-                          selectedDishCategory === option ? ' calendar-detail__category-chip--active' : ''
-                        }`}
-                        onClick={() => {
-                          setSelectedDishCategory(option)
-                          setSelectedDishId('')
-                        }}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="calendar-detail__field calendar-detail__field--full">
-                  <span>料理名で検索</span>
-                  <input
-                    type="text"
-                    value={dishSearchQuery}
-                    onChange={(event) => setDishSearchQuery(event.target.value)}
-                    placeholder="例: カレー"
-                  />
-                  {dishSearchQuery.trim() && visibleDishes.length === 0 ? (
-                    <p className="calendar-detail__description">一致する料理が見つかりません</p>
-                  ) : null}
-                </div>
-
-                <div className="calendar-detail__field calendar-detail__field--full">
-                  <span>登録済みの料理</span>
-                  <div className="calendar-detail__select-with-action">
-                    <select value={selectedDishId} onChange={(event) => setSelectedDishId(event.target.value)}>
-                      <option value="">選択してください</option>
-                      {visibleDishes.map((dish) => (
-                        <option key={dish.id} value={dish.id}>
-                          {dish.emoji ? `${dish.emoji} ` : ''}
-                          {dish.name} ({Math.round(dish.totalCalories)}kcal)
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="calendar-detail__secondary-button"
-                      onClick={() => selectedDish && setEditingDish(selectedDish)}
-                      disabled={!selectedDishId}
-                    >
-                      編集
-                    </button>
-                    <button
-                      type="button"
-                      className="calendar-detail__delete-button"
-                      onClick={handleDeleteDish}
-                      disabled={!selectedDishId || isDeletingDish}
-                    >
-                      {isDeletingDish ? '削除中...' : '削除'}
-                    </button>
-                  </div>
-                </div>
-
-                {mealSizes.length > 0 ? (
-                  <div className="calendar-detail__field calendar-detail__field--full">
-                    <span>サイズ</span>
-                    <select value={selectedMealSizeId} onChange={(event) => setSelectedMealSizeId(event.target.value)}>
-                      {mealSizes.map((size) => (
-                        <option key={size.id} value={size.id}>
-                          {size.name}（×{size.multiplier}）
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-
-                {selectedDish && dishPreviewTotals ? (
-                  <div className="calendar-detail__meal-totals">
-                    この内容で追加: {Math.round(dishPreviewTotals.calories)}kcal / P{Math.round(dishPreviewTotals.protein)}g F
-                    {Math.round(dishPreviewTotals.fat)}g C{Math.round(dishPreviewTotals.carbohydrates)}g
-                  </div>
-                ) : null}
-
-                <div className="calendar-detail__inline-fields">
-                  <button
-                    type="button"
-                    className="calendar-detail__secondary-button"
-                    onClick={handleAddDishToSelections}
-                    disabled={!selectedDish}
-                  >
-                    この内容で追加
-                  </button>
-                  <button
-                    type="button"
-                    className="calendar-detail__secondary-button"
-                    onClick={() => setIsDishModalOpen(true)}
-                  >
-                    ＋新しい料理を作る
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* 料理名の表示機能（2026年9月15日追加）：任意入力。料理プリセット選択時
-              （handleAddDishToSelections）・Gemini画像解析の下書き反映
-              （handleMealPhotoResult）のどちらでも自動セットされるが、ここで
-              いつでも編集・クリアできる通常の入力欄。food/dishどちらのタブでも
-              共通して見えるよう、タブ切り替えの外に置く。 */}
-          <div className="calendar-detail__exercise-form">
-            <label className="calendar-detail__field calendar-detail__field--full">
-              <span>料理名（任意）</span>
-              <input
-                type="text"
-                value={dishName}
-                onChange={(event) => setDishName(event.target.value)}
-                placeholder="例: 鶏の唐揚げ定食"
-              />
-            </label>
-          </div>
-
-          <div className="calendar-detail__exercise-form">
-            <span>追加済み（{items.length}品）</span>
-            {items.length > 0 ? (
-              <div className="meal-wizard__added-list">
-                {items.map((item) => {
-                  const foodItem = foodItems.find((candidate) => candidate.id === item.foodItemId)
-                  const amountText =
-                    item.amount.trim() !== ''
-                      ? `${item.amount}${foodItem?.servingUnit ?? ''}`
-                      : foodItem
-                        ? `${foodItem.servingAmount}${foodItem.servingUnit}`
-                        : ''
-                  return (
-                    <div key={item.key} className="meal-wizard__added-row">
-                      <span>
-                        {foodItem?.emoji ?? '🍽️'} {foodItem?.name ?? '不明な食材'}
-                        {amountText ? ` / ${amountText}` : ''}
-                      </span>
-                      <button
-                        type="button"
-                        className="calendar-detail__delete-button"
-                        onClick={() => removeItem(item.key)}
-                      >
-                        削除
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="calendar-detail__empty">まだ食品が追加されていません</p>
-            )}
-            {errors.items ? <p className="calendar-detail__error">{errors.items}</p> : null}
-
-            <div className="calendar-detail__meal-totals">
-              合計（プレビュー）: {Math.round(previewTotals.calories)}kcal / P{Math.round(previewTotals.protein)}g F
-              {Math.round(previewTotals.fat)}g C{Math.round(previewTotals.carbohydrates)}g
-            </div>
-          </div>
-
-          {/* Gemini画像解析による食事入力（指示書2026-09-14）：写真から検出したが
-              food_itemsマスタに一致・類似候補が無く、有効な栄養成分での自動登録も
-              できなかった食材。手動で紐付け／新規登録するまでitemsには入らない
-              （合計プレビュー・保存対象のどちらにも含まれない）。 */}
-          {pendingPhotoIngredients.length > 0 ? (
-            <div className="calendar-detail__exercise-form">
-              <span>⚠️ 写真から検出した未登録の食材（要確認）</span>
-              <div className="meal-wizard__added-list">
-                {pendingPhotoIngredients.map((pending) => (
-                  <div key={pending.key} className="meal-wizard__pending-row">
-                    <div className="calendar-detail__meal-head">
-                      <span>{pending.suggestedName}（約{pending.grams}g）</span>
-                      <button
-                        type="button"
-                        className="calendar-detail__delete-button"
-                        onClick={() => removePendingPhotoIngredient(pending.key)}
-                      >
-                        削除
-                      </button>
-                    </div>
-                    <div className="meal-wizard__pending-actions">
-                      <label className="calendar-detail__field">
-                        <span>食材を選んで紐付け</span>
-                        <select
-                          value=""
-                          onChange={(event) => {
-                            if (event.target.value) {
-                              resolvePendingPhotoIngredient(pending.key, event.target.value, pending.grams)
-                            }
-                          }}
-                        >
-                          <option value="">選択してください</option>
-                          {foodItems.map((food) => (
-                            <option key={food.id} value={food.id}>
-                              {food.emoji ?? '🍽️'} {food.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <button
-                        type="button"
-                        className="calendar-detail__secondary-button"
-                        onClick={() => setPhotoFoodItemModalInitialName(pending.suggestedName)}
-                      >
-                        新規食材として登録
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-
-      {step === 3 ? (
-        <>
-          <div className="calendar-detail__exercise-form">
-            <span>追加済み食品明細</span>
-            {items.length > 0 ? (
-              <div className="calendar-detail__log-list">
-                {items.map((item) => {
-                  const foodItem = foodItems.find((candidate) => candidate.id === item.foodItemId)
-                  const previous = previousAmounts[item.foodItemId]
-                  const placeholder = previous != null ? String(previous) : foodItem ? String(foodItem.servingAmount) : ''
-                  return (
-                    <MealFoodItemCard
-                      key={item.key}
-                      value={item}
-                      foodItem={foodItem}
-                      placeholder={placeholder}
-                      onAmountChange={(value) => handleAmountChange(item.key, value)}
-                      onDelete={() => removeItem(item.key)}
-                    />
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="calendar-detail__empty">まだ食品が追加されていません</p>
-            )}
-            {errors.items ? <p className="calendar-detail__error">{errors.items}</p> : null}
-
-            <div className="calendar-detail__meal-totals">
-              合計: {Math.round(previewTotals.calories)}kcal / P{Math.round(previewTotals.protein)}g F
-              {Math.round(previewTotals.fat)}g C{Math.round(previewTotals.carbohydrates)}g
-            </div>
-          </div>
-
-          <div className="calendar-detail__exercise-form">
-            <span>メモ</span>
-            <label className="calendar-detail__field calendar-detail__field--full">
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={3}
-                placeholder="今日の気づきや食事コメント"
-                aria-label="メモ"
-              />
-            </label>
-          </div>
-        </>
-      ) : null}
-
-      <div className="calendar-detail__actions">
-        <div className="meal-wizard__nav">
-          {step > 1 ? (
-            <button type="button" className="calendar-detail__secondary-button" onClick={goBack} disabled={isSaving}>
-              戻る
-            </button>
-          ) : null}
-
-          {step === 1 ? (
-            <button type="button" className="calendar-detail__button" onClick={goToStep2}>
-              次へ
-            </button>
-          ) : null}
-
-          {step === 2 ? (
-            <button type="button" className="calendar-detail__button" onClick={goToStep3}>
-              次へ
-            </button>
-          ) : null}
-
-          {step === 3 ? (
+      <section className="meal-form__section" aria-label="食材・料理を追加">
+        <div className="meal-form__add-head">
+          <div className="meal-form__segment" role="tablist" aria-label="追加方法">
             <button
               type="button"
-              className="calendar-detail__button"
-              onClick={handleSave}
-              disabled={isSaving || items.length === 0}
+              role="tab"
+              aria-selected={inputMode === 'food'}
+              className={`meal-form__segment-button${inputMode === 'food' ? ' meal-form__segment-button--active' : ''}`}
+              onClick={() => setInputMode('food')}
             >
-              {isSaving ? '保存中...' : '保存する'}
+              食材
             </button>
-          ) : null}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={inputMode === 'dish'}
+              className={`meal-form__segment-button${inputMode === 'dish' ? ' meal-form__segment-button--active' : ''}`}
+              onClick={() => setInputMode('dish')}
+            >
+              料理
+            </button>
+          </div>
+          <MealPhotoAnalyzeSection
+            variant="compact"
+            buttonLabel="📷 写真"
+            description="料理の写真や栄養成分表示ラベルを撮影すると、AIが食材候補を下書き追加します。内容を確認してから保存してください。"
+            onResult={handleMealPhotoResult}
+          />
         </div>
+
+        {inputMode === 'food' ? (
+          <FoodSelector
+            foodItems={foodItems}
+            onSelect={addFoodSelection}
+            onFoodItemDeleted={loadFoodItems}
+            onRequestCreate={() => setIsFoodItemModalOpen(true)}
+          />
+        ) : (
+          <DishSelector
+            dishes={dishes}
+            mealSizes={mealSizes}
+            selectedDishId={selectedDishId}
+            selectedMealSizeId={selectedMealSizeId}
+            onSelectDish={setSelectedDishId}
+            onSelectMealSize={setSelectedMealSizeId}
+            onAdd={handleAddDishToSelections}
+            onEdit={(dish) => setEditingDish(dish)}
+            onDelete={(dish) => void handleDeleteDish(dish)}
+            onRequestCreate={() => setIsDishModalOpen(true)}
+          />
+        )}
+      </section>
+
+      {/* Gemini画像解析による食事入力（指示書2026-09-14）：写真から検出したが
+          food_itemsマスタに一致・類似候補が無く、有効な栄養成分での自動登録も
+          できなかった食材。手動で紐付け／新規登録するまでitemsには入らない
+          （合計・保存対象のどちらにも含まれない）。 */}
+      {pendingPhotoIngredients.length > 0 ? (
+        <section className="meal-form__section" aria-label="写真から検出した未登録の食材">
+          <p className="meal-form__section-title">⚠️ 写真から検出した未登録の食材（要確認）</p>
+          <div className="meal-wizard__added-list">
+            {pendingPhotoIngredients.map((pending) => (
+              <div key={pending.key} className="meal-wizard__pending-row">
+                <div className="calendar-detail__meal-head">
+                  <span>{pending.suggestedName}（約{pending.grams}g）</span>
+                  <button
+                    type="button"
+                    className="meal-item-row__remove"
+                    onClick={() => removePendingPhotoIngredient(pending.key)}
+                    aria-label={`${pending.suggestedName}を外す`}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="meal-wizard__pending-actions">
+                  <label className="calendar-detail__field">
+                    <span>食材を選んで紐付け</span>
+                    <select
+                      value=""
+                      onChange={(event) => {
+                        if (event.target.value) {
+                          resolvePendingPhotoIngredient(pending.key, event.target.value, pending.grams)
+                        }
+                      }}
+                    >
+                      <option value="">選択してください</option>
+                      {foodItems.map((food) => (
+                        <option key={food.id} value={food.id}>
+                          {food.emoji ?? '🍽️'} {food.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="calendar-detail__secondary-button"
+                    onClick={() => setPhotoFoodItemModalInitialName(pending.suggestedName)}
+                  >
+                    新規食材として登録
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="meal-form__section" aria-label="選んだもの">
+        <p className="meal-form__section-title">選んだもの（{items.length}品）</p>
+        {items.length > 0 ? (
+          <div className="meal-picker__list meal-form__selected-list">
+            {items.map((item) => {
+              const foodItem = foodItems.find((candidate) => candidate.id === item.foodItemId)
+              const previous = previousAmounts[item.foodItemId]
+              const placeholder = previous != null ? String(previous) : foodItem ? String(foodItem.servingAmount) : ''
+              return (
+                <MealFoodItemCard
+                  key={item.key}
+                  value={item}
+                  foodItem={foodItem}
+                  placeholder={placeholder}
+                  onAmountChange={(value) => handleAmountChange(item.key, value)}
+                  onDelete={() => removeItem(item.key)}
+                />
+              )
+            })}
+          </div>
+        ) : (
+          <p className="meal-picker__empty">上の一覧から食材や料理を選ぶと、ここに追加されます</p>
+        )}
+        {errors.items ? <p className="calendar-detail__error">{errors.items}</p> : null}
+
+        <div className="meal-form__totals" aria-label="合計">
+          <span className="meal-form__totals-kcal">{Math.round(previewTotals.calories)}kcal</span>
+          <span className="meal-form__totals-pfc">
+            P{Math.round(previewTotals.protein)}g F{Math.round(previewTotals.fat)}g C{Math.round(previewTotals.carbohydrates)}g
+          </span>
+        </div>
+      </section>
+
+      {/* 料理名の表示機能（2026年9月15日追加）：任意入力。料理プリセット選択時
+          （handleAddDishToSelections）・Gemini画像解析の下書き反映
+          （handleMealPhotoResult）のどちらでも自動セットされる。メモとあわせて
+          折りたたみにし、入力済みの場合は開いた状態で表示する。 */}
+      <details className="meal-form__extra" open={dishName.trim() !== '' || notes.trim() !== '' || undefined}>
+        <summary>料理名・メモ（任意）</summary>
+        <div className="meal-form__extra-body">
+          <label className="calendar-detail__field calendar-detail__field--full">
+            <span>料理名</span>
+            <input
+              type="text"
+              value={dishName}
+              onChange={(event) => setDishName(event.target.value)}
+              placeholder="例: 鶏の唐揚げ定食"
+            />
+          </label>
+          <label className="calendar-detail__field calendar-detail__field--full">
+            <span>メモ</span>
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={2}
+              placeholder="今日の気づきや食事コメント"
+            />
+          </label>
+        </div>
+      </details>
+
+      <div className="calendar-detail__actions">
+        <button type="button" className="calendar-detail__button" onClick={handleSave} disabled={isSaving || items.length === 0}>
+          {isSaving ? '保存中...' : '保存する'}
+        </button>
         <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
           キャンセル
         </button>
@@ -1068,10 +831,8 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
           loadDishes()
           setIsDishModalOpen(false)
           setEditingDish(null)
-          // 編集した料理はそのまま選択状態を維持する。カテゴリを変更していても
-          // 一覧に出るよう、絞り込みは「すべて」に戻す。
+          // 編集した料理はそのまま選択状態を維持する。
           if (wasEditingId) {
-            setSelectedDishCategory('')
             setSelectedDishId(wasEditingId)
           }
         }}

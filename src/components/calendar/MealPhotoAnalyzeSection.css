@@ -42,3 +42,28 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* 記録画面ブラッシュアップ（2026年11月1日）：食事記録画面の「食材｜料理」切替の横に置く小型版。
+   AI機能であることが分かるよう accent 地のボタンはそのまま、囲み枠と説明文を省く。 */
+.meal-photo-analyze--compact {
+  margin-bottom: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.meal-photo-analyze--compact .meal-photo-analyze__button {
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.meal-photo-analyze--compact .calendar-detail__form-error {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 1;
+  width: max-content;
+  max-width: 16rem;
+}

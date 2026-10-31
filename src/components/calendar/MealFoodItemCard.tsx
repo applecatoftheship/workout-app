@@ -1,10 +1,11 @@
 import type { FoodItem } from '../../types'
 import './CalendarForms.css'
+import './MealForm.css'
 
-// 食事記録画面UI/UX刷新（meal_logエントリカード＋編集モーダル分離、2026年8月29日）
-// 1食品明細分のカード。トレーニングのTrainingSetCard.tsxと異なり、食品は本質的に
-// 異種の集まりのため「一括/詳細モード」の対象ではなく、常にこのカードのリストとして
-// 表示する（詳細はMealLogWizardModal.tsxのコメント参照）。
+// 記録画面ブラッシュアップ（2026年11月1日）：食事記録で「選んだもの」の1行。
+// 従来の「名前＋ジャンル表示＋削除ボタン／摂取量の入力欄（説明文つき）」のカードを、
+// 「名前｜量の入力＋単位｜kcal｜×」の1行にまとめた（量の入力欄が空なら placeholder の量
+// ＝前回の量か基準量で計算されるのは従来どおり）。
 
 const DEFAULT_FOOD_EMOJI = '🍽️'
 
@@ -26,34 +27,37 @@ type MealFoodItemCardProps = {
 }
 
 export function MealFoodItemCard({ value, foodItem, placeholder, error, onAmountChange, onDelete }: MealFoodItemCardProps) {
+  // kcal 表示は保存時の計算と同じく「空欄＝基準量」で算出する（placeholder の前回量ではない）。
+  const amountForKcal = value.amount.trim() === '' ? foodItem?.servingAmount ?? 0 : Number(value.amount)
+  const kcal =
+    foodItem && Number.isFinite(amountForKcal) && foodItem.servingAmount > 0
+      ? Math.round((foodItem.calories * amountForKcal) / foodItem.servingAmount)
+      : null
+  const name = foodItem?.name ?? '不明な食材'
+
   return (
-    <div className="meal-food-item-card">
-      <div className="meal-food-item-card__head">
-        <span>
-          {foodItem?.emoji ?? DEFAULT_FOOD_EMOJI} {foodItem?.name ?? '不明な食材'}
-          {foodItem?.category ? (
-            <>
-              {' '}
-              <span className="calendar-detail__badge">{foodItem.category}</span>
-            </>
-          ) : null}
-        </span>
-        <button type="button" className="calendar-detail__delete-button" onClick={onDelete}>
-          削除
-        </button>
-      </div>
-      <label className="calendar-detail__field">
-        <span>摂取量（基準: {foodItem ? `${foodItem.servingAmount}${foodItem.servingUnit}` : '-'} / 空欄なら下の値のまま）</span>
+    <div className="meal-item-row">
+      <span className="meal-item-row__name">
+        {foodItem?.emoji ?? DEFAULT_FOOD_EMOJI} {name}
+      </span>
+      <label className="meal-item-row__amount">
         <input
           type="number"
+          inputMode="decimal"
           min="0.1"
           step="0.1"
           value={value.amount}
           onChange={(event) => onAmountChange(event.target.value)}
           placeholder={placeholder}
+          aria-label={`${name}の量（${foodItem?.servingUnit ?? ''}）`}
         />
-        {error ? <p className="calendar-detail__error">{error}</p> : null}
+        <span>{foodItem?.servingUnit ?? ''}</span>
       </label>
+      <span className="meal-item-row__kcal">{kcal != null ? `${kcal}kcal` : '-'}</span>
+      <button type="button" className="meal-item-row__remove" onClick={onDelete} aria-label={`${name}を外す`}>
+        ×
+      </button>
+      {error ? <p className="calendar-detail__error meal-item-row__error">{error}</p> : null}
     </div>
   )
 }
