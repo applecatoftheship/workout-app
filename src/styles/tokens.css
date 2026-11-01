@@ -23,14 +23,16 @@
  */
 :root {
   /* Light（デフォルト） */
-  --color-bg-base: #FAFAF8;
+  /* 2026年11月1日：灰色系をRadix slate（@radix-ui/colors@3.0.0 slate.css）に置換。
+     背景とカードの差・カードと内側カードの区別・薄い文字のコントラストを確保する。 */
+  --color-bg-base: #F0F0F3;
   --color-bg-surface: #FFFFFF;
-  --color-bg-elevated: #FFFFFF;
-  --color-border: #E7E5DF;
-  --color-ring-track: #DCE0E6;
-  --color-text-primary: #1B1D1F;
-  --color-text-secondary: #6B6F76;
-  --color-text-muted: #9CA0A6;
+  --color-bg-elevated: #F0F0F3;
+  --color-border: #CDCED6;
+  --color-ring-track: #D9D9E0;
+  --color-text-primary: #1C2024;
+  --color-text-secondary: #60646C;
+  --color-text-muted: #80838D;
   --color-accent: #E85D2C;
   --color-accent-soft: #FBE2D3;
   --color-accent-text: #A8391A;

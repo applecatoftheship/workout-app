@@ -49,7 +49,9 @@
   border-radius: var(--radius-lg);
   border: 0;
   background: var(--color-accent);
-  color: #fff;
+  /* 2026年11月1日：白文字 on ティール等の明るいアクセントは2.05:1と読みにくいため、
+     ライト・ダークとも黒にする（PlusIconはstroke: currentColorで追従）。 */
+  color: #111113;
   display: flex;
   align-items: center;
   justify-content: center;
