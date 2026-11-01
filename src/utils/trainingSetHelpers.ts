@@ -19,3 +19,17 @@ export function bulkFromSets(sets: ComparableSet[]): { setsCount: number; weight
     reps: sets[0]?.reps ?? null,
   }
 }
+
+// セットの完了チェック（2026年11月1日、Strong・Hevy の記録画面を参考）：
+// ✓を押したとき、空欄の重量・回数を前回値（入力欄に薄く表示している値）で埋める。
+// 入力済みの値はそのまま。前回値も無い欄は空欄のまま（保存時の入力チェックは従来どおり）。
+export function fillRowFromPrevious<T extends { weight: string; reps: string }>(
+  row: T,
+  previous: ComparableSet | null | undefined,
+): T {
+  return {
+    ...row,
+    weight: row.weight.trim() === '' && previous?.weight != null ? String(previous.weight) : row.weight,
+    reps: row.reps.trim() === '' && previous?.reps != null ? String(previous.reps) : row.reps,
+  }
+}

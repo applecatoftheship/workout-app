@@ -34,8 +34,9 @@
   --color-accent: #E85D2C;
   --color-accent-soft: #FBE2D3;
   --color-accent-text: #A8391A;
-  --color-data: #1D9C93;
-  --color-data-soft: #D8F0EE;
+  --color-data: #0D74CE;
+  --color-data-soft: #E6F4FE;
+  --color-pfc-protein: #6550B9;
   --color-success: #2E7D4F;
   --color-success-soft: #E1F3E7;
   --color-success-text: #1E5C3A;
@@ -97,6 +98,11 @@
   --font-size-display: 40px;
 }
 
+/* データ色（2026年11月1日、John承認）：アクセント色（ボタン等、既定ティール）とデータ色（グラフ・
+   進捗、旧ティール #4ECDC4/#1D9C93）がほぼ同じ色で見分けられなかったため、データ色を青
+   （Radix blue：ダーク blue10 #3B9EFF・soft blue3、ライト blue11 #0D74CE・soft blue3）に変更。
+   アクセントに「ブルー」を選んだ場合は accentColor.ts でデータ色を旧ティールに戻す。
+   PFCのP（従来はアクセント色）は固定の紫 --color-pfc-protein（Radix violet11）。 */
 /* ダークテーマの灰色（2026年11月1日、John承認）：背景・カード・枠線の明るさの差が
    小さすぎた（コントラスト比1.06〜1.12）ため、Radix Colors の slateDark（@radix-ui/colors 3.0.0）
    に置き換えた。base=slate1, surface=slate3, elevated=slate5, border=slate7, ring-track=slate6,
@@ -116,8 +122,9 @@
     --color-accent: #FF7A33;
     --color-accent-soft: #3A2417;
     --color-accent-text: #FFB088;
-    --color-data: #4ECDC4;
-    --color-data-soft: #12302E;
+    --color-data: #3B9EFF;
+    --color-data-soft: #0D2847;
+    --color-pfc-protein: #BAA7FF;
     --color-success: #4CAF6D;
     --color-success-soft: #14301F;
     --color-success-text: #8CDBA6;
@@ -145,8 +152,9 @@
   --color-accent: #FF7A33;
   --color-accent-soft: #3A2417;
   --color-accent-text: #FFB088;
-  --color-data: #4ECDC4;
-  --color-data-soft: #12302E;
+  --color-data: #3B9EFF;
+  --color-data-soft: #0D2847;
+  --color-pfc-protein: #BAA7FF;
   --color-success: #4CAF6D;
   --color-success-soft: #14301F;
   --color-success-text: #8CDBA6;

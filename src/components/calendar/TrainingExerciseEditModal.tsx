@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Dispatch, SetStateAction } from 'react'
+import type { CSSProperties, Dispatch, SetStateAction } from 'react'
 import {
   fetchExercises,
   fetchLatestExerciseRecord,
@@ -19,7 +19,8 @@ import { getMatchDayStatus } from '../../utils/periodizationHelpers'
 import { detectPersonalRecords } from '../../utils/prHelpers'
 import { calculateCurrentStreak, isStreakMilestone } from '../../utils/streakHelpers'
 import { toDateKey } from '../../utils/chartHelpers'
-import { bulkFromSets } from '../../utils/trainingSetHelpers'
+import { bulkFromSets, fillRowFromPrevious } from '../../utils/trainingSetHelpers'
+import { bodyPartColorVar } from '../../utils/exerciseSelectorHelpers'
 import type { ComparableSet } from '../../utils/trainingSetHelpers'
 import { getRecentExerciseIds } from '../../utils/exerciseSelectorHelpers'
 import { ExerciseSelector } from './ExerciseSelector'
@@ -63,11 +64,12 @@ function createSetKey() {
   return `edit-set-${setKeyCounter}`
 }
 
-function rowsFromComparable(sets: ComparableSet[]): TrainingSetRowValue[] {
+function rowsFromComparable(sets: ComparableSet[], done = false): TrainingSetRowValue[] {
   return sets.map((set) => ({
     key: createSetKey(),
     reps: set.reps != null ? String(set.reps) : '',
     weight: set.weight != null ? String(set.weight) : '',
+    done,
   }))
 }
 
@@ -76,9 +78,9 @@ function rowsFromComparable(sets: ComparableSet[]): TrainingSetRowValue[] {
 // 前回値を薄く表示）と同じ考え方を、セット行の形に置き換えたもの。
 function initialRowsFor(previousSetsCount: number | null): TrainingSetRowValue[] {
   if (previousSetsCount && previousSetsCount > 0) {
-    return Array.from({ length: previousSetsCount }, () => ({ key: createSetKey(), reps: '', weight: '' }))
+    return Array.from({ length: previousSetsCount }, () => ({ key: createSetKey(), reps: '', weight: '', done: false }))
   }
-  return Array.from({ length: 3 }, () => ({ key: createSetKey(), reps: '10', weight: '' }))
+  return Array.from({ length: 3 }, () => ({ key: createSetKey(), reps: '10', weight: '', done: false }))
 }
 
 type FormErrors = {
@@ -168,7 +170,8 @@ export function TrainingExerciseEditModal({
       reps: set.reps ?? null,
     }))
 
-    setRows(rowsFromComparable(comparable))
+    // 保存済みの記録の編集：保存済みのセットは実施済みのため、完了チェック済みで表示する
+    setRows(rowsFromComparable(comparable, true))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -258,8 +261,21 @@ export function TrainingExerciseEditModal({
     rowsTouchedRef.current = true
     setRows((current) => {
       const last = current[current.length - 1]
-      return [...current, { key: createSetKey(), reps: last?.reps ?? '', weight: last?.weight ?? '' }]
+      return [...current, { key: createSetKey(), reps: last?.reps ?? '', weight: last?.weight ?? '', done: false }]
     })
+  }
+
+  // セットの完了チェック（2026年11月1日）：完了にするとき、空欄を前回値で埋める。
+  const toggleRowDone = (index: number) => {
+    rowsTouchedRef.current = true
+    const previous = isNewExercise ? previousRecord?.sets[index] : undefined
+    setRows((current) =>
+      current.map((row, i) => {
+        if (i !== index) return row
+        if (row.done) return { ...row, done: false }
+        return { ...fillRowFromPrevious(row, previous ? { weight: previous.weight, reps: previous.reps } : null), done: true }
+      }),
+    )
   }
 
   const handleCopyPrevious = () => {
@@ -486,7 +502,10 @@ export function TrainingExerciseEditModal({
           error={errors.name}
         />
       ) : (
-        <div className="training-exercise-form__selected">
+        <div
+          className="training-exercise-form__selected"
+          style={{ '--part-color': bodyPartColorVar(selectedExercise?.bodyPart) } as CSSProperties}
+        >
           <div className="training-exercise-form__selected-text">
             <span className="training-exercise-form__selected-name">{selectedExerciseName}</span>
             {selectedMeta ? <span className="training-exercise-form__selected-meta">{selectedMeta}</span> : null}
@@ -524,6 +543,7 @@ export function TrainingExerciseEditModal({
             previousSets={isNewExercise ? (previousRecord?.sets.map((set) => ({ weight: set.weight, reps: set.reps })) ?? null) : null}
             errors={errors.rows}
             onChange={handleRowChange}
+            onToggleDone={toggleRowDone}
             onDelete={removeRow}
             onAdd={addRow}
           />

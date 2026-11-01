@@ -93,6 +93,13 @@ const ACCENT_COLOR_TOKENS: Record<AccentColorId, { light: AccentColorTokens; dar
 // useTheme.tsがdata-theme属性をdocument.documentElementに設定するのと同じ層で
 // 動作するグローバル副作用のため、呼び出し側はtheme切り替え時にも再適用が必要
 // （AppShellでprofile.accentColorとthemeの両方をdepsにしたuseEffectから呼ぶ）。
+const DATA_COLOR_OVERRIDES: Partial<Record<AccentColorId, Record<'light' | 'dark', { data: string; dataSoft: string }>>> = {
+  blue: {
+    light: { data: '#1D9C93', dataSoft: '#D8F0EE' },
+    dark: { data: '#4ECDC4', dataSoft: '#12302E' },
+  },
+}
+
 export function applyAccentColor(accentColorId: AccentColorId | undefined, theme: 'light' | 'dark'): void {
   const id = accentColorId ?? DEFAULT_ACCENT_COLOR
   const tokens = ACCENT_COLOR_TOKENS[id][theme]
@@ -100,6 +107,16 @@ export function applyAccentColor(accentColorId: AccentColorId | undefined, theme
   root.style.setProperty('--color-accent', tokens.accent)
   root.style.setProperty('--color-accent-soft', tokens.accentSoft)
   root.style.setProperty('--color-accent-text', tokens.accentText)
+  // 2026年11月1日：データ色（既定は青）がアクセントの「ブルー」と重なるため、
+  // ブルー選択時だけデータ色を旧ティールに切り替える（それ以外は tokens.css の値）。
+  const dataOverride = DATA_COLOR_OVERRIDES[id]?.[theme]
+  if (dataOverride) {
+    root.style.setProperty('--color-data', dataOverride.data)
+    root.style.setProperty('--color-data-soft', dataOverride.dataSoft)
+  } else {
+    root.style.removeProperty('--color-data')
+    root.style.removeProperty('--color-data-soft')
+  }
 
   // 確定したユーザー設定（accentColorId が明示された呼び出し）のみ localStorage に
   // ミラーする。profile 未ロード時（accentColorId === undefined）はデフォルトを

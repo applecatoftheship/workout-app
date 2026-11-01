@@ -11,6 +11,9 @@ export type TrainingSetRowValue = {
   key: string
   reps: string
   weight: string
+  // セットの完了チェック（2026年11月1日）。画面上の表示のみで、DBには保存しない
+  // （保存されるセットは従来どおり全行）。
+  done: boolean
 }
 
 type PreviousSet = { weight: number | null; reps: number | null }
@@ -20,6 +23,7 @@ type TrainingSetTableProps = {
   previousSets: PreviousSet[] | null
   errors?: Array<{ reps?: string; weight?: string }>
   onChange: (index: number, field: 'reps' | 'weight', value: string) => void
+  onToggleDone: (index: number) => void
   onDelete: (index: number) => void
   onAdd: () => void
 }
@@ -33,7 +37,7 @@ function formatPrevious(set: PreviousSet | undefined): string {
   return `${weight}×${reps}`
 }
 
-export function TrainingSetTable({ rows, previousSets, errors, onChange, onDelete, onAdd }: TrainingSetTableProps) {
+export function TrainingSetTable({ rows, previousSets, errors, onChange, onToggleDone, onDelete, onAdd }: TrainingSetTableProps) {
   return (
     <div className="training-set-table">
       <div className="training-set-table__header" aria-hidden="true">
@@ -41,6 +45,7 @@ export function TrainingSetTable({ rows, previousSets, errors, onChange, onDelet
         <span>前回</span>
         <span>kg</span>
         <span>回</span>
+        <span>✓</span>
       </div>
       <ul className="training-set-table__rows">
         {rows.map((row, index) => {
@@ -49,7 +54,9 @@ export function TrainingSetTable({ rows, previousSets, errors, onChange, onDelet
           return (
             <li key={row.key}>
               <SwipeableRow actions={[{ key: 'delete', label: '削除', tone: 'danger', onClick: () => onDelete(index) }]}>
-                <div className={`training-set-table__row${rowError?.reps || rowError?.weight ? ' training-set-table__row--error' : ''}`}>
+                <div
+                  className={`training-set-table__row${row.done ? ' training-set-table__row--done' : ''}${rowError?.reps || rowError?.weight ? ' training-set-table__row--error' : ''}`}
+                >
                   <span className="training-set-table__index">{index + 1}</span>
                   <span className="training-set-table__previous">{formatPrevious(previous)}</span>
                   <input
@@ -73,6 +80,17 @@ export function TrainingSetTable({ rows, previousSets, errors, onChange, onDelet
                     placeholder={previous?.reps != null ? String(previous.reps) : '回'}
                     onChange={(event) => onChange(index, 'reps', event.target.value)}
                   />
+                  <button
+                    type="button"
+                    className={`training-set-table__check${row.done ? ' training-set-table__check--done' : ''}`}
+                    aria-label={`${index + 1}セット目を${row.done ? '未完了に戻す' : '完了にする'}`}
+                    aria-pressed={row.done}
+                    onClick={() => onToggleDone(index)}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                 </div>
               </SwipeableRow>
               {rowError?.reps || rowError?.weight ? (

@@ -211,7 +211,7 @@
 }
 
 .pfc-dot__marker--protein {
-  background: var(--color-accent);
+  background: var(--color-pfc-protein);
 }
 
 .pfc-dot__marker--fat {

@@ -14,6 +14,18 @@
   margin-bottom: 6px;
 }
 
+/* 2026年11月1日：ダークテーマのアクセント色はどれも明るく、白文字だと読みにくい
+   （例：ティール #35C9C0 に白 2.05:1）ため、黒い文字にする（同 9.22:1）。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .calendar-detail__button {
+    color: #111113;
+  }
+}
+
+[data-theme="dark"] .calendar-detail__button {
+  color: #111113;
+}
+
 .calendar-detail__secondary-button {
   background: var(--color-accent-soft);
   color: var(--color-accent-text);
