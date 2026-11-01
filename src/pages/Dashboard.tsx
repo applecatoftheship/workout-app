@@ -2,10 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import './Dashboard.css'
-import { GoalPanel } from '../components/GoalPanel'
 import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
 import { TrackRing } from '../components/TrackRing'
-import { EcgDivider } from '../components/EcgDivider'
 import { WeeklyACWRTrendCard } from '../components/WeeklyACWRTrendCard'
 import { WeeklyACWRDetailModal } from '../components/WeeklyACWRDetailModal'
 import { CharacterStatusCard } from '../components/CharacterStatusCard'
@@ -123,7 +121,7 @@ export function Dashboard({
   mealLogs,
   dailyConditions,
   goals,
-  setGoals,
+  // setGoals：ホームの目標パネルを外したため未使用（2026年11月2日）。props の型は App 側との互換のため残す。
   today,
   todayString,
   formattedDate,
@@ -777,7 +775,6 @@ export function Dashboard({
           <h2 className="panel-card__title">{calorieCardTitle}</h2>
           {mdBadgeLabel ? <span className="md-badge">{mdBadgeLabel}</span> : null}
         </div>
-        <EcgDivider />
         <div className="calorie-ring">
           <RadialBarChart
             width={180}
@@ -1109,7 +1106,8 @@ export function Dashboard({
         ) : null}
       </section>
 
-      <GoalPanel goals={goals} setGoals={setGoals} trainingLogs={trainingLogs} dailyConditions={dailyConditions} today={today} />
+      {/* 2026年11月2日：目標の表示が重なっていたため、ホームの目標パネル（アコーディオン）を外した
+          （Johnさん確認）。ホームは上の「○月の目標」カード、目標の確認・変更は設定画面の目標パネルで行う。 */}
 
       {isTimerOpen ? <RestTimerModal onClose={() => setIsTimerOpen(false)} /> : null}
       {isWeeklyACWRDetailOpen ? (

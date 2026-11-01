@@ -3,6 +3,7 @@ import {
   ACCENT_COLOR_IDS,
   ACCENT_COLOR_LABELS,
   DEFAULT_ACCENT_COLOR,
+  getAccentColorTokens,
   readStoredAccentColor,
 } from '../accentColor'
 
@@ -68,4 +69,31 @@ describe('readStoredAccentColor', () => {
     ls.set('rainbow')
     expect(readStoredAccentColor()).toBeUndefined()
   })
+})
+
+// WCAG のコントラスト比（相対輝度から計算）。
+function contrastRatio(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const [r, g, bl] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) =>
+      c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4,
+    )
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl
+  }
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+describe('アクセント色の地に載せる文字色（onAccent）', () => {
+  // 2026年11月2日：黒固定だとライトのオーロラ（3.12）・ブルー（4.15）で読みにくかったため、
+  // アクセントごとに黒・白のうちコントラストの高い方を持たせた。
+  for (const id of ACCENT_COLOR_IDS) {
+    for (const theme of ['light', 'dark'] as const) {
+      it(`${id}（${theme}）は黒・白のうちコントラストの高い方を使う`, () => {
+        const { accent, onAccent } = getAccentColorTokens(id, theme)
+        const black = contrastRatio('#111113', accent)
+        const white = contrastRatio('#FFFFFF', accent)
+        expect(contrastRatio(onAccent, accent)).toBeCloseTo(Math.max(black, white), 5)
+      })
+    }
+  }
 })

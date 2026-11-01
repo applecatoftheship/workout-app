@@ -28,7 +28,8 @@
      --color-deco-goldの値を変更した際にここだけ追従しなくなるため）。
      2026年9月19日：ダッシュボード「機能メニュー」セクション削除に伴い
      .link-card自体がDOM上に存在しなくなったため、セレクタから除去した。 */
-  border: 1px solid color-mix(in srgb, var(--color-deco-gold) 30%, transparent);
+  /* 2026年11月2日：金色の枠（9/19 アールデコ調）を外した。カード同士は背景の明るさの差で区切る（Johnさん確認）。 */
+  border: 1px solid transparent;
 }
 
 .panel-card {

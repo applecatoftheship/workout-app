@@ -74,6 +74,12 @@
   padding: 10px 0;
 }
 
+/* 2026年11月2日：「データをエクスポート」が3行に折り返していたため、行内のボタンは折り返さない。 */
+.settings-row > .btn-secondary {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .settings-row + .settings-row {
   border-top: 1px solid var(--color-border);
 }

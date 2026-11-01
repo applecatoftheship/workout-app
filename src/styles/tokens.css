@@ -32,10 +32,13 @@
   --color-ring-track: #D9D9E0;
   --color-text-primary: #1C2024;
   --color-text-secondary: #60646C;
-  --color-text-muted: #80838D;
+  /* 2026年11月2日：薄い文字が背景によって3.3〜3.8:1と基準（4.5）を下回っていたため、
+     Radix の文字用の段（slate11）に揃えた。secondary と同じ値になり、強弱は大きさ・太さで付ける。 */
+  --color-text-muted: #60646C;
   --color-accent: #E85D2C;
   --color-accent-soft: #FBE2D3;
   --color-accent-text: #A8391A;
+  --color-on-accent: #111113;
   --color-data: #0D74CE;
   --color-data-soft: #E6F4FE;
   --color-pfc-protein: #6550B9;
@@ -120,10 +123,11 @@
     --color-ring-track: #363A3F;
     --color-text-primary: #EDEEF0;
     --color-text-secondary: #B0B4BA;
-    --color-text-muted: #777B84;
+    --color-text-muted: #B0B4BA;
     --color-accent: #FF7A33;
     --color-accent-soft: #3A2417;
     --color-accent-text: #FFB088;
+    --color-on-accent: #111113;
     --color-data: #3B9EFF;
     --color-data-soft: #0D2847;
     --color-pfc-protein: #BAA7FF;
@@ -150,10 +154,11 @@
   --color-ring-track: #363A3F;
   --color-text-primary: #EDEEF0;
   --color-text-secondary: #B0B4BA;
-  --color-text-muted: #777B84;
+  --color-text-muted: #B0B4BA;
   --color-accent: #FF7A33;
   --color-accent-soft: #3A2417;
   --color-accent-text: #FFB088;
+  --color-on-accent: #111113;
   --color-data: #3B9EFF;
   --color-data-soft: #0D2847;
   --color-pfc-protein: #BAA7FF;

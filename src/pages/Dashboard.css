@@ -279,7 +279,8 @@
 }
 
 .week-strip__cell--today .week-strip__day-label {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-on-accent);
+  opacity: 0.8;
 }
 
 .week-strip__date {
@@ -290,7 +291,7 @@
 }
 
 .week-strip__cell--today .week-strip__date {
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .week-strip__icons {
@@ -418,7 +419,7 @@
 .goal-strip__rate {
   font-size: var(--font-size-title);
   font-weight: 700;
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -468,7 +469,7 @@
   text-align: right;
   font-size: var(--font-size-body-sm);
   font-weight: 600;
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   cursor: pointer;
 }
 

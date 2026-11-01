@@ -28,7 +28,7 @@
   font-weight: 600;
   font-size: var(--font-size-body-sm);
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .meal-photo-analyze__input {

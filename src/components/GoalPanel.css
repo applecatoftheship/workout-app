@@ -85,7 +85,7 @@
 
 .button--primary {
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .button--secondary {

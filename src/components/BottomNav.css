@@ -29,7 +29,7 @@
 }
 
 .bottom-nav__item--active {
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-weight: 600;
 }
 
@@ -51,7 +51,7 @@
   background: var(--color-accent);
   /* 2026年11月1日：白文字 on ティール等の明るいアクセントは2.05:1と読みにくいため、
      ライト・ダークとも黒にする（PlusIconはstroke: currentColorで追従）。 */
-  color: #111113;
+  color: var(--color-on-accent);
   display: flex;
   align-items: center;
   justify-content: center;

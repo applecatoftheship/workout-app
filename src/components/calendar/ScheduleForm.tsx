@@ -253,9 +253,8 @@ export function ScheduleForm({
     <div className="calendar-detail__section">
       <div className="calendar-detail__section-header">
         <h4>トレーニング予定</h4>
-        <button type="button" className="calendar-detail__secondary-button" onClick={() => openForm()}>
-          予定を追加
-        </button>
+        {/* 2026年11月2日：見出し横の「予定を追加」を削除（Johnさん確認）。体調と同じ理由
+            （記録画面では最初からフォームが出ており、編集中に押すと空のフォームに戻る）。 */}
       </div>
 
       {selectedSchedules.length > 0 && !isScheduleFormOpen ? (

@@ -2,7 +2,6 @@ import './ACWRGaugeCard.css'
 import type { ACWRResult, MuscleLocation, SorenessLevel } from '../types'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../utils/acwrHelpers'
 import { TrackRing } from './TrackRing'
-import { EcgDivider } from './EcgDivider'
 
 type ACWRGaugeCardProps = {
   result: ACWRResult | null
@@ -75,8 +74,6 @@ export function ACWRGaugeCard({
           {meta.emoji} {meta.label}
         </span>
       </div>
-
-      <EcgDivider />
 
       <div className="acwr-card__score">
         <TrackRing value={Math.min(100, (result.acwr / 2) * 100)} size={72} strokeWidth={7} colorVar={STATUS_RING_COLOR_VAR[meta.tone]}>

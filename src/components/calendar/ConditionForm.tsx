@@ -243,9 +243,9 @@ export function ConditionForm({
     <div className="calendar-detail__section">
       <div className="calendar-detail__section-header">
         <h4>体調</h4>
-        <button type="button" className="calendar-detail__secondary-button" onClick={() => openConditionForm()}>
-          体調を記録
-        </button>
+        {/* 2026年11月2日：見出し横の「体調を記録」を削除（Johnさん確認）。このフォームは記録画面
+            （RecordFormModal）からしか使われず、開いた時点でフォームが出ているため役割が重なり、
+            既存記録の編集中に押すと空のフォームに戻ってしまっていた。 */}
       </div>
       {selectedCondition && !isConditionFormOpen ? (
         <div className="calendar-detail__item">

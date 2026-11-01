@@ -6,7 +6,7 @@
  */
 .btn-primary {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   border: 1.5px solid var(--color-accent);
   border-radius: var(--radius-md);
   padding: 10px 18px;

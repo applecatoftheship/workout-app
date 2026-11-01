@@ -64,7 +64,7 @@
 .rest-timer-modal__quick-button--active {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 .rest-timer-modal__stepper {

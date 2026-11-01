@@ -4,7 +4,8 @@
   box-shadow: var(--shadow-card);
   /* アールデコ調UI刷新 Phase2（2026年9月19日）：panel-card（src/App.css）と
      同じ極細ゴールドボーダーをグラフ画面の外枠にも適用。 */
-  border: 1px solid color-mix(in srgb, var(--color-deco-gold) 25%, transparent);
+  /* 2026年11月2日：金色の枠（9/19 アールデコ調）を外した。カード同士は背景の明るさの差で区切る（Johnさん確認）。 */
+  border: 1px solid transparent;
   padding: var(--space-md) var(--space-lg);
   display: flex;
   flex-direction: column;
@@ -40,20 +41,34 @@
   gap: 6px;
 }
 
+/* 2026年11月2日：5等分だと「トレーニング」が2行に折り返していたため、横に並べて
+   はみ出す分は横スクロールにする（カレンダーの日の詳細タブと同じ考え方）。 */
+.progress-graph__tabs {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.progress-graph__tabs::-webkit-scrollbar {
+  display: none;
+}
+
 .progress-graph__tab {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  padding: 8px 6px;
+  padding: 8px 14px;
   color: var(--color-text-secondary);
   font-weight: 500;
   font-size: var(--font-size-body-sm);
   cursor: pointer;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .progress-graph__tab--active {
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-on-accent);
   border-color: var(--color-accent);
 }
 

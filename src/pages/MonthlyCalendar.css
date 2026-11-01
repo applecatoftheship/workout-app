@@ -105,7 +105,7 @@
 }
 
 .calendar-day--selected .calendar-day__number {
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .calendar-day__content {
@@ -142,9 +142,11 @@
 }
 
 .calendar-detail {
+  /* 2026年11月2日：カード（surface）の中に一段暗い箱（base）が入り、奥行きが逆に見えたため、
+     背景を外してカードの中にそのまま並べる。 */
   border-radius: var(--radius-md);
-  background: var(--color-bg-base);
-  padding: var(--space-md);
+  background: transparent;
+  padding: var(--space-md) 0 0;
 }
 
 .calendar-detail__header {
@@ -296,7 +298,7 @@
 
 .calendar-detail__tab--active {
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 /* 食材から選択/料理から選択のようなセグメント型2択トグル */

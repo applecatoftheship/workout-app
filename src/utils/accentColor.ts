@@ -47,6 +47,9 @@ type AccentColorTokens = {
   accent: string
   accentSoft: string
   accentText: string
+  /** アクセント色の地に載せる文字色（2026年11月2日）。黒（#111113）と白のうち、
+   *  そのアクセントでコントラスト比が高い方。ライトのオーロラ・ブルーは白が上。 */
+  onAccent: string
 }
 
 // orange・tealはtokens.cssの既存--color-accent/--color-data系の値をそのまま流用
@@ -58,8 +61,8 @@ type AccentColorTokens = {
 // 踏襲し、soft/textはデザインキャンバスv6で承認された値をそのまま使用。
 const ACCENT_COLOR_TOKENS: Record<AccentColorId, { light: AccentColorTokens; dark: AccentColorTokens }> = {
   artdeco: {
-    light: { accent: '#E0524A', accentSoft: '#FCE4E1', accentText: '#A13228' },
-    dark: { accent: '#FF6B6B', accentSoft: '#3D2323', accentText: '#FFAFAF' },
+    light: { accent: '#E0524A', accentSoft: '#FCE4E1', accentText: '#A13228', onAccent: '#111113' },
+    dark: { accent: '#FF6B6B', accentSoft: '#3D2323', accentText: '#FFAFAF', onAccent: '#111113' },
   },
   // AETHER-FLOW（テーマ2、2026年9月7日）：SVGソースのオーロラ配色から抽出。
   // dark はバイオレット #C4B5FD をそのまま accent に使う（背景ミッドナイト
@@ -67,24 +70,24 @@ const ACCENT_COLOR_TOKENS: Record<AccentColorId, { light: AccentColorTokens; dar
   // light 用にコントラスト調整した #E0524A を用意したのと同じ考え方で、
   // 白背景でも十分なコントラストが取れる濃いバイオレットに調整した。
   aetherflow: {
-    light: { accent: '#6D45D6', accentSoft: '#ECE6FB', accentText: '#4A2E9E' },
-    dark: { accent: '#C4B5FD', accentSoft: '#241F3D', accentText: '#DDD3FE' },
+    light: { accent: '#6D45D6', accentSoft: '#ECE6FB', accentText: '#4A2E9E', onAccent: '#FFFFFF' },
+    dark: { accent: '#C4B5FD', accentSoft: '#241F3D', accentText: '#DDD3FE', onAccent: '#111113' },
   },
   orange: {
-    light: { accent: '#E85D2C', accentSoft: '#FBE2D3', accentText: '#A8391A' },
-    dark: { accent: '#FF7A33', accentSoft: '#3A2417', accentText: '#FFB088' },
+    light: { accent: '#E85D2C', accentSoft: '#FBE2D3', accentText: '#A8391A', onAccent: '#111113' },
+    dark: { accent: '#FF7A33', accentSoft: '#3A2417', accentText: '#FFB088', onAccent: '#111113' },
   },
   teal: {
-    light: { accent: '#1D9C93', accentSoft: '#D8F0EE', accentText: '#0F5E58' },
-    dark: { accent: '#35C9C0', accentSoft: '#12302E', accentText: '#8FE0DA' },
+    light: { accent: '#1D9C93', accentSoft: '#D8F0EE', accentText: '#0F5E58', onAccent: '#111113' },
+    dark: { accent: '#35C9C0', accentSoft: '#12302E', accentText: '#8FE0DA', onAccent: '#111113' },
   },
   blue: {
-    light: { accent: '#2F6FED', accentSoft: '#DCE7FC', accentText: '#1D4CAE' },
-    dark: { accent: '#5B8DF6', accentSoft: '#16233F', accentText: '#A9C4FB' },
+    light: { accent: '#2F6FED', accentSoft: '#DCE7FC', accentText: '#1D4CAE', onAccent: '#FFFFFF' },
+    dark: { accent: '#5B8DF6', accentSoft: '#16233F', accentText: '#A9C4FB', onAccent: '#111113' },
   },
   purple: {
-    light: { accent: '#8B5CF6', accentSoft: '#EAE0FD', accentText: '#5B34B8' },
-    dark: { accent: '#A78BFA', accentSoft: '#2A2145', accentText: '#D9CBFC' },
+    light: { accent: '#8B5CF6', accentSoft: '#EAE0FD', accentText: '#5B34B8', onAccent: '#111113' },
+    dark: { accent: '#A78BFA', accentSoft: '#2A2145', accentText: '#D9CBFC', onAccent: '#111113' },
   },
 }
 
@@ -100,6 +103,11 @@ const DATA_COLOR_OVERRIDES: Partial<Record<AccentColorId, Record<'light' | 'dark
   },
 }
 
+/** アクセント色とその地に載せる文字色（テスト・表示確認用）。 */
+export function getAccentColorTokens(accentColorId: AccentColorId, theme: 'light' | 'dark'): AccentColorTokens {
+  return ACCENT_COLOR_TOKENS[accentColorId][theme]
+}
+
 export function applyAccentColor(accentColorId: AccentColorId | undefined, theme: 'light' | 'dark'): void {
   const id = accentColorId ?? DEFAULT_ACCENT_COLOR
   const tokens = ACCENT_COLOR_TOKENS[id][theme]
@@ -107,6 +115,7 @@ export function applyAccentColor(accentColorId: AccentColorId | undefined, theme
   root.style.setProperty('--color-accent', tokens.accent)
   root.style.setProperty('--color-accent-soft', tokens.accentSoft)
   root.style.setProperty('--color-accent-text', tokens.accentText)
+  root.style.setProperty('--color-on-accent', tokens.onAccent)
   // 2026年11月1日：データ色（既定は青）がアクセントの「ブルー」と重なるため、
   // ブルー選択時だけデータ色を旧ティールに切り替える（それ以外は tokens.css の値）。
   const dataOverride = DATA_COLOR_OVERRIDES[id]?.[theme]
