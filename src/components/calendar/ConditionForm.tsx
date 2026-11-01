@@ -270,7 +270,7 @@ export function ConditionForm({
           {selectedCondition.notes ? <p className="calendar-detail__description">メモ: {selectedCondition.notes}</p> : null}
         </div>
       ) : isConditionFormOpen ? (
-        <div className="calendar-detail__form">
+        <div className="calendar-detail__form calendar-detail__form--record">
           {conditionFormSummaryError ? <p className="calendar-detail__form-error">{conditionFormSummaryError}</p> : null}
           <label className="calendar-detail__field">
             <span>体重 (kg)</span>
@@ -371,6 +371,16 @@ export function ConditionForm({
           <div className="calendar-detail__actions">
             <button type="button" className="calendar-detail__button" onClick={saveCondition} disabled={isSaving}>
               {isSaving ? '保存中...' : '保存する'}
+            </button>
+            {/* 記録画面の統一（2026年11月1日）：トレーニング・食事と同じ枠線のキャンセルを追加。
+                フォームを閉じると RecordFormModal 側の useEffect でモーダルも閉じる。 */}
+            <button
+              type="button"
+              className="calendar-detail__secondary-button record-form__cancel"
+              onClick={() => setIsConditionFormOpen(false)}
+              disabled={isSaving}
+            >
+              キャンセル
             </button>
             {editingConditionIndex !== null ? (
               <button type="button" className="calendar-detail__delete-button" onClick={deleteCondition}>

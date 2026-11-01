@@ -180,7 +180,7 @@ export function SportLogForm({ sportLogs, setSportLogs, selectedDate, sportLogId
   }
 
   return (
-    <div className="calendar-detail__form">
+    <div className="calendar-detail__form calendar-detail__form--record">
       {formSummaryError ? <p className="calendar-detail__form-error">{formSummaryError}</p> : null}
 
       <div className="calendar-detail__field calendar-detail__field--full">
@@ -222,20 +222,25 @@ export function SportLogForm({ sportLogs, setSportLogs, selectedDate, sportLogId
         {formErrors.durationMinutes ? <p className="calendar-detail__error">{formErrors.durationMinutes}</p> : null}
       </label>
 
-      <label className="calendar-detail__field">
+      {/* 記録画面の統一（2026年11月1日）：プルダウンを、競技・疲労度と同じチップに変更。保存値は従来どおり。 */}
+      <div className="calendar-detail__field calendar-detail__field--full">
         <span>RPE（主観的運動強度・任意）</span>
-        <select value={formState.rpe} onChange={(event) => handleFieldChange('rpe', event.target.value)}>
-          <option value={RPE_UNSPECIFIED}>未入力</option>
-          {RPE_OPTIONS.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
+        <div className="calendar-detail__category-filter">
+          {[RPE_UNSPECIFIED, ...RPE_OPTIONS.map(String)].map((value) => (
+            <button
+              key={value || 'unspecified'}
+              type="button"
+              className={`calendar-detail__category-chip${formState.rpe === value ? ' calendar-detail__category-chip--active' : ''}`}
+              onClick={() => handleFieldChange('rpe', value)}
+            >
+              {value === RPE_UNSPECIFIED ? '未入力' : value}
+            </button>
           ))}
-        </select>
+        </div>
         <p className="calendar-detail__description">
           入力すると、競技ごとの標準的な強度の代わりにRPEから推定した強度で消費カロリーを計算します
         </p>
-      </label>
+      </div>
 
       <label className="calendar-detail__field calendar-detail__field--full">
         <span>消費カロリー（kcal）</span>
@@ -280,7 +285,7 @@ export function SportLogForm({ sportLogs, setSportLogs, selectedDate, sportLogId
         <button type="button" className="calendar-detail__button" onClick={saveSportLog} disabled={isSaving}>
           {isSaving ? '保存中...' : '保存する'}
         </button>
-        <button type="button" className="calendar-detail__secondary-button" onClick={onClose} disabled={isSaving}>
+        <button type="button" className="calendar-detail__secondary-button record-form__cancel" onClick={onClose} disabled={isSaving}>
           キャンセル
         </button>
       </div>

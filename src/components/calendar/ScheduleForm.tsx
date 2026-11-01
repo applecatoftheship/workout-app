@@ -54,6 +54,9 @@ const statusLabel: Record<TrainingScheduleStatus, string> = {
   cancelled: 'キャンセル',
 }
 
+const SCHEDULE_STATUSES: TrainingScheduleStatus[] = ['scheduled', 'completed', 'cancelled']
+const SCHEDULE_TYPES: ScheduleType[] = ['practice', 'match', 'event']
+
 // スプリント3：試合日（MD）基準の栄養・トレーニング調整（2026年8月18日）
 const scheduleTypeLabel: Record<ScheduleType, string> = {
   practice: '練習',
@@ -312,7 +315,7 @@ export function ScheduleForm({
       ) : null}
 
       {isScheduleFormOpen ? (
-        <div className="calendar-detail__form">
+        <div className="calendar-detail__form calendar-detail__form--record">
           {formError ? <p className="calendar-detail__form-error">{formError}</p> : null}
 
           <label className="calendar-detail__field">
@@ -325,19 +328,24 @@ export function ScheduleForm({
             />
           </label>
 
-          <label className="calendar-detail__field">
+          {/* 記録画面の統一（2026年11月1日）：予定種別・ステータスをプルダウンからチップに変更。保存値は従来どおり。 */}
+          <div className="calendar-detail__field calendar-detail__field--full">
             <span>予定種別</span>
-            <select
-              value={formState.scheduleType}
-              onChange={(event) =>
-                setFormState((current) => ({ ...current, scheduleType: event.target.value as ScheduleType }))
-              }
-            >
-              <option value="practice">{scheduleTypeLabel.practice}</option>
-              <option value="match">{scheduleTypeLabel.match}</option>
-              <option value="event">{scheduleTypeLabel.event}</option>
-            </select>
-          </label>
+            <div className="calendar-detail__category-filter">
+              {SCHEDULE_TYPES.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className={`calendar-detail__category-chip${
+                    formState.scheduleType === type ? ' calendar-detail__category-chip--active' : ''
+                  }`}
+                  onClick={() => setFormState((current) => ({ ...current, scheduleType: type }))}
+                >
+                  {scheduleTypeLabel[type]}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <label className="calendar-detail__field">
             <span>絵文字</span>
@@ -348,12 +356,17 @@ export function ScheduleForm({
               maxLength={4}
             />
           </label>
-          <div className="calendar-detail__inline-fields">
+          {/* 記録画面の統一（2026年11月1日）：横幅いっぱいの塗りボタン6個を、小さな丸いチップ1列に変更。
+              選んだ絵文字は他のチップと同じ「選択中」の見た目にする。 */}
+          <div className="calendar-detail__category-filter">
             {QUICK_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
                 type="button"
-                className="calendar-detail__secondary-button"
+                className={`calendar-detail__category-chip calendar-detail__emoji-chip${
+                  formState.emoji === emoji ? ' calendar-detail__category-chip--active' : ''
+                }`}
+                aria-label={`絵文字 ${emoji}`}
                 onClick={() => setFormState((current) => ({ ...current, emoji }))}
               >
                 {emoji}
@@ -373,19 +386,23 @@ export function ScheduleForm({
             </select>
           </label>
 
-          <label className="calendar-detail__field">
+          <div className="calendar-detail__field calendar-detail__field--full">
             <span>ステータス</span>
-            <select
-              value={formState.status}
-              onChange={(event) =>
-                setFormState((current) => ({ ...current, status: event.target.value as TrainingScheduleStatus }))
-              }
-            >
-              <option value="scheduled">予定</option>
-              <option value="completed">完了</option>
-              <option value="cancelled">キャンセル</option>
-            </select>
-          </label>
+            <div className="calendar-detail__category-filter">
+              {SCHEDULE_STATUSES.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  className={`calendar-detail__category-chip${
+                    formState.status === status ? ' calendar-detail__category-chip--active' : ''
+                  }`}
+                  onClick={() => setFormState((current) => ({ ...current, status }))}
+                >
+                  {statusLabel[status]}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <label className="calendar-detail__field calendar-detail__field--full">
             <span>メモ</span>
@@ -401,6 +418,13 @@ export function ScheduleForm({
             <button type="button" className="calendar-detail__button" onClick={saveSchedule} disabled={isSaving}>
               {isSaving ? '保存中...' : '保存する'}
             </button>
+            <button
+              type="button"
+              className="calendar-detail__secondary-button record-form__cancel"
+              onClick={() => setIsScheduleFormOpen(false)}
+            >
+              キャンセル
+            </button>
             {editingScheduleId ? (
               <button
                 type="button"
@@ -415,9 +439,6 @@ export function ScheduleForm({
                 この予定を削除
               </button>
             ) : null}
-            <button type="button" className="calendar-detail__secondary-button" onClick={() => setIsScheduleFormOpen(false)}>
-              キャンセル
-            </button>
           </div>
         </div>
       ) : selectedSchedules.length === 0 ? (

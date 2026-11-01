@@ -303,6 +303,27 @@
   font-weight: 600;
 }
 
+/* 記録画面の統一（2026年11月1日）：予定の絵文字チップ。丸い小さなボタンにする。 */
+.calendar-detail__emoji-chip {
+  padding: 4px 12px;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+/* 記録画面の統一（2026年11月1日）：体調・スポーツ・予定の入力欄も、トレーニングと同じく
+   入力した値は太字、例示（placeholder）は細字・薄色にする。 */
+.calendar-detail__form--record .calendar-detail__field > input,
+.calendar-detail__form--record .calendar-detail__field > textarea {
+  font-weight: 600;
+}
+
+.calendar-detail__form--record .calendar-detail__field > input::placeholder,
+.calendar-detail__form--record .calendar-detail__field > textarea::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 400;
+  opacity: 1;
+}
+
 .calendar-detail__actions {
   display: flex;
   flex-direction: column;
