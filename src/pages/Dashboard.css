@@ -280,7 +280,6 @@
 
 .week-strip__cell--today .week-strip__day-label {
   color: var(--color-on-accent);
-  opacity: 0.8;
 }
 
 .week-strip__date {
