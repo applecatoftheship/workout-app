@@ -9,13 +9,14 @@
 .training-set-table__header,
 .training-set-table__row {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
+  grid-template-columns: 2.5rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
   align-items: center;
   gap: var(--space-sm);
 }
 
 .training-set-table__header {
   padding: 0 var(--space-md);
+  white-space: nowrap;
   color: var(--color-text-muted);
   font-size: var(--font-size-caption);
   font-weight: 600;
