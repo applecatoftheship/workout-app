@@ -35,6 +35,8 @@
   /* 2026年11月2日：薄い文字が背景によって3.3〜3.8:1と基準（4.5）を下回っていたため、
      Radix の文字用の段（slate11）に揃えた。secondary と同じ値になり、強弱は大きさ・太さで付ける。 */
   --color-text-muted: #60646C;
+  /* 入力欄の例示・前回値（placeholder）専用。入力した値と見分けるため、あえて薄くする。 */
+  --color-text-placeholder: #80838D;
   --color-accent: #E85D2C;
   --color-accent-soft: #FBE2D3;
   --color-accent-text: #A8391A;
@@ -124,6 +126,7 @@
     --color-text-primary: #EDEEF0;
     --color-text-secondary: #B0B4BA;
     --color-text-muted: #B0B4BA;
+    --color-text-placeholder: #777B84;
     --color-accent: #FF7A33;
     --color-accent-soft: #3A2417;
     --color-accent-text: #FFB088;
@@ -155,6 +158,7 @@
   --color-text-primary: #EDEEF0;
   --color-text-secondary: #B0B4BA;
   --color-text-muted: #B0B4BA;
+  --color-text-placeholder: #777B84;
   --color-accent: #FF7A33;
   --color-accent-soft: #3A2417;
   --color-accent-text: #FFB088;

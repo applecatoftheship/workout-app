@@ -319,7 +319,7 @@
 
 .calendar-detail__form--record .calendar-detail__field > input::placeholder,
 .calendar-detail__form--record .calendar-detail__field > textarea::placeholder {
-  color: var(--color-text-muted);
+  color: var(--color-text-placeholder);
   font-weight: 400;
   opacity: 1;
 }

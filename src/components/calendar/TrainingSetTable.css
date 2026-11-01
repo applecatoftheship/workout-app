@@ -109,7 +109,7 @@
 }
 
 .training-set-table__input::placeholder {
-  color: var(--color-text-muted);
+  color: var(--color-text-placeholder);
   font-weight: 400;
   opacity: 1;
 }
