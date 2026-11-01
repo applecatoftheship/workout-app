@@ -320,7 +320,7 @@
 }
 
 .calendar-detail__tabs--segment .calendar-detail__tab--active {
-  background: var(--color-bg-elevated);
+  background: var(--color-bg-surface);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-card);
   font-weight: 600;
