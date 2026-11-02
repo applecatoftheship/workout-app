@@ -1,5 +1,6 @@
 import { getCurrentUserId, supabase } from './client'
 import type { FoodItem } from '../types'
+import { fetchAllPages } from './fetchAllPages'
 
 type FoodItemRow = {
   id: string
@@ -33,18 +34,19 @@ function rowToFoodItem(row: FoodItemRow): FoodItem {
 
 export async function fetchFoodItems(): Promise<FoodItem[]> {
   const userId = await getCurrentUserId()
-  const { data, error } = await supabase
-    .from('food_items')
-    .select('*')
-    .eq('is_deleted', false)
-    .or(`user_id.is.null,user_id.eq.${userId}`)
-    .order('name', { ascending: true })
+  // 食材は今後1000行を超えうるため、ページ分けして全行を取得する（fetchAllPages 参照）
+  const data = await fetchAllPages<FoodItemRow>((from, to) =>
+    supabase
+      .from('food_items')
+      .select('*')
+      .eq('is_deleted', false)
+      .or(`user_id.is.null,user_id.eq.${userId}`)
+      .order('name', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
+  )
 
-  if (error) {
-    throw error
-  }
-
-  return (data as FoodItemRow[]).map(rowToFoodItem)
+  return data.map(rowToFoodItem)
 }
 
 export async function createFoodItem(input: {

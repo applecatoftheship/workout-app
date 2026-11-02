@@ -1,6 +1,7 @@
 import { getCurrentUserId, supabase } from './client'
 import { fetchFoodItems } from './foodItems'
 import type { Dish, DishCategory, DishFoodItem, DishWithDetails, MealSize } from '../types'
+import { fetchAllPages } from './fetchAllPages'
 
 type DishRow = {
   id: string
@@ -57,17 +58,21 @@ export async function fetchDishesWithDetails(): Promise<DishWithDetails[]> {
     throw dishError
   }
 
-  const { data: itemRows, error: itemError } = await supabase.from('dish_food_items').select('*')
-
-  if (itemError) {
-    throw itemError
-  }
+  // dish_food_items は1000行を超えるため、ページ分けして全行を取得する（fetchAllPages 参照）
+  const itemRows = await fetchAllPages<DishFoodItemRow>((from, to) =>
+    supabase
+      .from('dish_food_items')
+      .select('*')
+      .order('dish_id', { ascending: true })
+      .order('food_item_id', { ascending: true })
+      .range(from, to),
+  )
 
   const foodItems = await fetchFoodItems()
   const foodItemMap = new Map(foodItems.map((item) => [item.id as string, item]))
 
   return (dishRows as DishRow[]).map((dishRow) => {
-    const items: DishFoodItem[] = (itemRows as DishFoodItemRow[])
+    const items: DishFoodItem[] = itemRows
       .filter((item) => item.dish_id === dishRow.id)
       .map((item) => ({
         dishId: item.dish_id,
