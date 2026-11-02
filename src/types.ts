@@ -110,17 +110,56 @@ export interface MealLogFoodItem extends BaseRecord {
 // 料理マスタ大幅拡充（2026年9月3日）：122件投入に伴い、料理を分類する
 // カテゴリ（アプリ側でのenum的な扱い）と絵文字を追加。DBは dishes.category /
 // dishes.emoji（いずれも text、nullable）。
+//
+// 料理ジャンルの2段化（2026年11月2日、John承認）：dishes.category には小分類の名前を入れ、
+// 大分類はアプリ側の DISH_GENRES で決める（DBの構造は変えていない）。
 export const DISH_CATEGORIES = [
-  '定食',
+  '定食・和のおかず',
   '丼もの',
-  '麺類',
-  '鍋物',
-  '洋食',
-  '中華',
+  '寿司・刺身',
+  'うどん・そば',
   '汁物・小鉢',
-  'パン・その他',
+  '鍋物',
+  '粉もの・焼きそば',
+  '居酒屋・焼き鳥',
+  '洋食おかず',
+  'カレー・ハヤシ',
+  'パスタ',
+  'グラタン・ドリア',
+  'スープ・シチュー',
+  'サラダ',
+  '中華おかず',
+  'チャーハン・中華ご飯',
+  '餃子・点心',
+  'ラーメン・中華麺',
+  '韓国料理',
+  'タイ・ベトナム料理',
+  'インドカレー',
+  'ハンバーガー',
+  'フライドチキン・サイド',
+  'ピザ',
+  'パン・サンドイッチ',
+  'おにぎり・軽食',
+  '和菓子・和のおやつ',
+  '洋菓子・デザート',
+  'ボウル・補食',
 ] as const;
 export type DishCategory = (typeof DISH_CATEGORIES)[number];
+
+/** 料理の大分類と、それに属する小分類（DISH_CATEGORIES の値）。表示順もこの順。 */
+export const DISH_GENRES: ReadonlyArray<{ genre: string; categories: readonly DishCategory[] }> = [
+  {
+    genre: '和食',
+    categories: ['定食・和のおかず', '丼もの', '寿司・刺身', 'うどん・そば', '汁物・小鉢', '鍋物', '粉もの・焼きそば', '居酒屋・焼き鳥'],
+  },
+  { genre: '洋食', categories: ['洋食おかず', 'カレー・ハヤシ', 'パスタ', 'グラタン・ドリア', 'スープ・シチュー', 'サラダ'] },
+  { genre: '中華', categories: ['中華おかず', 'チャーハン・中華ご飯', '餃子・点心', 'ラーメン・中華麺'] },
+  { genre: 'アジア・エスニック', categories: ['韓国料理', 'タイ・ベトナム料理', 'インドカレー'] },
+  { genre: 'ファストフード', categories: ['ハンバーガー', 'フライドチキン・サイド', 'ピザ'] },
+  { genre: 'パン・軽食', categories: ['パン・サンドイッチ', 'おにぎり・軽食'] },
+  { genre: 'スイーツ', categories: ['和菓子・和のおやつ', '洋菓子・デザート'] },
+  { genre: '健康・補食', categories: ['ボウル・補食'] },
+];
 
 export interface Dish extends BaseRecord {
   name: string;

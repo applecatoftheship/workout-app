@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Modal } from '../common/Modal'
 import { ModalCloseButton } from '../common/ModalCloseButton'
-import { DISH_CATEGORIES } from '../../types'
+import { DISH_GENRES } from '../../types'
 import type { DishCategory, DishWithDetails, FoodItem } from '../../types'
 import { createDish, updateDish } from '../../api/dishes'
 import { createFoodItem } from '../../api/foodItems'
@@ -416,10 +416,15 @@ export function DishFormModal({
             <span>カテゴリ</span>
             <select value={category} onChange={(event) => setCategory(event.target.value as DishCategory)}>
               <option value="">選択してください</option>
-              {DISH_CATEGORIES.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
+              {/* 料理ジャンルの2段化（2026年11月2日）：大分類ごとのグループで小分類を選ぶ。 */}
+              {DISH_GENRES.map((group) => (
+                <optgroup key={group.genre} label={group.genre}>
+                  {group.categories.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { filterDishes, filterFoodItems, guessMealTypeFromTime, listFoodCategories, UNCATEGORIZED_FOOD_FILTER } from '../mealFormHelpers'
+import { filterDishes, filterFoodItems, getDishGenre, guessMealTypeFromTime, listFoodCategories, UNCATEGORIZED_FOOD_FILTER } from '../mealFormHelpers'
+import { DISH_CATEGORIES, DISH_GENRES } from '../../types'
 import type { DishWithDetails, FoodItem } from '../../types'
 
 function food(id: string, name: string, category: string | null): FoodItem {
@@ -42,12 +43,32 @@ describe('filterFoodItems', () => {
 
 describe('filterDishes', () => {
   const dishes = [
-    { id: '1', name: '醤油ラーメン', category: '麺類', items: [], totalCalories: 600, totalProtein: 0, totalFat: 0, totalCarbohydrates: 0 },
-    { id: '2', name: 'カレーライス', category: '洋食', items: [], totalCalories: 700, totalProtein: 0, totalFat: 0, totalCarbohydrates: 0 },
+    { id: '1', name: '醤油ラーメン', category: 'ラーメン・中華麺', items: [], totalCalories: 600, totalProtein: 0, totalFat: 0, totalCarbohydrates: 0 },
+    { id: '2', name: 'カレーライス', category: 'カレー・ハヤシ', items: [], totalCalories: 700, totalProtein: 0, totalFat: 0, totalCarbohydrates: 0 },
+    { id: '3', name: 'ナポリタン', category: 'パスタ', items: [], totalCalories: 650, totalProtein: 0, totalFat: 0, totalCarbohydrates: 0 },
   ] as DishWithDetails[]
-  it('未指定なら全件（名前順）、カテゴリ・検索で絞り込める', () => {
-    expect(filterDishes(dishes, { query: '', category: '' }).map((d) => d.id)).toEqual(['2', '1'])
+  it('未指定なら全件（名前順）、小分類・検索で絞り込める', () => {
+    expect(filterDishes(dishes, { query: '', category: '' }).map((d) => d.id)).toEqual(['2', '3', '1'])
     expect(filterDishes(dishes, { query: 'かれー', category: '' }).map((d) => d.id)).toEqual(['2'])
-    expect(filterDishes(dishes, { query: '', category: '麺類' }).map((d) => d.id)).toEqual(['1'])
+    expect(filterDishes(dishes, { query: '', category: 'ラーメン・中華麺' }).map((d) => d.id)).toEqual(['1'])
+  })
+  it('大分類で絞り込める（小分類が選ばれていればそちらを優先）', () => {
+    expect(filterDishes(dishes, { query: '', category: '', genre: '洋食' }).map((d) => d.id)).toEqual(['2', '3'])
+    expect(filterDishes(dishes, { query: '', category: 'パスタ', genre: '洋食' }).map((d) => d.id)).toEqual(['3'])
+    expect(filterDishes(dishes, { query: '', category: '', genre: '中華' }).map((d) => d.id)).toEqual(['1'])
+  })
+})
+
+describe('料理ジャンル（DISH_GENRES）', () => {
+  it('すべての小分類がちょうど1つの大分類に属する', () => {
+    const grouped = DISH_GENRES.flatMap((group) => group.categories)
+    expect([...grouped].sort()).toEqual([...DISH_CATEGORIES].sort())
+    expect(new Set(grouped).size).toBe(grouped.length)
+  })
+  it('getDishGenre は小分類から大分類を返す（不明な値は undefined）', () => {
+    expect(getDishGenre('パスタ')).toBe('洋食')
+    expect(getDishGenre('丼もの')).toBe('和食')
+    expect(getDishGenre('麺類')).toBeUndefined()
+    expect(getDishGenre(undefined)).toBeUndefined()
   })
 })

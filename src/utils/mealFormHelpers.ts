@@ -1,3 +1,4 @@
+import { DISH_GENRES } from '../types'
 import type { DishWithDetails, FoodItem, MealType } from '../types'
 import { normalizeExerciseQuery } from './exerciseSelectorHelpers'
 import { isUncategorizedFoodCategory } from './foodCategoryHelpers'
@@ -70,12 +71,26 @@ export function filterFoodItems(foodItems: FoodItem[], { query, category }: { qu
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
 }
 
-/** 検索語・カテゴリで料理を絞り込む（未指定なら全件）。名前順。 */
-export function filterDishes(dishes: DishWithDetails[], { query, category }: { query: string; category: string }): DishWithDetails[] {
+/** 小分類（dishes.category）から大分類を返す。どの大分類にも無い値なら undefined。 */
+export function getDishGenre(category: string | undefined | null): string | undefined {
+  if (!category) {
+    return undefined
+  }
+  return DISH_GENRES.find((group) => (group.categories as readonly string[]).includes(category))?.genre
+}
+
+/** 検索語・大分類・小分類で料理を絞り込む（未指定なら全件）。名前順。 */
+export function filterDishes(
+  dishes: DishWithDetails[],
+  { query, category, genre = '' }: { query: string; category: string; genre?: string },
+): DishWithDetails[] {
   const normalizedQuery = normalizeExerciseQuery(query)
   return dishes
     .filter((dish) => {
       if (category && dish.category !== category) {
+        return false
+      }
+      if (!category && genre && getDishGenre(dish.category) !== genre) {
         return false
       }
       if (normalizedQuery && !normalizeExerciseQuery(dish.name).includes(normalizedQuery)) {
