@@ -20,6 +20,28 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "checker",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/checker-record.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "checker",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/checker-start.sh"
+          }
+        ]
+      }
     ]
   }
 }

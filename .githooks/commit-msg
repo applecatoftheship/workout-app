@@ -1,0 +1,14 @@
+#!/bin/bash
+# 合格記録が一致したコミットに、チェック済みの印（Checked-by トレーラー）を自動で付ける。
+# pre-push はこの印が無いコミットの push を止める。
+ROOT=$(git rev-parse --show-toplevel)
+PASS="$ROOT/.claude/state/check-pass"
+MSG="$1"
+REC=$(grep '^hash=' "$PASS" 2>/dev/null | cut -d= -f2)
+[ -n "$REC" ] || exit 1
+if ! grep -q '^Checked-by:' "$MSG"; then
+  git interpret-trailers --in-place --trailer "Checked-by: checker (${REC:0:12})" "$MSG"
+fi
+# 合格記録は1回のコミットで使い切る（次の変更は再チェックが必要）
+rm -f "$PASS"
+exit 0

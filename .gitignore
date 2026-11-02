@@ -29,3 +29,6 @@ dev-dist
 *.sln
 *.sw?
 .env*
+
+# チェック担当の合格記録（ローカルのみ）
+.claude/state/

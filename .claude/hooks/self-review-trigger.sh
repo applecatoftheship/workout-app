@@ -83,7 +83,7 @@ jq -n \
 FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/- /')
 SHORT_SHA="${BASELINE_SHA:0:12}"
 
-MESSAGE="[自動セルフレビュー ${NEXT_ROUND}/${MAX_ROUNDS}回目] このターンでコードが変更されました。停止する前に、Agentツールで subagent_type: \"code-reviewer\" を指定してレビュー専用サブエージェントを起動し、下記の変更ファイル（baseline ${SHORT_SHA} からの差分）をレビューさせてください。明らかなバグ・型エラー・一貫性のない命名・CSSのflex/grid min-width関連の見落としのようなこのプロジェクトで繰り返し発生してきたパターンがないかを確認し、軽微な修正であれば自動適用させてください。マイグレーションSQLやデプロイ設定等、本番に影響しうるファイルは自動修正せず検出のみ報告させてください。code-reviewerからの報告（適用した修正の一覧）をそのままユーザーに伝えてください。往復上限は${MAX_ROUNDS}回です。
+MESSAGE="[チェック担当への引き渡し ${NEXT_ROUND}/${MAX_ROUNDS}回目] このターンでコードが変更されました。停止する前に次を行ってください。①npx vitest run・npm run build・npx oxlint src を実行し、出力を残す。②変更をgit addする。③Agentツールで subagent_type: \"checker\" を起動し、仕様（受け入れ条件）・git diff --cached の対象ファイル・①の出力をそのまま渡す。④checkerの指摘は自分で直し、②からやり直す（checkerはファイルを変更しない）。合格の記録はSubagentStopフックが自動で行うので、自分でscripts/check-record.shを実行しないこと。⑤checkerの出力をそのままユーザーに伝える。往復上限は${MAX_ROUNDS}回です。
 
 変更ファイル一覧:
 ${FILE_LIST}"

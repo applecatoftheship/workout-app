@@ -1,0 +1,20 @@
+#!/bin/bash
+# push の門番。これから push するコミット（リモートに無いもの）に、
+# Checked-by トレーラー（チェック担当の合格の印）が無いものがあれば止める。
+Z=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$Z" ] && continue
+  if [ "$remote_sha" = "$Z" ]; then RANGE="$local_sha --not --remotes"; else RANGE="$remote_sha..$local_sha"; fi
+  # rev-list が失敗したら（例：リモートの先端を手元に fetch していない）、調べられないので止める
+  if ! COMMITS=$(git rev-list $RANGE 2>&1); then
+    echo "【push停止】push するコミットの一覧を取得できませんでした（git fetch してからやり直してください）: $COMMITS" >&2
+    exit 1
+  fi
+  for c in $COMMITS; do
+    if ! git log -1 --format=%B "$c" | grep -q '^Checked-by:'; then
+      echo "【push停止】チェック担当を通っていないコミットがあります: $(git log -1 --format='%h %s' "$c")" >&2
+      exit 1
+    fi
+  done
+done
+exit 0

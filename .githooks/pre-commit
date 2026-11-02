@@ -1,0 +1,17 @@
+#!/bin/bash
+# コミットの門番。チェック担当の合格記録（.claude/state/check-pass）のハッシュと、
+# いまステージされている差分のハッシュが一致しない限り、コミットさせない。
+ROOT=$(git rev-parse --show-toplevel)
+PASS="$ROOT/.claude/state/check-pass"
+hash_cmd() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; }
+NOW=$(git diff --cached --binary | hash_cmd | cut -c1-64)
+if [ ! -f "$PASS" ]; then
+  echo "【コミット停止】チェック担当の合格記録がありません。変更を git add し、チェック担当（checker）に通してください。Claude Code では合格の記録は SubagentStop フックが自動で行います。実装担当が自分で scripts/check-record.sh を実行してはいけません（フックの無い環境では、別のエージェントの「判定: 合格」を受けた統括だけが実行します）。" >&2
+  exit 1
+fi
+REC=$(grep '^hash=' "$PASS" | cut -d= -f2)
+if [ "$REC" != "$NOW" ]; then
+  echo "【コミット停止】チェック後に変更が入っています（記録 ${REC:0:12} / 現在 ${NOW:0:12}）。もう一度チェック担当に通してください。" >&2
+  exit 1
+fi
+exit 0
