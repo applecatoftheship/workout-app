@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { BottomNav } from './components/BottomNav'
@@ -20,6 +20,7 @@ import { useOutboxSync } from './hooks/useOutboxSync'
 import { withOfflineCache } from './offline/offlineCache'
 import { prefetchOfflineReferenceData } from './offline/prefetchReferenceData'
 import { getNavigatorOnline } from './utils/networkErrors'
+import { OfflineWaitTimeoutError, waitWithOfflineLimit } from './utils/offlineTimeout'
 import { applyAccentColor } from './utils/accentColor'
 import { importWithReload } from './utils/lazyReload'
 import { Login } from './pages/Login'
@@ -74,6 +75,11 @@ const formattedDate = new Intl.DateTimeFormat('ja-JP', {
   weekday: 'short',
 }).format(today)
 
+// オフラインで開けない不具合の対応（2026年11月5日）：体調・目標の初期値。初回の取得が遅れて
+// 届いたときは、state がまだこの初期値のまま（＝画面側で更新されていない）場合だけ反映する
+const INITIAL_DAILY_CONDITIONS: DailyCondition[] = []
+const INITIAL_GOALS: Goals = { ...defaultGoals }
+
 function AppShell() {
   const { theme, setTheme } = useTheme()
   const { showToast } = useToast()
@@ -82,8 +88,12 @@ function AppShell() {
   const [recordModalRequest, setRecordModalRequest] = useState<RecordModalRequest | null>(null)
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([])
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
-  const [dailyConditions, setDailyConditions] = useState<DailyCondition[]>([])
-  const [goals, setGoals] = useState<Goals>({ ...defaultGoals })
+  // 初回の読み込みで画面に出した一覧（控えを含む）。遅れて届いた取得結果は、
+  // その後に画面側で一覧が更新されていない場合だけ反映する（新しい更新を古い結果で消さないため）
+  const initialTrainingLogsRef = useRef<TrainingLog[] | null>(null)
+  const initialMealLogsRef = useRef<MealLog[] | null>(null)
+  const [dailyConditions, setDailyConditions] = useState<DailyCondition[]>(INITIAL_DAILY_CONDITIONS)
+  const [goals, setGoals] = useState<Goals>(INITIAL_GOALS)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false)
 
@@ -110,7 +120,7 @@ function AppShell() {
     const dailyConditionsPromise = fetchDailyConditions()
       .then((data) => {
         if (isMounted) {
-          setDailyConditions(data)
+          setDailyConditions((current) => (current === INITIAL_DAILY_CONDITIONS ? data : current))
         }
       })
       .catch((error) => {
@@ -125,7 +135,7 @@ function AppShell() {
     const goalsPromise = fetchGoalsByMonth(currentYearMonth)
       .then((data) => {
         if (isMounted && data) {
-          setGoals(data)
+          setGoals((current) => (current === INITIAL_GOALS ? data : current))
         }
       })
       .catch((error) => {
@@ -137,22 +147,43 @@ function AppShell() {
 
     // オフライン記録対応（2026年10月31日）：トレーニング・食事の記録一覧は、
     // オフライン時に最後に取得できた内容を表示できるよう端末に控えておく。
-    const trainingLogsPromise = withOfflineCache('trainingLogs', () => fetchTrainingLogs())
+    // オフラインで開けない不具合の対応（2026年11月5日）：オフライン判定で待ち時間を超えて控えを
+    // 表示した後に、取得が遅れて成功したら画面にも反映する
+    const trainingLogsPromise = withOfflineCache('trainingLogs', () => fetchTrainingLogs(), (data) => {
+      if (isMounted) {
+        setTrainingLogs((current) =>
+          (initialTrainingLogsRef.current === null ? current.length === 0 : current === initialTrainingLogsRef.current)
+            ? data
+            : current,
+        )
+      }
+    })
       .then((data) => {
         if (isMounted) {
+          initialTrainingLogsRef.current = data
           setTrainingLogs(data)
         }
       })
       .catch((error) => {
         console.error('Supabaseからトレーニング記録の取得に失敗しました', error)
-        if (isMounted && getNavigatorOnline()) {
+        // 待ち時間切れ（OfflineWaitTimeoutError）の場合は、取得が続いていて遅れて反映されうるので案内しない
+        if (isMounted && getNavigatorOnline() && !(error instanceof OfflineWaitTimeoutError)) {
           showToast('トレーニング記録の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
       })
 
-    const mealLogsPromise = withOfflineCache('mealLogs', () => fetchMealLogs())
+    const mealLogsPromise = withOfflineCache('mealLogs', () => fetchMealLogs(), (data) => {
+      if (isMounted) {
+        setMealLogs((current) =>
+          (initialMealLogsRef.current === null ? current.length === 0 : current === initialMealLogsRef.current)
+            ? data
+            : current,
+        )
+      }
+    })
       .then((data) => {
         if (isMounted) {
+          initialMealLogsRef.current = data
           setMealLogs(data)
         }
       })
@@ -167,7 +198,7 @@ function AppShell() {
     const profilePromise = fetchProfile()
       .then((data) => {
         if (isMounted) {
-          setProfile(data)
+          setProfile((current) => (current === null ? data : current))
         }
       })
       .catch((error) => {
@@ -178,7 +209,12 @@ function AppShell() {
       setTimeout(resolve, SPLASH_MINIMUM_VISIBLE_MS)
     })
 
-    Promise.all([dailyConditionsPromise, goalsPromise, trainingLogsPromise, mealLogsPromise, profilePromise, minimumSplashDuration]).then(
+    // オフラインで開けない不具合の対応（2026年11月5日）：オフライン判定のときは、初回の読み込みの
+    // 完了を一定時間（OFFLINE_WAIT_LIMIT_MS）までしか待たずにスプラッシュを終える。読み込み自体は
+    // 止めず、遅れて取得できたものはそれぞれの .then で画面に反映される
+    const dataLoads = Promise.all([dailyConditionsPromise, goalsPromise, trainingLogsPromise, mealLogsPromise, profilePromise])
+    const dataLoadsGate = getNavigatorOnline() ? dataLoads : waitWithOfflineLimit(dataLoads).catch(() => undefined)
+    Promise.all([dataLoadsGate, minimumSplashDuration]).then(
       () => {
         if (isMounted) {
           setIsInitialLoadComplete(true)

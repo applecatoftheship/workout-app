@@ -3,6 +3,7 @@ import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import type { AuthError, Session, User } from '@supabase/supabase-js'
 import { supabase } from '../api/client'
 import { clearOfflineCache } from '../offline/offlineCache'
+import { getNavigatorOnline } from '../utils/networkErrors'
 
 // オフライン記録対応（2026年10月31日）：アクセストークンの有効期限（既定1時間）が
 // 切れた状態でオフラインのままアプリを起動すると、supabase-jsはトークン更新に
@@ -137,6 +138,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('セッション復元に失敗しました', error)
           setIsLoading(false)
         })
+    }
+
+    // オフラインで開けない不具合の対応（2026年11月5日）：アクセストークンの期限切れ後に
+    // オフラインで起動すると、getSession() はトークン更新を最大約30秒再試行してから返るため、
+    // その間 isLoading のまま画面が真っ白になっていた。端末がオフラインと分かっていて、
+    // 端末にセッションが残っているときは、それで先に画面を出す。getSession() の結果は
+    // 従来どおり後から反映する（通信エラーなら端末のセッションを維持、リフレッシュトークンが
+    // 無効と分かれば SIGNED_OUT でログイン画面へ）。
+    if (!getNavigatorOnline()) {
+      const stored = readStoredSessionForOffline()
+      if (stored) {
+        setSession(stored)
+        setIsLoading(false)
+      }
     }
 
     loadSession()
