@@ -1,5 +1,7 @@
 import { getCurrentUserId, supabase } from './client'
 import { fetchFoodItems } from './foodItems'
+import { overlayPendingMealOperations } from '../offline/offlineEdits'
+import { readOutbox } from '../offline/outbox'
 import type { DateString, MealLog, MealLogFoodItem, MealType } from '../types'
 
 export type MealLogFoodItemInput = {
@@ -90,7 +92,7 @@ export async function fetchMealLogs(startDate?: DateString, endDate?: DateString
   const foodItems = await fetchFoodItems()
   const foodItemMap = new Map(foodItems.map((item) => [item.id as string, item]))
 
-  return (logRows as MealLogRow[]).map((row) => {
+  const mealLogs: MealLog[] = (logRows as MealLogRow[]).map((row) => {
     const links = (linkRows as MealLogFoodItemRow[]).filter((link) => link.meal_log_id === row.id)
 
     const totals = links.reduce(
@@ -116,10 +118,14 @@ export async function fetchMealLogs(startDate?: DateString, endDate?: DateString
       notes: row.notes ?? undefined,
       mealTime: row.meal_time ?? undefined,
       dishName: row.dish_name ?? undefined,
+      items: links.map((link) => ({ foodItemId: link.food_item_id, amount: link.amount ?? 0 })),
       createdAt: row.created_at as DateString,
       updatedAt: row.updated_at as DateString,
     }
   })
+
+  // オフラインでの編集・削除（2026年11月6日）：未送信の操作を重ねてから返す
+  return overlayPendingMealOperations(mealLogs, readOutbox(), userId, (foodItemId) => foodItemMap.get(foodItemId)?.name)
 }
 
 export async function upsertMealLog(input: MealLogInput): Promise<void> {

@@ -7,6 +7,7 @@ import {
   readOutbox,
   removeOutboxEntry,
   updateOutboxEntry,
+  outboxTargetKey,
 } from '../outbox'
 import type { OutboxEntry, OutboxStorage } from '../outbox'
 
@@ -101,5 +102,27 @@ describe('outbox', () => {
     const entries = [mealEntry('1', 'a', 'user-a'), mealEntry('2', 'b', 'user-b'), mealEntry('3', 'c', 'user-a')]
     expect(countEntriesForUser(entries, 'user-a')).toBe(2)
     expect(countEntriesForUser(entries, null)).toBe(0)
+  })
+
+  it('編集・削除の操作（2026年11月6日）も読み戻せ、必要な項目が欠けたものは捨てる', () => {
+    const base = { userId: 'user-a', createdAt: '2026-11-06T00:00:00.000Z', attempts: 0, label: 'x' }
+    const raw = JSON.stringify([
+      { ...base, id: '1', kind: 'mealDelete', mealLogId: 'meal-1' },
+      { ...base, id: '2', kind: 'trainingSetsReplace', date: '2026-11-06', trainingLogExerciseId: 'tle-1', sets: [] },
+      { ...base, id: '3', kind: 'trainingExerciseDelete', trainingLogExerciseId: 'tle-2' },
+      { ...base, id: '4', kind: 'mealDelete' },
+      { ...base, id: '5', kind: 'trainingSetsReplace', trainingLogExerciseId: 'tle-3' },
+    ])
+    expect(parseOutbox(raw).map((entry) => entry.id)).toEqual(['1', '2', '3'])
+  })
+
+  it('outboxTargetKey：同じ記録への操作は同じキーになる', () => {
+    const base = { userId: 'user-a', createdAt: 'a', attempts: 0, label: 'x' }
+    expect(outboxTargetKey({ ...base, id: '1', kind: 'mealDelete', mealLogId: 'm1' })).toBe(
+      outboxTargetKey({ ...base, id: '2', kind: 'mealUpsert', input: { id: 'm1', date: '2026-11-06', mealType: 'lunch', items: [] } }),
+    )
+    expect(outboxTargetKey({ ...base, id: '3', kind: 'trainingExerciseDelete', trainingLogExerciseId: 't1' })).toBe(
+      outboxTargetKey({ ...base, id: '4', kind: 'trainingSetsReplace', date: '2026-11-06', trainingLogExerciseId: 't1', sets: [] }),
+    )
   })
 })

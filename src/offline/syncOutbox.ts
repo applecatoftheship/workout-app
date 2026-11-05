@@ -1,7 +1,8 @@
 import { getCurrentUserId } from '../api/client'
-import { upsertMealLog } from '../api/mealLogs'
+import { deleteMealLogRemote, upsertMealLog } from '../api/mealLogs'
 import {
   countTrainingLogExercises,
+  deleteTrainingLogExerciseRemote,
   ensureTrainingLogForDate,
   fetchTrainingLogCompleted,
   insertTrainingLogExerciseWithId,
@@ -9,7 +10,7 @@ import {
 } from '../api/trainingLogs'
 import { completeScheduleForDate } from '../api/trainingSchedules'
 import { getNavigatorOnline, isNetworkError } from '../utils/networkErrors'
-import { readOutbox, removeOutboxEntry, updateOutboxEntry } from './outbox'
+import { outboxTargetKey, readOutbox, removeOutboxEntry, updateOutboxEntry } from './outbox'
 import type { OutboxEntry, OutboxMealUpsertEntry, OutboxTrainingAddEntry } from './outbox'
 
 // オフライン記録対応（2026年10月31日）：アウトボックスの送信処理。
@@ -82,8 +83,16 @@ async function doFlush(): Promise<FlushResult> {
     return result
   }
 
+  // 送信に失敗した操作と同じ記録への後ろの操作は、順番が入れ替わらないよう今回は送らない
+  // （例：編集が失敗したまま後ろの削除だけが成功し、次回に編集が送られて削除した記録が
+  // 作り直されるのを防ぐ。2026年11月6日）
+  const blockedTargets = new Set<string>()
   for (const entry of readOutbox()) {
     if (entry.userId !== currentUserId) {
+      continue
+    }
+    const targetKey = outboxTargetKey(entry)
+    if (blockedTargets.has(targetKey)) {
       continue
     }
     try {
@@ -92,8 +101,15 @@ async function doFlush(): Promise<FlushResult> {
           updateOutboxEntry(next)
         })
         await completeScheduleIfDayCompleted(done.date)
-      } else {
+      } else if (entry.kind === 'mealUpsert') {
         await runMealUpsert(entry)
+      } else if (entry.kind === 'mealDelete') {
+        await deleteMealLogRemote(entry.mealLogId)
+      } else if (entry.kind === 'trainingSetsReplace') {
+        await replaceTrainingSets(entry.trainingLogExerciseId, entry.sets)
+        await completeScheduleIfDayCompleted(entry.date)
+      } else {
+        await deleteTrainingLogExerciseRemote(entry.trainingLogExerciseId)
       }
       removeOutboxEntry(entry.id)
       result.synced.push(entry)
@@ -112,6 +128,7 @@ async function doFlush(): Promise<FlushResult> {
       }
       updateOutboxEntry(failedEntry)
       result.failed.push(failedEntry)
+      blockedTargets.add(targetKey)
     }
   }
 

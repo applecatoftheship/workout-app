@@ -3,8 +3,11 @@ import type { DateString, TrainingSet } from '../types'
 
 // オフライン記録対応（2026年10月31日）：未送信の記録（アウトボックス）。
 //
-// - 対象はトレーニング（種目の新規追加）と食事（新規記録）の2種類のみ。
-//   既存記録の編集・削除はオフライン非対応（他端末での変更との食い違いを防ぐため）
+// - 対象はトレーニング（種目の新規追加）と食事（新規記録）。
+//   2026年11月6日、既存記録の編集・削除も対象に加えた（食事の編集＝同じ id への upsert、
+//   食事の削除、トレーニング種目のセットの置き換え、種目の削除）。いずれも同じ操作を
+//   何度送っても結果が変わらない（冪等な）操作だけを使う。他の端末で同じ記録を
+//   変更していた場合は、後から送った方の内容になる
 // - 端末の localStorage に「操作」単位で保存し、オンライン復帰時に古い順に1件ずつ
 //   個別APIで送信する（src/offline/syncOutbox.ts）。過去の事故（2026年8月17日、
 //   ローカル状態とリモートの差分を取って削除→再作成するsync方式による全損）を
@@ -47,7 +50,59 @@ export type OutboxMealUpsertEntry = OutboxEntryBase & {
   input: MealLogInput
 }
 
-export type OutboxEntry = OutboxTrainingAddEntry | OutboxMealUpsertEntry
+export type OutboxMealDeleteEntry = OutboxEntryBase & {
+  kind: 'mealDelete'
+  mealLogId: string
+}
+
+export type OutboxTrainingSetsReplaceEntry = OutboxEntryBase & {
+  kind: 'trainingSetsReplace'
+  /** その日のトレーニングが完了なら予定の完了に連動させるための日付 */
+  date: DateString
+  trainingLogExerciseId: string
+  sets: TrainingSet[]
+}
+
+export type OutboxTrainingExerciseDeleteEntry = OutboxEntryBase & {
+  kind: 'trainingExerciseDelete'
+  trainingLogExerciseId: string
+}
+
+export type OutboxEntry =
+  | OutboxTrainingAddEntry
+  | OutboxMealUpsertEntry
+  | OutboxMealDeleteEntry
+  | OutboxTrainingSetsReplaceEntry
+  | OutboxTrainingExerciseDeleteEntry
+
+/** その操作が対象にする記録（同じ記録への操作は、保存した順に送る必要がある） */
+export function outboxTargetKey(entry: OutboxEntry): string {
+  switch (entry.kind) {
+    case 'mealUpsert':
+      return `meal:${entry.input.id}`
+    case 'mealDelete':
+      return `meal:${entry.mealLogId}`
+    default:
+      return `trainingExercise:${entry.trainingLogExerciseId}`
+  }
+}
+
+/**
+ * 同じ記録への未送信の操作が残っているか（2026年11月6日）。残っている間にオンラインで
+ * 直接保存・削除すると、後から送られる古い操作で上書きされるため、呼び出し元は
+ * その場合も端末保存（アウトボックスの末尾）に回す。
+ */
+export function hasPendingOutboxEntryFor(targetKey: string, userId: string | null | undefined): boolean {
+  if (!userId) {
+    return false
+  }
+  return readOutbox().some((entry) => entry.userId === userId && outboxTargetKey(entry) === targetKey)
+}
+
+/** トレーニングの一覧に関わる操作か（送信後にトレーニング一覧を取り直す判定に使う） */
+export function isTrainingOutboxEntry(entry: OutboxEntry): boolean {
+  return entry.kind === 'trainingAdd' || entry.kind === 'trainingSetsReplace' || entry.kind === 'trainingExerciseDelete'
+}
 
 export type OutboxStorage = Pick<Storage, 'getItem' | 'setItem'>
 
@@ -64,6 +119,15 @@ function isOutboxEntry(value: unknown): value is OutboxEntry {
   }
   if (entry.kind === 'mealUpsert') {
     return !!entry.input && typeof entry.input.id === 'string' && Array.isArray(entry.input.items)
+  }
+  if (entry.kind === 'mealDelete') {
+    return typeof entry.mealLogId === 'string'
+  }
+  if (entry.kind === 'trainingSetsReplace') {
+    return typeof entry.trainingLogExerciseId === 'string' && typeof entry.date === 'string' && Array.isArray(entry.sets)
+  }
+  if (entry.kind === 'trainingExerciseDelete') {
+    return typeof entry.trainingLogExerciseId === 'string'
   }
   return false
 }

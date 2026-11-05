@@ -32,7 +32,7 @@ export function OfflineStatusBanner({
 
   const handleDiscard = async (entry: OutboxEntry) => {
     const confirmed = await confirm(
-      `未送信の記録「${entry.label}」を破棄しますか？この記録は端末にしか無いため、破棄すると元に戻せません`,
+      `未送信の記録「${entry.label}」を破棄しますか？この操作は端末にしか無いため、破棄するとサーバーには反映されず、元に戻せません`,
       { confirmLabel: '破棄する', cancelLabel: 'やめる' },
     )
     if (confirmed) {
@@ -45,7 +45,7 @@ export function OfflineStatusBanner({
     message =
       pendingCount > 0
         ? `オフライン中・未送信 ${pendingCount}件（オンラインに戻ると自動で反映します）`
-        : 'オフライン中：トレーニングと食事の新規記録は端末に保存され、オンラインに戻ると自動で反映します'
+        : 'オフライン中：トレーニングと食事の記録・編集・削除は端末に保存され、オンラインに戻ると自動で反映します'
   } else if (isSyncing) {
     message = `未送信 ${pendingCount}件を反映しています…`
   } else {

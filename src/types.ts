@@ -82,6 +82,9 @@ export interface MealLog extends BaseRecord {
   // 栄養計算のソースオブトゥルースは引き続きmeal_log_food_items（食材ベース）で、
   // この列はあくまで表示用のラベル。既存行はNULL。
   dishName?: string;
+  // オフラインでの編集（2026年11月6日）：食材ごとの内訳（食材IDと量）。一覧の取得時に
+  // 一緒に持っておき、オフラインで編集画面を開いたときの初期値に使う。
+  items?: { foodItemId: string; amount: number }[];
 }
 
 export interface FoodItem extends BaseRecord {

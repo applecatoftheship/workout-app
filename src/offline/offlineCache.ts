@@ -101,6 +101,18 @@ export async function withOfflineCache<T>(
   }
 }
 
+/**
+ * 控えの中身を書き換える（オフラインで編集・削除した記録を、次にオフラインで開いたときにも
+ * 反映して見せるため。2026年11月6日）。控えが無ければ何もしない。
+ */
+export function updateOfflineCache<T>(key: OfflineCacheKey, updater: (current: T) => T): void {
+  const current = readOfflineCache<T>(key)
+  if (current === undefined) {
+    return
+  }
+  writeOfflineCache(key, updater(current))
+}
+
 /** 控えをすべて削除する（ログアウト時）。未送信の記録（アウトボックス）には触れない。 */
 export function clearOfflineCache(): void {
   cacheGeneration += 1

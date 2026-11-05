@@ -7,9 +7,10 @@ import {
   replaceTrainingSets,
 } from '../../api/trainingLogs'
 import { useAuth } from '../../hooks/useAuth'
-import { enqueueOutbox } from '../../offline/outbox'
+import { enqueueOutbox, hasPendingOutboxEntryFor } from '../../offline/outbox'
 import type { OutboxTrainingAddEntry } from '../../offline/outbox'
-import { withOfflineCache } from '../../offline/offlineCache'
+import { updateOfflineCache, withOfflineCache } from '../../offline/offlineCache'
+import { applyTrainingSetsReplace } from '../../offline/offlineEdits'
 import { runTrainingAdd } from '../../offline/syncOutbox'
 import { getNavigatorOnline, isNetworkError } from '../../utils/networkErrors'
 import type { LatestExerciseRecord } from '../../api/trainingLogs'
@@ -401,10 +402,60 @@ export function TrainingExerciseEditModal({
         }
         targetId = entry.trainingLogExerciseId
       } else {
-        await replaceTrainingSets(targetId, sets)
+        // オフラインでの編集（2026年11月6日）：通信できないときはセットの置き換え操作を
+        // 端末に保存し、一覧には先に反映する。オンラインに戻ると自動で送信する
+        // （種目単位でセットを置き換える操作なので、何度送っても結果は同じ）。
+        const editTargetId = targetId
+        // 同じ記録への未送信の操作があるか（あれば順番待ちに回す。トーストの理由の出し分けにも使う）
+        const queuedBehindPending =
+          getNavigatorOnline() && hasPendingOutboxEntryFor(`trainingExercise:${editTargetId}`, user?.id)
+        const editOnDevice = () => {
+          const exerciseName = exerciseDefinition?.name ?? selectedExerciseName
+          const saved =
+            !!user &&
+            enqueueOutbox({
+              kind: 'trainingSetsReplace',
+              id: crypto.randomUUID(),
+              userId: user.id,
+              createdAt: new Date().toISOString(),
+              attempts: 0,
+              label: `${selectedDate.slice(5).replace('-', '/')} ${exerciseName} ${sets.length}セット に編集`,
+              date: selectedDate,
+              trainingLogExerciseId: editTargetId,
+              sets,
+            })
+          if (!saved) {
+            setSummaryError('端末に保存できませんでした。ストレージの空き容量やプライベートブラウズ設定を確認してください')
+            showToast('トレーニング実績を保存できませんでした', 'error')
+            return
+          }
+          setTrainingLogs((current) => applyTrainingSetsReplace(current, editTargetId, sets))
+          updateOfflineCache<TrainingLog[]>('trainingLogs', (current) => applyTrainingSetsReplace(current, editTargetId, sets))
+          showToast(queuedBehindPending ? '同じ記録の未送信の操作があるため端末に保存しました。順番に自動で反映します' : '通信できないため端末に保存しました。オンラインに戻ると自動で反映します', 'info')
+          onClose()
+        }
+        if (!getNavigatorOnline() || queuedBehindPending) {
+          editOnDevice()
+          return
+        }
+        try {
+          await replaceTrainingSets(targetId, sets)
+        } catch (error) {
+          if (isNetworkError(error)) {
+            console.error('通信エラーのためトレーニング実績の編集を端末に保存します', error)
+            editOnDevice()
+            return
+          }
+          throw error
+        }
+        // 編集内容は、取り直しが失敗しても一覧・控えに残るよう先に反映する（古い内容のまま
+        // オフラインで再編集して、この編集を上書きしないように）
+        setTrainingLogs((current) => applyTrainingSetsReplace(current, editTargetId, sets))
+        updateOfflineCache<TrainingLog[]>('trainingLogs', (current) => applyTrainingSetsReplace(current, editTargetId, sets))
       }
 
-      const refreshed = await fetchTrainingLogs()
+      // 端末の控えも最新にする（後でオフラインで開いたときに、削除・編集済みの記録が古いまま出ないように。2026年11月6日）
+      const refreshed = await withOfflineCache('trainingLogs', () => fetchTrainingLogs())
       setTrainingLogs(refreshed)
 
       const savedExercise: TrainingLogExercise = {
@@ -457,12 +508,7 @@ export function TrainingExerciseEditModal({
       onClose()
     } catch (error) {
       console.error('Supabaseへのトレーニング実績の保存に失敗しました', error)
-      // オフライン記録対応（2026年10月31日）：既存記録の編集はオフライン非対応。
-      if (trainingLogExerciseId && isNetworkError(error)) {
-        setSummaryError('オフライン中は既存の記録を編集できません。オンラインに戻ってから保存してください')
-      } else {
-        setSummaryError('保存に失敗しました。もう一度お試しください')
-      }
+      setSummaryError('保存に失敗しました。もう一度お試しください')
       showToast('トレーニング実績の保存に失敗しました', 'error')
     } finally {
       setIsSaving(false)

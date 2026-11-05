@@ -3,6 +3,11 @@ import { deleteMealLogRemote, fetchMealLogs } from '../../api/mealLogs'
 import { extractTimeHHMMFromISO } from '../../utils/calendarHelpers'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
+import { useAuth } from '../../hooks/useAuth'
+import { enqueueOutbox, hasPendingOutboxEntryFor } from '../../offline/outbox'
+import { updateOfflineCache, withOfflineCache } from '../../offline/offlineCache'
+import { applyMealDelete } from '../../offline/offlineEdits'
+import { getNavigatorOnline, isNetworkError } from '../../utils/networkErrors'
 import type { MealLog } from '../../types'
 import { SwipeableRow } from '../common/SwipeableRow'
 import './MealLogEntry.css'
@@ -27,6 +32,7 @@ type MealLogCardProps = {
 export function MealLogCard({ mealLog, setMealLogs, onEdit }: MealLogCardProps) {
   const { showToast } = useToast()
   const confirm = useConfirm()
+  const { user } = useAuth()
 
   const handleDelete = async () => {
     if (!mealLog.id) {
@@ -42,9 +48,56 @@ export function MealLogCard({ mealLog, setMealLogs, onEdit }: MealLogCardProps) 
       return
     }
 
+    // オフラインでの削除（2026年11月6日）：通信できないときは削除の操作を端末に保存し、
+    // 一覧からは先に消す。オンラインに戻ると自動で送信する。
+    const mealLogId = mealLog.id
+    // 同じ記録への未送信の操作があるか（あれば順番待ちに回す。トーストの理由の出し分けにも使う）
+    const queuedBehindPending = getNavigatorOnline() && hasPendingOutboxEntryFor(`meal:${mealLogId}`, user?.id)
+    const deleteOnDevice = () => {
+      const saved =
+        !!user &&
+        enqueueOutbox({
+          kind: 'mealDelete',
+          id: crypto.randomUUID(),
+          userId: user.id,
+          createdAt: new Date().toISOString(),
+          attempts: 0,
+          label: `${mealLog.date.slice(5).replace('-', '/')} ${foodsSummary} を削除`,
+          mealLogId,
+        })
+      if (!saved) {
+        showToast(
+          user ? '食事記録を削除できませんでした。ストレージの設定を確認してください' : 'ログイン情報を確認できないため削除できませんでした',
+          'error',
+        )
+        return
+      }
+      setMealLogs((current) => applyMealDelete(current, mealLogId))
+      updateOfflineCache<MealLog[]>('mealLogs', (current) => applyMealDelete(current, mealLogId))
+      showToast(queuedBehindPending ? '同じ記録の未送信の操作があるため端末に保存しました。順番に自動で反映します' : '通信できないため端末に保存しました。オンラインに戻ると自動で反映します', 'info')
+    }
+
+    if (!getNavigatorOnline() || queuedBehindPending) {
+      deleteOnDevice()
+      return
+    }
+
     try {
-      await deleteMealLogRemote(mealLog.id)
-      const refreshed = await fetchMealLogs()
+      try {
+        await deleteMealLogRemote(mealLogId)
+      } catch (error) {
+        if (isNetworkError(error)) {
+          console.error('通信エラーのため食事記録の削除を端末に保存します', error)
+          deleteOnDevice()
+          return
+        }
+        throw error
+      }
+      // 削除した記録は、取り直しが失敗しても一覧・控えに残らないよう先に除く
+      setMealLogs((current) => applyMealDelete(current, mealLogId))
+      updateOfflineCache<MealLog[]>('mealLogs', (current) => applyMealDelete(current, mealLogId))
+      // 端末の控えも最新にする（後でオフラインで開いたときに、削除・編集済みの記録が古いまま出ないように。2026年11月6日）
+      const refreshed = await withOfflineCache('mealLogs', () => fetchMealLogs())
       setMealLogs(refreshed)
       showToast('食事記録を削除しました', 'success')
     } catch (error) {

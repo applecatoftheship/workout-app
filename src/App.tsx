@@ -18,6 +18,7 @@ import { SplashScreen } from './components/SplashScreen'
 import { OfflineStatusBanner } from './components/OfflineStatusBanner'
 import { useOutboxSync } from './hooks/useOutboxSync'
 import { withOfflineCache } from './offline/offlineCache'
+import { isTrainingOutboxEntry } from './offline/outbox'
 import { prefetchOfflineReferenceData } from './offline/prefetchReferenceData'
 import { getNavigatorOnline } from './utils/networkErrors'
 import { OfflineWaitTimeoutError, waitWithOfflineLimit } from './utils/offlineTimeout'
@@ -253,18 +254,50 @@ function AppShell() {
     userId: user?.id ?? null,
     onSynced: (result) => {
       showToast(`オフライン中の記録${result.synced.length}件を反映しました`, 'success')
-      if (result.synced.some((entry) => entry.kind === 'trainingAdd')) {
+      if (result.synced.some(isTrainingOutboxEntry)) {
         withOfflineCache('trainingLogs', () => fetchTrainingLogs())
           .then(setTrainingLogs)
           .catch((error) => console.error('Supabaseからトレーニング記録の再取得に失敗しました', error))
       }
-      if (result.synced.some((entry) => entry.kind === 'mealUpsert')) {
+      if (result.synced.some((entry) => entry.kind === 'mealUpsert' || entry.kind === 'mealDelete')) {
         withOfflineCache('mealLogs', () => fetchMealLogs())
           .then(setMealLogs)
           .catch((error) => console.error('Supabaseから食事記録の再取得に失敗しました', error))
       }
     },
   })
+
+  // オフラインでの編集・削除（2026年11月6日）：未送信の操作を破棄したら、その操作を先に反映して
+  // いた一覧を取り直す（取得した一覧には、残っている未送信の操作だけが重なる）。オフラインで
+  // 取り直せない場合は、オンラインに戻った時点で取り直す。
+  const refreshListsAfterDiscard = (kind: 'training' | 'meal') => {
+    const refresh = () => {
+      if (kind === 'training') {
+        withOfflineCache('trainingLogs', () => fetchTrainingLogs())
+          .then(setTrainingLogs)
+          .catch((error) => console.error('Supabaseからトレーニング記録の再取得に失敗しました', error))
+      } else {
+        withOfflineCache('mealLogs', () => fetchMealLogs())
+          .then(setMealLogs)
+          .catch((error) => console.error('Supabaseから食事記録の再取得に失敗しました', error))
+      }
+    }
+    if (getNavigatorOnline()) {
+      refresh()
+    } else {
+      window.addEventListener('online', refresh, { once: true })
+    }
+  }
+  const handleDiscardOutboxEntry = (entryId: string) => {
+    const entry = outbox.pendingEntries.find((candidate) => candidate.id === entryId)
+    outbox.discard(entryId)
+    if (entry && entry.kind !== 'trainingAdd' && entry.kind !== 'mealUpsert') {
+      refreshListsAfterDiscard(isTrainingOutboxEntry(entry) ? 'training' : 'meal')
+    } else if (entry?.kind === 'mealUpsert') {
+      // 食事の upsert は新規・編集のどちらもありうる。編集だった場合に備えて取り直す
+      refreshListsAfterDiscard('meal')
+    }
+  }
 
   const openRecordModal = (request: Omit<RecordModalRequest, 'requestId'>) => {
     setRecordModalRequest({ ...request, requestId: Date.now() })
@@ -281,7 +314,7 @@ function AppShell() {
           pendingEntries={outbox.pendingEntries}
           failedEntries={outbox.failedEntries}
           onRetry={() => void outbox.retry()}
-          onDiscard={outbox.discard}
+          onDiscard={handleDiscardOutboxEntry}
         />
         <Suspense fallback={null}>
         <Routes>

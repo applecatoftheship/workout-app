@@ -24,8 +24,9 @@ import { MealPhotoAnalyzeSection } from './MealPhotoAnalyzeSection'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useAuth } from '../../hooks/useAuth'
-import { enqueueOutbox } from '../../offline/outbox'
-import { withOfflineCache } from '../../offline/offlineCache'
+import { enqueueOutbox, hasPendingOutboxEntryFor } from '../../offline/outbox'
+import { updateOfflineCache, withOfflineCache } from '../../offline/offlineCache'
+import { applyMealEdit } from '../../offline/offlineEdits'
 import { getNavigatorOnline, isNetworkError } from '../../utils/networkErrors'
 import { guessMealTypeFromTime } from '../../utils/mealFormHelpers'
 import type { DateString, DishWithDetails, FoodItem, MealLog, MealSize, MealType } from '../../types'
@@ -143,6 +144,11 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   const [photoFoodItemModalInitialName, setPhotoFoodItemModalInitialName] = useState<string | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
   const [summaryError, setSummaryError] = useState<string | null>(null)
+  // オフラインで食材の内訳を読み込めなかった編集（2026年11月6日）。保存させない
+  const [itemsUnavailable, setItemsUnavailable] = useState(false)
+  // 既存記録の編集で、食材の内訳を読み込み終えたか（2026年11月6日）。読み込み中に食材を足して
+  // 保存すると、送信時に元の食材が置き換わって消えるため、読み込み終えるまで保存させない
+  const [itemsLoaded, setItemsLoaded] = useState(!mealLogId)
   const [isSaving, setIsSaving] = useState(false)
 
   const requestedFoodIdsRef = useRef<Set<string>>(new Set())
@@ -213,18 +219,41 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
     setDishName(existing.dishName ?? '')
     setMealTime(existing.mealTime ? extractTimeHHMMFromISO(existing.mealTime) : getCurrentTimeHHMM())
 
-    fetchMealLogItems(mealLogId)
-      .then((loadedItems) => {
-        setItems(
-          loadedItems.map((item) => {
-            ensurePreviousAmountLoaded(item.foodItemId)
-            return { key: createItemKey(), foodItemId: item.foodItemId, amount: String(item.amount) }
-          }),
-        )
-      })
-      .catch((error) => {
-        console.error('Supabaseから食事記録の内訳取得に失敗しました', error)
-      })
+    const applyLoadedItems = (loadedItems: { foodItemId: string; amount: number }[]) => {
+      setItemsLoaded(true)
+      setItems(
+        loadedItems.map((item) => {
+          ensurePreviousAmountLoaded(item.foodItemId)
+          return { key: createItemKey(), foodItemId: item.foodItemId, amount: String(item.amount) }
+        }),
+      )
+    }
+    // オフラインでの編集（2026年11月6日）：通信できないときは、一覧（端末の控えを含む）が
+    // 持っている内訳を使う。内訳が無い（古い控え）場合は、食材が欠けたまま保存して
+    // サーバー上の食材を消してしまわないよう、保存できない状態にする。
+    const applyStoredItems = () => {
+      if (existing.items) {
+        applyLoadedItems(existing.items)
+      } else {
+        setItemsUnavailable(true)
+        setSummaryError('オフラインのため食材の内訳を読み込めませんでした。オンラインに戻ってから編集してください')
+      }
+    }
+    // 同じ記録に未送信の編集がある場合も、サーバーの内訳は古いので一覧（未送信の編集を重ねたもの）を使う
+    if (!getNavigatorOnline() || hasPendingOutboxEntryFor(`meal:${mealLogId}`, user?.id)) {
+      applyStoredItems()
+    } else {
+      fetchMealLogItems(mealLogId)
+        .then(applyLoadedItems)
+        .catch((error) => {
+          console.error('Supabaseから食事記録の内訳取得に失敗しました', error)
+          if (isNetworkError(error)) {
+            applyStoredItems()
+          } else {
+            setSummaryError('食材の内訳を読み込めませんでした。画面を閉じて開き直してください')
+          }
+        })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -475,6 +504,14 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
   }
 
   const handleSave = async () => {
+    if (itemsUnavailable) {
+      setSummaryError('オフラインのため食材の内訳を読み込めませんでした。オンラインに戻ってから編集してください')
+      return
+    }
+    if (!itemsLoaded) {
+      setSummaryError('食材の内訳を読み込み中です。読み込みが終わってから保存してください')
+      return
+    }
     if (!validate()) {
       return
     }
@@ -542,7 +579,12 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
     // オフライン記録対応（2026年10月31日）：新規の食事記録は、オフライン、または
     // 送信中に通信が切れた場合に端末へ保存し、オンライン復帰時に自動で再送する。
     // id は端末側で採番済み（上の crypto.randomUUID()）で、送信は同じ id への upsert
-    // のため、再送しても二重登録にならない。既存記録の編集はオフライン非対応。
+    // のため、再送しても二重登録にならない。
+    // オフラインでの編集（2026年11月6日）：既存記録の編集も同じ upsert（同じ id、食材は
+    // 置き換え）として端末に保存し、一覧には先に反映する。
+    const isNewMeal = !mealLogId
+    // 同じ記録への未送信の操作があるか（あれば順番待ちに回す。トーストの理由の出し分けにも使う）
+    const queuedBehindPending = !isNewMeal && getNavigatorOnline() && hasPendingOutboxEntryFor(`meal:${id}`, user?.id)
     const saveToDevice = (): boolean => {
       if (!user) {
         return false
@@ -553,21 +595,27 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
         userId: user.id,
         createdAt: new Date().toISOString(),
         attempts: 0,
-        label: `${selectedDate.slice(5).replace('-', '/')} ${getMealTypeLabel(input.mealType)} ${input.dishName ?? `${input.items.length}品目`}`,
+        label: `${selectedDate.slice(5).replace('-', '/')} ${getMealTypeLabel(input.mealType)} ${input.dishName ?? `${input.items.length}品目`}${isNewMeal ? '' : ' を編集'}`,
         input,
       })
     }
     const handleSavedToDevice = (saved: boolean) => {
       if (saved) {
-        showToast('オフラインのため端末に保存しました。オンラインに戻ると自動で反映します', 'info')
+        if (!isNewMeal) {
+          const foodNames = input.items.map(
+            (item) => foodItems.find((candidate) => candidate.id === item.foodItemId)?.name ?? '不明な食材',
+          )
+          setMealLogs((current) => applyMealEdit(current, input, foodNames))
+          updateOfflineCache<MealLog[]>('mealLogs', (current) => applyMealEdit(current, input, foodNames))
+        }
+        showToast(queuedBehindPending ? '同じ記録の未送信の操作があるため端末に保存しました。順番に自動で反映します' : '通信できないため端末に保存しました。オンラインに戻ると自動で反映します', 'info')
         onClose()
       } else {
         setSummaryError('端末に保存できませんでした。ストレージの空き容量やプライベートブラウズ設定を確認してください')
         showToast('食事記録を保存できませんでした', 'error')
       }
     }
-    const isNewMeal = !mealLogId
-    if (isNewMeal && !getNavigatorOnline()) {
+    if (!getNavigatorOnline() || queuedBehindPending) {
       handleSavedToDevice(saveToDevice())
       return
     }
@@ -577,24 +625,30 @@ export function MealLogWizardModal({ mealLogs, setMealLogs, selectedDate, mealLo
       try {
         await upsertMealLog(input)
       } catch (error) {
-        if (isNewMeal && isNetworkError(error)) {
+        if (isNetworkError(error)) {
           console.error('通信エラーのため食事記録を端末に保存します', error)
           handleSavedToDevice(saveToDevice())
           return
         }
         throw error
       }
-      const refreshed = await fetchMealLogs()
+      if (!isNewMeal) {
+        // 編集内容は、取り直しが失敗しても一覧・控えに残るよう先に反映する（古い内容のまま
+        // オフラインで再編集して、この編集を上書きしないように）
+        const foodNames = input.items.map(
+          (item) => foodItems.find((candidate) => candidate.id === item.foodItemId)?.name ?? '不明な食材',
+        )
+        setMealLogs((current) => applyMealEdit(current, input, foodNames))
+        updateOfflineCache<MealLog[]>('mealLogs', (current) => applyMealEdit(current, input, foodNames))
+      }
+      // 端末の控えも最新にする（後でオフラインで開いたときに、削除・編集済みの記録が古いまま出ないように。2026年11月6日）
+      const refreshed = await withOfflineCache('mealLogs', () => fetchMealLogs())
       setMealLogs(refreshed)
       showToast('食事記録を保存しました', 'success')
       onClose()
     } catch (error) {
       console.error('Supabaseへの食事記録の保存に失敗しました', error)
-      setSummaryError(
-        !isNewMeal && isNetworkError(error)
-          ? 'オフライン中は既存の記録を編集できません。オンラインに戻ってから保存してください'
-          : '保存に失敗しました。もう一度お試しください',
-      )
+      setSummaryError('保存に失敗しました。もう一度お試しください')
       showToast('食事記録の保存に失敗しました', 'error')
     } finally {
       setIsSaving(false)

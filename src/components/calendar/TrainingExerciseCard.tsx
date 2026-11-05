@@ -3,6 +3,11 @@ import { deleteTrainingLogExerciseRemote, fetchTrainingLogs } from '../../api/tr
 import { formatSetSummary } from '../../utils/calendarHelpers'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
+import { useAuth } from '../../hooks/useAuth'
+import { enqueueOutbox, hasPendingOutboxEntryFor } from '../../offline/outbox'
+import { updateOfflineCache, withOfflineCache } from '../../offline/offlineCache'
+import { applyTrainingExerciseDelete } from '../../offline/offlineEdits'
+import { getNavigatorOnline, isNetworkError } from '../../utils/networkErrors'
 import type { TrainingLog, TrainingLogExercise } from '../../types'
 import { SwipeableRow } from '../common/SwipeableRow'
 import './TrainingExercise.css'
@@ -33,6 +38,7 @@ type TrainingExerciseCardProps = {
 export function TrainingExerciseCard({ exercise, setTrainingLogs, onEdit }: TrainingExerciseCardProps) {
   const { showToast } = useToast()
   const confirm = useConfirm()
+  const { user } = useAuth()
   const exerciseName = exercise.exercise?.name ?? '不明な種目'
 
   const handleDelete = async () => {
@@ -45,9 +51,57 @@ export function TrainingExerciseCard({ exercise, setTrainingLogs, onEdit }: Trai
       return
     }
 
+    // オフラインでの削除（2026年11月6日）：通信できないときは削除の操作を端末に保存し、
+    // 一覧からは先に消す。オンラインに戻ると自動で送信する。
+    const trainingLogExerciseId = exercise.id
+    // 同じ記録への未送信の操作があるか（あれば順番待ちに回す。トーストの理由の出し分けにも使う）
+    const queuedBehindPending =
+      getNavigatorOnline() && hasPendingOutboxEntryFor(`trainingExercise:${trainingLogExerciseId}`, user?.id)
+    const deleteOnDevice = () => {
+      const saved =
+        !!user &&
+        enqueueOutbox({
+          kind: 'trainingExerciseDelete',
+          id: crypto.randomUUID(),
+          userId: user.id,
+          createdAt: new Date().toISOString(),
+          attempts: 0,
+          label: `${exerciseName}（${exercise.sets.length}セット）を削除`,
+          trainingLogExerciseId,
+        })
+      if (!saved) {
+        showToast(
+          user ? '種目を削除できませんでした。ストレージの設定を確認してください' : 'ログイン情報を確認できないため削除できませんでした',
+          'error',
+        )
+        return
+      }
+      setTrainingLogs((current) => applyTrainingExerciseDelete(current, trainingLogExerciseId))
+      updateOfflineCache<TrainingLog[]>('trainingLogs', (current) => applyTrainingExerciseDelete(current, trainingLogExerciseId))
+      showToast(queuedBehindPending ? '同じ記録の未送信の操作があるため端末に保存しました。順番に自動で反映します' : '通信できないため端末に保存しました。オンラインに戻ると自動で反映します', 'info')
+    }
+
+    if (!getNavigatorOnline() || queuedBehindPending) {
+      deleteOnDevice()
+      return
+    }
+
     try {
-      await deleteTrainingLogExerciseRemote(exercise.id)
-      const refreshed = await fetchTrainingLogs()
+      try {
+        await deleteTrainingLogExerciseRemote(trainingLogExerciseId)
+      } catch (error) {
+        if (isNetworkError(error)) {
+          console.error('通信エラーのため種目の削除を端末に保存します', error)
+          deleteOnDevice()
+          return
+        }
+        throw error
+      }
+      // 削除した種目は、取り直しが失敗しても一覧・控えに残らないよう先に除く
+      setTrainingLogs((current) => applyTrainingExerciseDelete(current, trainingLogExerciseId))
+      updateOfflineCache<TrainingLog[]>('trainingLogs', (current) => applyTrainingExerciseDelete(current, trainingLogExerciseId))
+      // 端末の控えも最新にする（後でオフラインで開いたときに、削除・編集済みの記録が古いまま出ないように。2026年11月6日）
+      const refreshed = await withOfflineCache('trainingLogs', () => fetchTrainingLogs())
       setTrainingLogs(refreshed)
       showToast('種目を削除しました', 'success')
     } catch (error) {

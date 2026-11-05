@@ -1,4 +1,6 @@
 import { getCurrentUserId, supabase } from './client'
+import { overlayPendingTrainingOperations } from '../offline/offlineEdits'
+import { readOutbox } from '../offline/outbox'
 import type { BodyPart, DateString, EquipmentType, ExerciseDefinition, TrainingLog, TrainingLogExercise, TrainingSet } from '../types'
 
 // --- exercises (種目マスタ) ---
@@ -223,7 +225,7 @@ export async function fetchTrainingLogs(startDate?: DateString, endDate?: DateSt
   const exercises = await fetchExercises({ includeDeleted: true })
   const exerciseMap = new Map(exercises.map((exercise) => [exercise.id as string, exercise]))
 
-  return (logRows as TrainingLogRow[]).map((row) => {
+  const trainingLogs = (logRows as TrainingLogRow[]).map((row) => {
     const logExercises = (exerciseRows as TrainingLogExerciseRow[])
       .filter((exercise) => exercise.training_log_id === row.id)
       .map((exercise) => rowToTrainingLogExercise(exercise, setRows as TrainingSetRow[], exerciseMap))
@@ -231,6 +233,9 @@ export async function fetchTrainingLogs(startDate?: DateString, endDate?: DateSt
 
     return rowToTrainingLog(row, logExercises)
   })
+
+  // オフラインでの編集・削除（2026年11月6日）：未送信の操作を重ねてから返す
+  return overlayPendingTrainingOperations(trainingLogs, readOutbox(), userId)
 }
 
 export async function upsertTrainingLog(log: TrainingLog): Promise<void> {
