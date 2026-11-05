@@ -79,6 +79,8 @@ const formattedDate = new Intl.DateTimeFormat('ja-JP', {
 // オフラインで開けない不具合の対応（2026年11月5日）：体調・目標の初期値。初回の取得が遅れて
 // 届いたときは、state がまだこの初期値のまま（＝画面側で更新されていない）場合だけ反映する
 const INITIAL_DAILY_CONDITIONS: DailyCondition[] = []
+
+type LoadStatus = 'loading' | 'loaded' | 'failed'
 const INITIAL_GOALS: Goals = { ...defaultGoals }
 
 function AppShell() {
@@ -93,9 +95,24 @@ function AppShell() {
   // その後に画面側で一覧が更新されていない場合だけ反映する（新しい更新を古い結果で消さないため）
   const initialTrainingLogsRef = useRef<TrainingLog[] | null>(null)
   const initialMealLogsRef = useRef<MealLog[] | null>(null)
+  // 今の一覧（遅れて届いた結果を反映するかの判定用。2026年11月6日）
+  const trainingLogsRef = useRef<TrainingLog[]>(trainingLogs)
+  const mealLogsRef = useRef<MealLog[]>(mealLogs)
+  useEffect(() => {
+    trainingLogsRef.current = trainingLogs
+  }, [trainingLogs])
+  useEffect(() => {
+    mealLogsRef.current = mealLogs
+  }, [mealLogs])
   const [dailyConditions, setDailyConditions] = useState<DailyCondition[]>(INITIAL_DAILY_CONDITIONS)
   const [goals, setGoals] = useState<Goals>(INITIAL_GOALS)
   const [profile, setProfile] = useState<Profile | null>(null)
+  // 週間達成率リング・おすすめ（2026年11月6日）：目標・体調記録を読み込めたか。読み込めていない
+  // ときに、仮の初期値（目標）や空の一覧（体調）で判定しないようにするため
+  const [goalsStatus, setGoalsStatus] = useState<LoadStatus | 'missing'>('loading')
+  const [dailyConditionsStatus, setDailyConditionsStatus] = useState<LoadStatus>('loading')
+  const [trainingLogsStatus, setTrainingLogsStatus] = useState<LoadStatus>('loading')
+  const [mealLogsStatus, setMealLogsStatus] = useState<LoadStatus>('loading')
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false)
 
   // 体調記録・トレーニング記録・目標設定は、以前は「state変化のたびに
@@ -122,10 +139,14 @@ function AppShell() {
       .then((data) => {
         if (isMounted) {
           setDailyConditions((current) => (current === INITIAL_DAILY_CONDITIONS ? data : current))
+          setDailyConditionsStatus('loaded')
         }
       })
       .catch((error) => {
         console.error('Supabaseから体調記録の取得に失敗しました', error)
+        if (isMounted) {
+          setDailyConditionsStatus('failed')
+        }
         // オフライン記録対応（2026年10月31日）：オフライン中は画面上部のバナーで
         // 伝えるため、読み込み失敗のトーストは出さない（以下の目標・トレーニングも同様）。
         if (isMounted && getNavigatorOnline()) {
@@ -138,9 +159,15 @@ function AppShell() {
         if (isMounted && data) {
           setGoals((current) => (current === INITIAL_GOALS ? data : current))
         }
+        if (isMounted) {
+          setGoalsStatus(data ? 'loaded' : 'missing')
+        }
       })
       .catch((error) => {
         console.error('Supabaseから目標設定の取得に失敗しました', error)
+        if (isMounted) {
+          setGoalsStatus('failed')
+        }
         if (isMounted && getNavigatorOnline()) {
           showToast('目標設定の読み込みに失敗しました。ページを再読み込みしてください', 'error')
         }
@@ -151,22 +178,30 @@ function AppShell() {
     // オフラインで開けない不具合の対応（2026年11月5日）：オフライン判定で待ち時間を超えて控えを
     // 表示した後に、取得が遅れて成功したら画面にも反映する
     const trainingLogsPromise = withOfflineCache('trainingLogs', () => fetchTrainingLogs(), (data) => {
-      if (isMounted) {
-        setTrainingLogs((current) =>
-          (initialTrainingLogsRef.current === null ? current.length === 0 : current === initialTrainingLogsRef.current)
-            ? data
-            : current,
-        )
+      if (!isMounted) {
+        return
+      }
+      const current = trainingLogsRef.current
+      const canReplace =
+        initialTrainingLogsRef.current === null ? current.length === 0 : current === initialTrainingLogsRef.current
+      // 画面側で一覧が更新されていたら置き換えない（その場合、全件が入っていないので「読み込めた」にもしない）
+      if (canReplace) {
+        setTrainingLogs(data)
+        setTrainingLogsStatus('loaded')
       }
     })
       .then((data) => {
         if (isMounted) {
           initialTrainingLogsRef.current = data
           setTrainingLogs(data)
+          setTrainingLogsStatus('loaded')
         }
       })
       .catch((error) => {
         console.error('Supabaseからトレーニング記録の取得に失敗しました', error)
+        if (isMounted) {
+          setTrainingLogsStatus((current) => (current === 'loaded' ? current : 'failed'))
+        }
         // 待ち時間切れ（OfflineWaitTimeoutError）の場合は、取得が続いていて遅れて反映されうるので案内しない
         if (isMounted && getNavigatorOnline() && !(error instanceof OfflineWaitTimeoutError)) {
           showToast('トレーニング記録の読み込みに失敗しました。ページを再読み込みしてください', 'error')
@@ -174,22 +209,29 @@ function AppShell() {
       })
 
     const mealLogsPromise = withOfflineCache('mealLogs', () => fetchMealLogs(), (data) => {
-      if (isMounted) {
-        setMealLogs((current) =>
-          (initialMealLogsRef.current === null ? current.length === 0 : current === initialMealLogsRef.current)
-            ? data
-            : current,
-        )
+      if (!isMounted) {
+        return
+      }
+      const current = mealLogsRef.current
+      const canReplace = initialMealLogsRef.current === null ? current.length === 0 : current === initialMealLogsRef.current
+      // 画面側で一覧が更新されていたら置き換えない（その場合、全件が入っていないので「読み込めた」にもしない）
+      if (canReplace) {
+        setMealLogs(data)
+        setMealLogsStatus('loaded')
       }
     })
       .then((data) => {
         if (isMounted) {
           initialMealLogsRef.current = data
           setMealLogs(data)
+          setMealLogsStatus('loaded')
         }
       })
       .catch((error) => {
         console.error('Supabaseから食事記録の取得に失敗しました', error)
+        if (isMounted) {
+          setMealLogsStatus((current) => (current === 'loaded' ? current : 'failed'))
+        }
       })
 
     // プロフィール機能（2026年8月27日）：設定画面のサマリーカード・ユーザー詳細
@@ -256,12 +298,18 @@ function AppShell() {
       showToast(`オフライン中の記録${result.synced.length}件を反映しました`, 'success')
       if (result.synced.some(isTrainingOutboxEntry)) {
         withOfflineCache('trainingLogs', () => fetchTrainingLogs())
-          .then(setTrainingLogs)
+          .then((data) => {
+            setTrainingLogs(data)
+            setTrainingLogsStatus('loaded')
+          })
           .catch((error) => console.error('Supabaseからトレーニング記録の再取得に失敗しました', error))
       }
       if (result.synced.some((entry) => entry.kind === 'mealUpsert' || entry.kind === 'mealDelete')) {
         withOfflineCache('mealLogs', () => fetchMealLogs())
-          .then(setMealLogs)
+          .then((data) => {
+            setMealLogs(data)
+            setMealLogsStatus('loaded')
+          })
           .catch((error) => console.error('Supabaseから食事記録の再取得に失敗しました', error))
       }
     },
@@ -274,11 +322,17 @@ function AppShell() {
     const refresh = () => {
       if (kind === 'training') {
         withOfflineCache('trainingLogs', () => fetchTrainingLogs())
-          .then(setTrainingLogs)
+          .then((data) => {
+            setTrainingLogs(data)
+            setTrainingLogsStatus('loaded')
+          })
           .catch((error) => console.error('Supabaseからトレーニング記録の再取得に失敗しました', error))
       } else {
         withOfflineCache('mealLogs', () => fetchMealLogs())
-          .then(setMealLogs)
+          .then((data) => {
+            setMealLogs(data)
+            setMealLogsStatus('loaded')
+          })
           .catch((error) => console.error('Supabaseから食事記録の再取得に失敗しました', error))
       }
     }
@@ -326,6 +380,10 @@ function AppShell() {
                 mealLogs={mealLogs}
                 dailyConditions={dailyConditions}
                 goals={goals}
+                goalsStatus={goals !== INITIAL_GOALS ? 'loaded' : goalsStatus}
+                dailyConditionsStatus={dailyConditions !== INITIAL_DAILY_CONDITIONS ? 'loaded' : dailyConditionsStatus}
+                trainingLogsStatus={trainingLogsStatus}
+                mealLogsStatus={mealLogsStatus}
                 setGoals={setGoals}
                 today={today}
                 todayString={todayString}

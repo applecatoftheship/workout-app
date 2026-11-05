@@ -1,0 +1,49 @@
+/* おすすめ機能（2026年11月6日） */
+.recommendation-card__body {
+  display: grid;
+  gap: 12px;
+}
+
+.recommendation-card__heading {
+  margin: 0 0 4px;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.recommendation-card__reason,
+.recommendation-card__note {
+  margin: 0 0 6px;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.recommendation-card__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.recommendation-card__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+}
+
+.recommendation-card__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.recommendation-card__meta {
+  flex-shrink: 0;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}

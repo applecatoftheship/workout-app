@@ -7,6 +7,7 @@ import { TrackRing } from '../components/TrackRing'
 import { WeeklyACWRTrendCard } from '../components/WeeklyACWRTrendCard'
 import { WeeklyACWRDetailModal } from '../components/WeeklyACWRDetailModal'
 import { CharacterStatusCard } from '../components/CharacterStatusCard'
+import { RecommendationCard } from '../components/RecommendationCard'
 import {
   BellIcon,
   ChevronLeftIcon,
@@ -32,6 +33,7 @@ import { calculateTotalVolume, formatTrainingVolume } from '../utils/trainingVol
 import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, hasConsecutiveDangerDays, hasConsecutiveOptimalDays } from '../utils/acwrHelpers'
 import { calculateAdjustedGoals, getMatchDayStatus } from '../utils/periodizationHelpers'
 import { calculateCurrentStreak } from '../utils/streakHelpers'
+import { calculateDailyAchievement } from '../utils/weeklyAchievementHelpers'
 import { useBadgeEvaluator } from '../hooks/useBadgeEvaluator'
 import { calculateMovingAverage, getTrendTone, toDateKey as toChartDateKey } from '../utils/chartHelpers'
 import type { MAPoint } from '../utils/chartHelpers'
@@ -110,6 +112,13 @@ type DashboardProps = {
   mealLogs: MealLog[]
   dailyConditions: DailyCondition[]
   goals: Goals
+  /** 目標を読み込めたか（'missing' は今月の目標が未設定）。読み込めていないときは goals は仮の初期値 */
+  goalsStatus: 'loading' | 'loaded' | 'missing' | 'failed'
+  /** 体調記録を読み込めたか */
+  dailyConditionsStatus: 'loading' | 'loaded' | 'failed'
+  /** トレーニング・食事の記録一覧を読み込めたか（端末の控えから出した場合も含む） */
+  trainingLogsStatus: 'loading' | 'loaded' | 'failed'
+  mealLogsStatus: 'loading' | 'loaded' | 'failed'
   setGoals: React.Dispatch<React.SetStateAction<Goals>>
   today: Date
   todayString: DateString
@@ -121,6 +130,10 @@ export function Dashboard({
   mealLogs,
   dailyConditions,
   goals,
+  goalsStatus,
+  dailyConditionsStatus,
+  trainingLogsStatus,
+  mealLogsStatus,
   // setGoals：ホームの目標パネルを外したため未使用（2026年11月2日）。props の型は App 側との互換のため残す。
   today,
   todayString,
@@ -187,6 +200,9 @@ export function Dashboard({
   const [weekSchedules, setWeekSchedules] = useState<TrainingSchedule[]>([])
   const [weekSportLogs, setWeekSportLogs] = useState<SportLog[]>([])
   const [weekWorkouts, setWeekWorkouts] = useState<Workout[]>([])
+  // 週間達成率リング（2026年11月6日）：今週の予定などを読み込めたか（読み込めていない日は、
+  // 予定が分からないのでトレーニングを達成率に含めない）
+  const [weekActivityStatus, setWeekActivityStatus] = useState<'loading' | 'loaded' | 'failed'>('loading')
   const [acwrSportLogs, setAcwrSportLogs] = useState<SportLog[]>([])
   // ホーム日付選択（2026年8月17日）：週間ストリップの週移動（A-1）と、
   // 日付タップによるホーム画面全体の日付コンテキスト切り替え（A-2）。
@@ -247,6 +263,7 @@ export function Dashboard({
 
   useEffect(() => {
     let isMounted = true
+    setWeekActivityStatus('loading')
 
     Promise.all([
       fetchTrainingSchedules(weekStartKey, weekEndKey),
@@ -258,10 +275,14 @@ export function Dashboard({
           setWeekSchedules(scheduleData)
           setWeekWorkouts(workoutData)
           setWeekSportLogs(sportData)
+          setWeekActivityStatus('loaded')
         }
       })
       .catch((error) => {
         console.error('Supabaseから今週の予定・ワークアウト記録・スポーツ記録の取得に失敗しました', error)
+        if (isMounted) {
+          setWeekActivityStatus('failed')
+        }
       })
 
     return () => {
@@ -455,6 +476,48 @@ export function Dashboard({
     () => buildActivityByDate(weekSchedulesByDate, weekWorkoutsByDate, weekSportLogsByDate),
     [weekSchedulesByDate, weekWorkoutsByDate, weekSportLogsByDate],
   )
+
+  // 週間達成率リング（2026年11月6日）：日ごとの達成率（定義は utils/weeklyAchievementHelpers.ts）
+  const weekAchievements = useMemo(() => {
+    const result = new Map<string, ReturnType<typeof calculateDailyAchievement>>()
+    for (const { dateKey } of weekDates) {
+      const activity = weekActivityByDate.get(dateKey)
+      result.set(
+        dateKey,
+        calculateDailyAchievement({
+          date: dateKey as DateString,
+          today: todayString,
+          mealLogs,
+          dailyConditions,
+          // 目標を読み込めていないときは、仮の初期値で判定しないよう目標の月を空にする（カロリー・たんぱく質を数えない）
+          // 食事記録を読み込めていないときも、カロリー・たんぱく質は判定できないので同じ扱いにする
+          goals: goalsStatus === 'loaded' && mealLogsStatus === 'loaded' ? goals : { ...goals, yearMonth: '' },
+          conditionKnown: dailyConditionsStatus === 'loaded',
+          // 予定・トレーニング記録のどちらかを読み込めていなければ、トレーニングは数えない
+          hasSchedule:
+            weekActivityStatus === 'loaded' && trainingLogsStatus === 'loaded' ? (activity?.has('workout') ?? false) : null,
+          hasTrainingRecord:
+            (trainingLogsByDate.get(dateKey)?.length ?? 0) > 0 ||
+            (activity?.has('appleWorkout') ?? false) ||
+            (activity?.has('sport') ?? false),
+        }),
+      )
+    }
+    return result
+  }, [
+    weekDates,
+    weekActivityByDate,
+    weekActivityStatus,
+    todayString,
+    mealLogs,
+    mealLogsStatus,
+    dailyConditions,
+    dailyConditionsStatus,
+    goals,
+    goalsStatus,
+    trainingLogsByDate,
+    trainingLogsStatus,
+  ])
 
   // ACWRGaugeCard・目標ストリップは日付選択の対象外のため、常にtodayString基準の
   // 実測値を使う（ホーム日付選択機能の影響を受けない）。
@@ -874,6 +937,7 @@ export function Dashboard({
             const isSelected = dateKey === selectedDateKey
             const daySchedules = weekSchedulesByDate.get(dateKey) ?? []
             const dayTrainingLogs = trainingLogsByDate.get(dateKey) ?? []
+            const achievement = weekAchievements.get(dateKey) ?? null
             const items = getCalendarCellState({
               isPast: dateKey < todayString,
               hasSchedule: weekActivityByDate.get(dateKey)?.has('workout') ?? false,
@@ -884,8 +948,8 @@ export function Dashboard({
             })
 
             return (
+              <div key={dateKey} className="week-strip__column">
               <button
-                key={dateKey}
                 type="button"
                 className={`week-strip__cell ${isToday ? 'week-strip__cell--today' : ''} ${isSelected ? 'week-strip__cell--selected' : ''}`}
                 onClick={() => setSelectedDateKey(dateKey)}
@@ -903,10 +967,50 @@ export function Dashboard({
                   ))}
                 </span>
               </button>
+              {/* 週間達成率リング（2026年11月6日）：その日の達成率（定義は utils/weeklyAchievementHelpers.ts） */}
+              <div
+                className="week-strip__achievement"
+                role="img"
+                aria-label={
+                  achievement
+                    ? `${date.getMonth() + 1}月${date.getDate()}日の達成率${achievement.percent}%（${achievement.items
+                        .map((item) => `${item.label}${item.achieved ? '達成' : '未達成'}`)
+                        .join('、')}）`
+                    : dateKey > todayString
+                      ? `${date.getMonth() + 1}月${date.getDate()}日はまだ先の日です`
+                      : `${date.getMonth() + 1}月${date.getDate()}日は、判定できる項目がありません`
+                }
+              >
+                <TrackRing value={achievement?.percent ?? 0} size={24} strokeWidth={3} />
+                <span className="week-strip__achievement-value">{achievement ? achievement.percent : '–'}</span>
+              </div>
+              </div>
             )
           })}
         </div>
+        <p className="week-strip__achievement-legend">
+          リング：その日の達成率（カロリー目標の80〜120%・たんぱく質目標の90%以上・体調の記録・予定したトレーニング）
+          {weekActivityStatus === 'failed' ? '。予定を読み込めなかったため、トレーニングは含めていません' : ''}
+          {goalsStatus === 'failed' ? '。目標を読み込めなかったため、カロリー・たんぱく質は含めていません' : ''}
+          {goalsStatus === 'missing' ? '。今月の目標が未設定のため、カロリー・たんぱく質は含めていません' : ''}
+          {dailyConditionsStatus === 'failed' ? '。体調の記録を読み込めなかったため、体調は含めていません' : ''}
+          {mealLogsStatus === 'failed' ? '。食事の記録を読み込めなかったため、カロリー・たんぱく質は含めていません' : ''}
+          {trainingLogsStatus === 'failed' ? '。トレーニングの記録を読み込めなかったため、トレーニングは含めていません' : ''}
+          {weekDates.some(({ dateKey }) => dateKey.slice(0, 7) !== goals.yearMonth)
+            ? '。今月以外の日は、カロリー・たんぱく質を含めていません'
+            : ''}
+        </p>
       </section>
+
+      <RecommendationCard
+        mealLogs={mealLogs}
+        trainingLogs={trainingLogs}
+        goals={goals}
+        goalsStatus={goalsStatus}
+        mealLogsStatus={mealLogsStatus}
+        trainingLogsStatus={trainingLogsStatus}
+        todayString={todayString}
+      />
 
       <section className="panel-card stats-card">
         <h2 className="panel-card__title">体調・記録</h2>
