@@ -4,7 +4,6 @@ import { PolarAngleAxis, RadialBar, RadialBarChart } from 'recharts'
 import './Dashboard.css'
 import { ACWRGaugeCard } from '../components/ACWRGaugeCard'
 import { TrackRing } from '../components/TrackRing'
-import { WeeklyACWRTrendCard } from '../components/WeeklyACWRTrendCard'
 import { WeeklyACWRDetailModal } from '../components/WeeklyACWRDetailModal'
 import { CharacterStatusCard } from '../components/CharacterStatusCard'
 import { RecommendationCard } from '../components/RecommendationCard'
@@ -12,9 +11,7 @@ import {
   BellIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  DumbbellIcon,
   FatigueIcon,
-  HistoryIcon,
   SleepIcon,
   TimerIcon,
   WeightIcon,
@@ -26,10 +23,6 @@ import { fetchSportLogs } from '../api/sportLogs'
 import { fetchWorkouts } from '../api/workouts'
 import { fetchNotifications, markNotificationRead } from '../api/notifications'
 import { getScheduleIcon, buildActivityByDate, getCalendarCellState, toDateKey, toJstDateKeyFromIso, weekDays } from '../utils/calendarHelpers'
-// 総挙上重量サマリー（指示書「推定1RM・PR・総挙上重量のビジュアル化」2026-09-15）：
-// ACWRGaugeCard・目標ストリップと同じく「常に今週を示すべき指標」として、
-// 週送りストリップのweekOffsetには連動させない（下記currentWeek*参照）。
-import { calculateTotalVolume, formatTrainingVolume } from '../utils/trainingVolumeSummaryHelpers'
 import { calculateACWR, calculateDailyACWRSeries, daysUntilACWRAvailable, hasConsecutiveDangerDays, hasConsecutiveOptimalDays } from '../utils/acwrHelpers'
 import { calculateAdjustedGoals, getMatchDayStatus } from '../utils/periodizationHelpers'
 import { calculateCurrentStreak } from '../utils/streakHelpers'
@@ -45,34 +38,9 @@ import type {
   MealLog,
   SportLog,
   TrainingLog,
-  TrainingLogExercise,
   TrainingSchedule,
   Workout,
 } from '../types'
-
-function formatExerciseCompact(exercise: TrainingLogExercise) {
-  const name = exercise.exercise?.name ?? '不明な種目'
-
-  if (exercise.sets.length === 0) {
-    return `${name}（記録なし）`
-  }
-
-  const firstSet = exercise.sets[0]
-  const weightText = firstSet.weight != null ? `${firstSet.weight}kg` : '-'
-  const repsText = firstSet.reps != null ? `${firstSet.reps}回` : '-'
-  return `${name} - ${weightText}×${repsText}×${exercise.sets.length}セット`
-}
-
-// Apple Health連携（2026年8月27日）：「今日の内容」アコーディオンのワークアウト
-// 表示。CalendarDaySummaries.tsxのWorkoutSummary・DailyReportModal.tsxのワーク
-// アウトセクションと表示方針を統一する（activity_typeがNULLの場合は「ワークアウト」
-// にフォールバック、external_idありの場合は「⌚ Watch」の注記）。
-function formatWorkoutCompact(workout: Workout) {
-  const label = workout.activityType ?? 'ワークアウト'
-  const watchNote = workout.externalId ? '（⌚ Watch）' : ''
-  const distanceText = workout.distanceMeters != null ? ` ${(workout.distanceMeters / 1000).toFixed(2)}km` : ''
-  return `${label}${watchNote}${distanceText}`
-}
 
 /**
  * スプリント2（2026年8月17日）：統計カードの「前週比」用に、移動平均データ列から
@@ -140,8 +108,6 @@ export function Dashboard({
   formattedDate,
 }: DashboardProps) {
   const navigate = useNavigate()
-  const [isTodayDetailOpen, setIsTodayDetailOpen] = useState(false)
-  const [isNutritionOpen, setIsNutritionOpen] = useState(false)
   // 休憩タイマー（2026年8月21日新設）：DB保存なし、モーダルを開いている間のみ完結する
   // 機能のため、マウント/アンマウントで状態管理する（isTimerOpen=falseの間は
   // RestTimerModal自体を描画しない）。閉じたら内部状態もリセットされる。
@@ -239,27 +205,6 @@ export function Dashboard({
   const weekStartKey = weekDates[0]?.dateKey ?? todayString
   const weekEndKey = weekDates[6]?.dateKey ?? todayString
 
-  // 総挙上重量サマリー（指示書2026-09-15）：weekStart/weekDatesはweekOffsetで
-  // 動く週送りストリップ用のため、そのまま使うと「先週」等を見ている間は
-  // 今週以外の合計が表示されてしまう。ACWRGaugeCard等と同じ「常に今週」方針の
-  // ため、weekOffsetを含めない現在週（日曜始まり）の範囲を別途算出する。
-  const currentWeekRange = useMemo(() => {
-    const start = new Date(today)
-    start.setDate(today.getDate() - today.getDay())
-    const startKey = toDateKey(start.getFullYear(), start.getMonth() + 1, start.getDate())
-    const end = new Date(start)
-    end.setDate(start.getDate() + 6)
-    const endKey = toDateKey(end.getFullYear(), end.getMonth() + 1, end.getDate())
-    return { startKey, endKey }
-  }, [today])
-
-  const weekTotalVolume = useMemo(
-    () =>
-      calculateTotalVolume(
-        trainingLogs.filter((log) => log.date >= currentWeekRange.startKey && log.date <= currentWeekRange.endKey),
-      ),
-    [trainingLogs, currentWeekRange],
-  )
 
   useEffect(() => {
     let isMounted = true
@@ -568,7 +513,7 @@ export function Dashboard({
   // ミニカードのスパークライン（末尾7件）・詳細モーダルのメイングラフ（全28件）の
   // 両方で使い回す（DBキャッシュせず動的計算する既存方針はACWR機能全体で踏襲）。
   // 暫定値表示バグ対応（Phase 0.5、2026年9月17日）：acwrResultと同じ理由で、
-  // ロード未完了の間は空配列とする（WeeklyACWRTrendCard側のisLoading表示に委ねる）。
+  // ロード未完了の間は空配列とする（ACWRGaugeCard側のisLoading表示に委ねる）。
   const weeklyACWRSeries = useMemo(
     () =>
       isAcwrWindowDataLoaded
@@ -581,16 +526,10 @@ export function Dashboard({
   // ホーム日付選択（A-2）：カロリーリング・統計カードは週間ストリップで
   // 選んだ日付（selectedDateKey）基準に切り替わる。閲覧専用で、記録の追加・
   // 編集は既存の「＋」ボタン（常に今日固定）経由でのみ行う。
-  const todayTrainingLogs = useMemo(
-    () => trainingLogs.filter((log) => log.date === selectedDateKey),
-    [trainingLogs, selectedDateKey],
-  )
   const todayMealLogs = useMemo(
     () => mealLogs.filter((log) => log.date === selectedDateKey),
     [mealLogs, selectedDateKey],
   )
-
-  const todayLoggedExercises = todayTrainingLogs.flatMap((log) => log.exercises)
 
   const todayMealTotals = useMemo(() => {
     return todayMealLogs.reduce(
@@ -604,15 +543,9 @@ export function Dashboard({
     )
   }, [todayMealLogs])
 
-  const calorieRate = goals.dailyCalorieGoal > 0
-    ? Math.min(100, Math.round((todayMealTotals.calories / goals.dailyCalorieGoal) * 100))
-    : 0
-
   // スプリント3（MD基準の栄養調整、2026年8月18日）：カロリーリング自体は
   // periodizationTarget（MD補正後、非補正時は基本目標値と同値）を分母に採用する。
-  // 下部の「栄養詳細」アコーディオン（calorieRateを使用）は基本目標値のまま据え置き、
-  // 補正の反映範囲はカロリーリング周辺（本カード内）に限定した（指示書5-2節の
-  // 「ダッシュボードのカロリーリング周辺」という記載範囲の判断）。
+  // （以前あった下部の「栄養詳細」アコーディオンは、2026年11月6日の画面の整理で外した）
   const calorieRingRate = periodizationTarget.calorieTarget > 0
     ? Math.min(100, Math.round((todayMealTotals.calories / periodizationTarget.calorieTarget) * 100))
     : 0
@@ -721,53 +654,11 @@ export function Dashboard({
     return { text: tone === 'neutral' ? '±0' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)}`, tone }
   }, [fatigueMA, latestFatigueMA])
 
-  const mostRecentRecord = useMemo(() => {
-    const candidates: { date: DateString; label: string }[] = []
-    const latestTraining = [...trainingLogs].sort((a, b) => b.date.localeCompare(a.date))[0]
-    if (latestTraining) candidates.push({ date: latestTraining.date, label: 'トレーニング' })
-    const latestMeal = [...mealLogs].sort((a, b) => b.date.localeCompare(a.date))[0]
-    if (latestMeal) candidates.push({ date: latestMeal.date, label: '食事' })
-    const latestCondition = [...dailyConditions].sort((a, b) => b.date.localeCompare(a.date))[0]
-    if (latestCondition) candidates.push({ date: latestCondition.date, label: '体調' })
-
-    if (candidates.length === 0) return null
-    return candidates.sort((a, b) => b.date.localeCompare(a.date))[0]
-  }, [trainingLogs, mealLogs, dailyConditions])
-
-  const mostRecentRecordDaysText = useMemo(() => {
-    if (!mostRecentRecord) return null
-    if (mostRecentRecord.date === todayString) return '今日'
-    const diffDays = Math.round(
-      (new Date(todayString).getTime() - new Date(mostRecentRecord.date).getTime()) / 86_400_000,
-    )
-    return `${diffDays}日前`
-  }, [mostRecentRecord, todayString])
-
   const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   const currentMonthTrainingCount = trainingLogs.filter((log) => log.date.startsWith(currentMonthKey)).length
   const monthlyAchievementRate = goals.monthlyTrainingGoal > 0
     ? Math.min(100, Math.round((currentMonthTrainingCount / goals.monthlyTrainingGoal) * 100))
     : 0
-
-  // ホーム画面「今日の内容」再構成（2026年8月22日）：旧・今日の運動カード
-  // （exercise-card、削除済み）が使っていたtodayLoggedExercises・
-  // formatExerciseCompactをそのまま流用し、アコーディオン内の要約テキストとする。
-  const todayTrainingSummary = todayLoggedExercises.length > 0
-    ? todayLoggedExercises.map((exercise) => formatExerciseCompact(exercise)).join(' / ')
-    : '記録なし'
-
-  // Apple Health連携（2026年8月27日）：「今日の内容」アコーディオンはこのブロックの
-  // 他の値（todayTrainingSummary等）と同じくselectedDateKey基準（名前に反して
-  // 「今日」固定ではなく、週間ストリップでの日付選択に連動する既存仕様）。
-  // 新規APIコールはせず、ACWR用に取得済みのacwrWorkouts（直近28日・常にtoday終端）
-  // から選択日分を抽出する（サッカーは既存方針通り引き続き対象外）。
-  const selectedDateWorkouts = useMemo(
-    () => acwrWorkouts.filter((workout) => toJstDateKeyFromIso(workout.startTime) === selectedDateKey),
-    [acwrWorkouts, selectedDateKey],
-  )
-  const todayWorkoutSummary = selectedDateWorkouts.length > 0
-    ? selectedDateWorkouts.map((workout) => formatWorkoutCompact(workout)).join(' / ')
-    : '記録なし'
 
   // 統計カードの「実測」注記（本日実測 / 実測）は、選択日にちょうど記録があるときだけ表示する。
   const selectedCondition = useMemo(
@@ -778,8 +669,6 @@ export function Dashboard({
   const selectedDateLabel = useMemo(() => formatSelectedDateLabel(selectedDateKey), [selectedDateKey])
   const selectedDateShortLabel = useMemo(() => formatSelectedDateShort(selectedDateKey), [selectedDateKey])
   const calorieCardTitle = isViewingToday ? '今日のカロリー' : `${selectedDateShortLabel}のカロリー`
-  const todayDetailTitle = isViewingToday ? '今日の内容' : `${selectedDateShortLabel}の内容`
-  const nutritionDetailTitle = isViewingToday ? '今日の食事・PFC' : `${selectedDateShortLabel}の食事・PFC`
 
   return (
     <>
@@ -901,13 +790,8 @@ export function Dashboard({
         sorenessLevel={todayCondition?.muscleSorenessLevel}
         showDeloadWarning={showDeloadWarning}
         isLoading={!isAcwrWindowDataLoaded}
-      />
-
-      <WeeklyACWRTrendCard
-        weekPoints={weeklyACWRSeries.slice(-7)}
-        daysUntilAvailable={acwrDaysUntilAvailable}
+        trendPoints={weeklyACWRSeries.slice(-7)}
         onOpenDetail={() => setIsWeeklyACWRDetailOpen(true)}
-        isLoading={!isAcwrWindowDataLoaded}
       />
 
       <section className="panel-card week-strip">
@@ -988,18 +872,33 @@ export function Dashboard({
             )
           })}
         </div>
-        <p className="week-strip__achievement-legend">
-          リング：その日の達成率（カロリー目標の80〜120%・たんぱく質目標の90%以上・体調の記録・予定したトレーニング）
-          {weekActivityStatus === 'failed' ? '。予定を読み込めなかったため、トレーニングは含めていません' : ''}
-          {goalsStatus === 'failed' ? '。目標を読み込めなかったため、カロリー・たんぱく質は含めていません' : ''}
-          {goalsStatus === 'missing' ? '。今月の目標が未設定のため、カロリー・たんぱく質は含めていません' : ''}
-          {dailyConditionsStatus === 'failed' ? '。体調の記録を読み込めなかったため、体調は含めていません' : ''}
-          {mealLogsStatus === 'failed' ? '。食事の記録を読み込めなかったため、カロリー・たんぱく質は含めていません' : ''}
-          {trainingLogsStatus === 'failed' ? '。トレーニングの記録を読み込めなかったため、トレーニングは含めていません' : ''}
-          {weekDates.some(({ dateKey }) => dateKey.slice(0, 7) !== goals.yearMonth)
-            ? '。今月以外の日は、カロリー・たんぱく質を含めていません'
-            : ''}
-        </p>
+        {/* 画面の整理（2026年11月6日）：リングの定義は畳んでおき、押したときだけ出す（プログレッシブ・ディスクロージャ） */}
+        <details className="week-strip__achievement-legend">
+          <summary>リング＝その日の達成率</summary>
+          カロリー目標の80〜120%・たんぱく質目標の90%以上・体調の記録・予定したトレーニングのうち、達成した割合
+        </details>
+        {/* 読み込めなかった項目の注記は、判定に関わるため畳まずに出す */}
+        {(() => {
+          const notes = [
+            weekActivityStatus === 'failed' ? '予定を読み込めなかったため、トレーニングは含めていません' : '',
+            goalsStatus === 'failed' ? '目標を読み込めなかったため、カロリー・たんぱく質は含めていません' : '',
+            goalsStatus === 'missing' ? '今月の目標が未設定のため、カロリー・たんぱく質は含めていません' : '',
+            dailyConditionsStatus === 'failed' ? '体調の記録を読み込めなかったため、体調は含めていません' : '',
+            mealLogsStatus === 'failed' ? '食事の記録を読み込めなかったため、カロリー・たんぱく質は含めていません' : '',
+            trainingLogsStatus === 'failed' ? 'トレーニングの記録を読み込めなかったため、トレーニングは含めていません' : '',
+            weekDates.some(({ dateKey }) => dateKey.slice(0, 7) !== goals.yearMonth)
+              ? '今月以外の日は、カロリー・たんぱく質を含めていません'
+              : '',
+          ].filter(Boolean)
+          return notes.length > 0 ? <p className="week-strip__achievement-note">{notes.join('。')}</p> : null
+        })()}
+        <button
+          type="button"
+          className="detail-link week-strip__calendar-link"
+          onClick={() => navigate(`/calendar?date=${selectedDateKey}&tab=training`)}
+        >
+          {isViewingToday ? '今日' : `${Number(selectedDateKey.slice(5, 7))}月${Number(selectedDateKey.slice(8, 10))}日`}の記録をカレンダーで見る →
+        </button>
       </section>
 
       <RecommendationCard
@@ -1013,7 +912,7 @@ export function Dashboard({
       />
 
       <section className="panel-card stats-card">
-        <h2 className="panel-card__title">体調・記録</h2>
+        <h2 className="panel-card__title">体調（7日平均）</h2>
         {/* 「実測」注記の0値/未記録表示バグ対応（Phase 1-2、2026年9月14日）：
             selectedConditionは「その日にdaily_conditions行が存在するか」のみを
             表す（例：体重だけ入力した部分upsert行にはsleepHours=0・
@@ -1028,13 +927,13 @@ export function Dashboard({
                 <WeightIcon className="stat-card__icon" strokeWidth={1.8} />
                 {weightTrend ? <span className={`trend-badge trend-badge--${weightTrend.tone}`}>{weightTrend.text}</span> : null}
               </div>
-              <span className="stat-card__label">体重（7日平均）</span>
+              <span className="stat-card__label">体重</span>
               <strong className="stat-card__value metric-value">
                 {latestWeightMA ? `${latestWeightMA.movingAvg.toFixed(1)}kg` : '記録なし'}
               </strong>
               {selectedCondition && selectedCondition.weight > 0 ? (
                 <span className="stat-card__note">
-                  {isViewingToday ? '本日実測' : '実測'}: {selectedCondition.weight.toFixed(1)}kg
+                  {isViewingToday ? '今日' : 'この日'} {selectedCondition.weight.toFixed(1)}kg
                 </span>
               ) : null}
             </article>
@@ -1046,13 +945,13 @@ export function Dashboard({
                 <SleepIcon className="stat-card__icon" strokeWidth={1.8} />
                 {sleepTrend ? <span className={`trend-badge trend-badge--${sleepTrend.tone}`}>{sleepTrend.text}</span> : null}
               </div>
-              <span className="stat-card__label">睡眠（7日平均）</span>
+              <span className="stat-card__label">睡眠</span>
               <strong className="stat-card__value metric-value">
                 {latestSleepMA ? `${latestSleepMA.movingAvg.toFixed(1)}h` : '記録なし'}
               </strong>
               {selectedCondition && selectedCondition.sleepHours > 0 ? (
                 <span className="stat-card__note">
-                  {isViewingToday ? '本日実測' : '実測'}: {selectedCondition.sleepHours.toFixed(1)}h
+                  {isViewingToday ? '今日' : 'この日'} {selectedCondition.sleepHours.toFixed(1)}h
                 </span>
               ) : null}
             </article>
@@ -1064,40 +963,23 @@ export function Dashboard({
                 <FatigueIcon className="stat-card__icon" strokeWidth={1.8} />
                 {fatigueTrend ? <span className={`trend-badge trend-badge--${fatigueTrend.tone}`}>{fatigueTrend.text}</span> : null}
               </div>
-              <span className="stat-card__label">疲労度（7日平均）</span>
+              <span className="stat-card__label">疲労度</span>
               <strong className="stat-card__value metric-value">
                 {latestFatigueMA ? `${latestFatigueMA.movingAvg.toFixed(1)}/5` : '記録なし'}
               </strong>
               {selectedCondition && selectedCondition.fatigue !== undefined ? (
                 <span className="stat-card__note">
-                  {isViewingToday ? '本日実測' : '実測'}: {selectedCondition.fatigue}/5
+                  {isViewingToday ? '今日' : 'この日'} {selectedCondition.fatigue}/5
                 </span>
               ) : null}
             </article>
           ) : null}
 
-          <article className="stat-card">
-            <div className="stat-card__header">
-              <HistoryIcon className="stat-card__icon" strokeWidth={1.8} />
-            </div>
-            <span className="stat-card__label">直近の記録</span>
-            <strong className="stat-card__value">{mostRecentRecord ? mostRecentRecord.label : '記録なし'}</strong>
-            {mostRecentRecordDaysText ? <span className="stat-card__note">{mostRecentRecordDaysText}</span> : null}
-          </article>
-
-          {/* 総挙上重量サマリー（指示書2026-09-15）：ACWRGaugeCard・目標ストリップと
-              同じく常に今週（weekOffset非依存）の値を示す。日付選択カード群
-              （体重・睡眠・疲労度）とは異なりisViewingToday等の出し分けはしない。 */}
-          <article className="stat-card">
-            <div className="stat-card__header">
-              <DumbbellIcon className="stat-card__icon" strokeWidth={1.8} />
-            </div>
-            <span className="stat-card__label">今週の総挙上重量</span>
-            <strong className="stat-card__value metric-value">{formatTrainingVolume(weekTotalVolume)}</strong>
-            {weekTotalVolume > 0 ? (
-              <span className="stat-card__note">{Math.round(weekTotalVolume).toLocaleString()}kg</span>
-            ) : null}
-          </article>
+          {!isViewingToday && !latestWeightMA && !latestSleepMA && !latestFatigueMA ? (
+            <p className="no-record stats-grid__empty">この日の体調の記録はありません</p>
+          ) : null}
+          {/* 画面の整理（2026年11月6日）：「直近の記録」と「今週の総挙上重量」のタイルを外した
+              （総挙上重量はグラフ画面の総ボリュームと重なるため）。 */}
         </div>
       </section>
 
@@ -1114,102 +996,6 @@ export function Dashboard({
         </div>
       </section>
 
-      <section className="panel-card accordion-item">
-        <button
-          type="button"
-          className="accordion-header"
-          onClick={() => setIsTodayDetailOpen((current) => !current)}
-        >
-          {todayDetailTitle}
-          <span className="accordion-chevron">{isTodayDetailOpen ? '▼' : '▶'}</span>
-        </button>
-        {isTodayDetailOpen ? (
-          <div className="accordion-body">
-            <p className="panel-card__description">筋トレ・ワークアウト・体調を一目で確認できます。</p>
-            <div className="detail-list">
-              <div className="detail-item">
-                <span className="detail-label">トレーニング</span>
-                <p>{todayTrainingSummary}</p>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">ワークアウト</span>
-                <p>{todayWorkoutSummary}</p>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">体調メモ</span>
-                <p>{selectedCondition ? selectedCondition.notes ?? 'メモなし' : '記録なし'}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="detail-link"
-              onClick={() => navigate(`/calendar?date=${selectedDateKey}&tab=training`)}
-            >
-              詳細を見る →
-            </button>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="panel-card accordion-item">
-        <button
-          type="button"
-          className="accordion-header"
-          onClick={() => setIsNutritionOpen((current) => !current)}
-        >
-          {nutritionDetailTitle}
-          <span className="accordion-chevron">{isNutritionOpen ? '▼' : '▶'}</span>
-        </button>
-        {isNutritionOpen ? (
-          <div className="accordion-body">
-            <p className="panel-card__description">1日の栄養進捗を目標値と比較して表示します。</p>
-            {todayMealLogs.length === 0 ? (
-              <p className="no-record">{isViewingToday ? '今日はまだ食事記録がありません' : 'この日はまだ食事記録がありません'}</p>
-            ) : (
-              <div className="nutrition-grid">
-                {[
-                  {
-                    label: 'カロリー',
-                    value: `${todayMealTotals.calories} / ${goals.dailyCalorieGoal} kcal`,
-                    rate: calorieRate,
-                  },
-                  {
-                    label: 'タンパク質',
-                    value: `${todayMealTotals.protein} / ${goals.dailyProteinGoal} g`,
-                    rate: goals.dailyProteinGoal > 0
-                      ? Math.min(100, Math.round((todayMealTotals.protein / goals.dailyProteinGoal) * 100))
-                      : 0,
-                  },
-                  {
-                    label: '脂質',
-                    value: `${todayMealTotals.fat} / ${goals.dailyFatGoal} g`,
-                    rate: goals.dailyFatGoal > 0
-                      ? Math.min(100, Math.round((todayMealTotals.fat / goals.dailyFatGoal) * 100))
-                      : 0,
-                  },
-                  {
-                    label: '炭水化物',
-                    value: `${todayMealTotals.carbohydrates} / ${goals.dailyCarbohydrateGoal} g`,
-                    rate: goals.dailyCarbohydrateGoal > 0
-                      ? Math.min(100, Math.round((todayMealTotals.carbohydrates / goals.dailyCarbohydrateGoal) * 100))
-                      : 0,
-                  },
-                ].map((metric) => (
-                  <article key={metric.label} className="nutrition-card">
-                    <span className="nutrition-card__label">{metric.label}</span>
-                    <div className="nutrition-card__value">{metric.value}</div>
-                    <div className="nutrition-card__rate">{metric.rate}%</div>
-                    <div className="nutrition-progress" aria-label={`${metric.label}進捗`}>
-                      <div className="nutrition-progress__fill" style={{ width: `${metric.rate}%` }} />
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : null}
-      </section>
-
       {/* 2026年11月2日：目標の表示が重なっていたため、ホームの目標パネル（アコーディオン）を外した
           （Johnさん確認）。ホームは上の「○月の目標」カード、目標の確認・変更は設定画面の目標パネルで行う。 */}
 
@@ -1219,6 +1005,7 @@ export function Dashboard({
           seriesPoints={weeklyACWRSeries}
           chronicDaysAvailable={acwrResult?.chronicDays ?? 28}
           daysUntilAvailable={acwrDaysUntilAvailable}
+          result={acwrResult}
           onClose={() => setIsWeeklyACWRDetailOpen(false)}
         />
       ) : null}

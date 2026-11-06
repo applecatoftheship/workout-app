@@ -315,7 +315,6 @@ export function MonthlyCalendar({
     <section className="calendar-card">
       <div className="calendar-card__header">
         <div>
-          <p className="calendar-card__eyebrow">月間カレンダー</p>
           <h2>{formatMonthLabel(displayDate)}</h2>
         </div>
         <div className="calendar-nav">
@@ -334,8 +333,9 @@ export function MonthlyCalendar({
       </div>
 
       <div className="calendar-card__toolbar">
-        <button type="button" className="btn-pill-accent" onClick={() => setIsBulkImportOpen(true)}>
-          ✨ AI予定一括取り込み
+        {/* 画面の整理（2026年11月6日）：たまにしか使わない操作のため、目立たない文字ボタンにした */}
+        <button type="button" className="btn-text" onClick={() => setIsBulkImportOpen(true)}>
+          ✨ AIで予定を取り込む
         </button>
       </div>
 

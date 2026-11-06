@@ -122,3 +122,11 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* 画面の整理（2026年11月6日）：完了/未完了・終了時刻・メモの要約（入力欄は「完了・メモを編集」で開く） */
+.training-day-meta__summary {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}

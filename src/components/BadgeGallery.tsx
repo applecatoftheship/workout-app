@@ -80,15 +80,28 @@ export function BadgeGallery({ trainingLogs, mealLogs, dailyConditions, today, t
     isOptimalZoneStreak,
   })
 
+  const [isOpen, setIsOpen] = useState(false)
   const unlockedIds = new Set(userBadges.map((badge) => badge.badgeId))
   const isLoading = isDataLoading || isBadgesLoading
 
   return (
     <section className="panel-card badge-gallery">
-      <h2 className="panel-card__title">獲得バッジ図鑑</h2>
-      {isLoading ? (
-        <p className="panel-card__description">読み込み中...</p>
-      ) : (
+      {/* 画面の整理（2026年11月6日）：設定画面で場所を取っていたため、ふだんは獲得数の1行だけにし、押すと一覧を開く */}
+      <h2 className="badge-gallery__heading">
+      <button
+        type="button"
+        className="badge-gallery__toggle"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <span className="panel-card__title">獲得バッジ</span>
+        <span className="badge-gallery__count">
+          {isLoading ? '読み込み中...' : `${BADGE_ORDER.filter((badgeId) => unlockedIds.has(badgeId)).length} / ${BADGE_ORDER.length}`}
+          <span aria-hidden="true">{isOpen ? ' ▼' : ' ▶'}</span>
+        </span>
+      </button>
+      </h2>
+      {!isOpen || isLoading ? null : (
         <div className="badge-gallery__grid">
           {BADGE_ORDER.map((badgeId) => {
             const badge = BADGE_DEFINITIONS[badgeId]

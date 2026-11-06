@@ -392,7 +392,6 @@ export function ProgressGraph({
     <section className="progress-graph">
       <div className="progress-graph__header">
         <h2>進捗グラフ</h2>
-        <p>記録したデータをグラフで確認できます。</p>
       </div>
 
       <div className="progress-graph__tabs">

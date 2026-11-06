@@ -78,3 +78,17 @@
   cursor: pointer;
   font-family: var(--font-base);
 }
+
+/* 画面の整理（2026年11月6日）：目立たせない補助の操作用の文字ボタン
+   （Apple HIG「Buttons」：目立つボタンは1画面に1〜2個。Material 3 の Text ボタン＝強調が低い操作） */
+.btn-text {
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  min-height: 32px;
+  color: var(--color-accent-text);
+  font-weight: 600;
+  font-size: var(--font-size-body-sm);
+  cursor: pointer;
+  font-family: var(--font-base);
+}

@@ -48,3 +48,39 @@
 .badge-gallery__item--locked .badge-gallery__name {
   filter: grayscale(1);
 }
+
+/* 画面の整理（2026年11月6日）：ふだんは獲得数の1行だけ。押すと一覧を開く */
+.badge-gallery__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.badge-gallery__count {
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.badge-gallery__toggle[aria-expanded='true'] {
+  margin-bottom: var(--space-sm);
+}
+
+.badge-gallery__heading {
+  margin: 0;
+  font: inherit;
+}
+
+.badge-gallery__toggle .panel-card__title {
+  margin: 0;
+}

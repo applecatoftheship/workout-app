@@ -1,7 +1,11 @@
 import './ACWRGaugeCard.css'
+import './WeeklyACWRTrendCard.css'
 import type { ACWRResult, MuscleLocation, SorenessLevel } from '../types'
 import { MUSCLE_LOCATION_LABELS, SORENESS_LEVEL_LABELS } from '../utils/acwrHelpers'
 import { TrackRing } from './TrackRing'
+import { ChevronRightIcon } from './icons'
+import { buildSparklinePath } from '../utils/sparkline'
+import type { DailyACWRPoint } from '../utils/acwrHelpers'
 
 type ACWRGaugeCardProps = {
   result: ACWRResult | null
@@ -17,6 +21,10 @@ type ACWRGaugeCardProps = {
    * 読み込み中表示にする（既存の「読み込み中...」文言パターン、
    * TrainingTemplateManager.tsx等と同じ表記を踏襲）。 */
   isLoading?: boolean
+  /** 直近7日分のACWR（ホームで推移の線を出す。2026年11月6日、週次トレンドのカードを統合） */
+  trendPoints?: DailyACWRPoint[]
+  /** カードを押したときに詳細（週次ACWRトレンド）を開く */
+  onOpenDetail?: () => void
 }
 
 const STATUS_META: Record<ACWRResult['status'], { emoji: string; label: string; tone: string }> = {
@@ -42,6 +50,8 @@ export function ACWRGaugeCard({
   sorenessLevel,
   showDeloadWarning,
   isLoading,
+  trendPoints,
+  onOpenDetail,
 }: ACWRGaugeCardProps) {
   if (isLoading) {
     return (
@@ -64,10 +74,17 @@ export function ACWRGaugeCard({
   }
 
   const meta = STATUS_META[result.status]
-  const maxBarLoad = Math.max(result.acuteLoad, result.chronicLoad, 1)
+  // 画面の整理（2026年11月6日）：ホームの「疲労残高」と「週次ACWRトレンド」の2枚を1枚にまとめた。
+  // 急性・慢性負荷の内訳は詳細（WeeklyACWRDetailModal）へ移し、ホームには値・状態・直近7日の推移・ひとことだけを出す。
+  // カード全体を押すと詳細を開く（NN/g「Cards」）。中の文字（警告など）を読み上げで聞けるよう、カード自体はボタンにせず、
+  // 右端の「›」ボタンの押せる範囲をカード全体に広げている（.acwr-card__open::after）。
+  // 推移の線の色は、バッジ・リングと同じ状態（result.status）の色にそろえる。
+  const trendValues = (trendPoints ?? []).filter((point) => point.acwr != null).map((point) => point.acwr as number)
+  const trendTone = meta.tone
+  const { linePoints, areaPath } = buildSparklinePath(trendValues, 100, 28)
 
   return (
-    <section className="panel-card acwr-card">
+    <section className={`panel-card acwr-card ${onOpenDetail ? 'acwr-card--link' : ''}`}>
       <div className="acwr-card__header">
         <h2 className="panel-card__title">疲労残高（ACWR）</h2>
         <span className={`acwr-badge acwr-badge--${meta.tone}`}>
@@ -75,34 +92,24 @@ export function ACWRGaugeCard({
         </span>
       </div>
 
-      <div className="acwr-card__score">
-        <TrackRing value={Math.min(100, (result.acwr / 2) * 100)} size={72} strokeWidth={7} colorVar={STATUS_RING_COLOR_VAR[meta.tone]}>
+      <div className="acwr-card__summary">
+        <TrackRing value={Math.min(100, (result.acwr / 2) * 100)} size={56} strokeWidth={6} colorVar={STATUS_RING_COLOR_VAR[meta.tone]}>
           <span className="acwr-card__score-value metric-value reveal-fade">{result.acwr.toFixed(2)}</span>
         </TrackRing>
-        <span className="acwr-card__score-label">急性:慢性負荷比</span>
-      </div>
-
-      <div className="acwr-card__bars">
-        <div className="acwr-bar">
-          <span className="acwr-bar__label">急性負荷（{result.acuteDays}日平均）</span>
-          <div className="acwr-bar__track">
-            <div
-              className="acwr-bar__fill acwr-bar__fill--acute"
-              style={{ width: `${Math.min(100, (result.acuteLoad / maxBarLoad) * 100)}%` }}
-            />
+        {trendValues.length > 1 ? (
+          <div className="acwr-card__trend">
+            <svg viewBox="0 0 100 28" className="weekly-acwr-trend__sparkline" preserveAspectRatio="none" aria-hidden="true">
+              <path d={areaPath} className={`weekly-acwr-trend__area weekly-acwr-trend__area--${trendTone}`} />
+              <polyline points={linePoints} fill="none" className={`weekly-acwr-trend__line weekly-acwr-trend__line--${trendTone}`} />
+            </svg>
+            <span className="acwr-card__trend-label">直近7日の推移</span>
           </div>
-          <span className="acwr-bar__value metric-value">{result.acuteLoad.toFixed(0)}</span>
-        </div>
-        <div className="acwr-bar">
-          <span className="acwr-bar__label">慢性負荷（{result.chronicDays}日平均）</span>
-          <div className="acwr-bar__track">
-            <div
-              className="acwr-bar__fill acwr-bar__fill--chronic"
-              style={{ width: `${Math.min(100, (result.chronicLoad / maxBarLoad) * 100)}%` }}
-            />
-          </div>
-          <span className="acwr-bar__value metric-value">{result.chronicLoad.toFixed(0)}</span>
-        </div>
+        ) : null}
+        {onOpenDetail ? (
+          <button type="button" className="acwr-card__open" onClick={onOpenDetail} aria-label="疲労残高の推移と内訳を見る">
+            <ChevronRightIcon className="acwr-card__chevron" strokeWidth={1.8} />
+          </button>
+        ) : null}
       </div>
 
       {showDeloadWarning ? (

@@ -2,6 +2,7 @@ import './WeeklyACWRTrendCard.css'
 import type { ACWRInsightTier, DailyACWRPoint } from '../utils/acwrHelpers'
 import { getACWRInsight } from '../utils/acwrHelpers'
 import { ChevronRightIcon } from './icons'
+import { buildSparklinePath } from '../utils/sparkline'
 
 type WeeklyACWRTrendCardProps = {
   /** 直近7日分のDailyACWRPoint（Dashboard.tsx側で28日系列の末尾7件をスライスして渡す） */
@@ -22,28 +23,6 @@ const TIER_TONE: Record<ACWRInsightTier, string> = {
   optimal: 'accent',
   surge: 'warning',
   spike: 'danger',
-}
-
-/** ミニスパークライン用の簡易SVG座標計算（メイングラフとは別に、控えめな高さのカード向けに専用実装） */
-function buildSparklinePath(values: number[], width: number, height: number) {
-  if (values.length === 0) {
-    return { linePoints: '', areaPath: '' }
-  }
-  const min = Math.min(...values, 0.8)
-  const max = Math.max(...values, 1.5)
-  const range = max - min || 1
-
-  const toXY = (value: number, index: number) => {
-    const x = values.length <= 1 ? width / 2 : (width * index) / (values.length - 1)
-    const y = height - ((value - min) / range) * height
-    return [x, y] as const
-  }
-
-  const coords = values.map((value, index) => toXY(value, index))
-  const linePoints = coords.map(([x, y]) => `${x},${y}`).join(' ')
-  const areaPath = `M ${coords[0][0]},${height} L ${coords.map(([x, y]) => `${x},${y}`).join(' L ')} L ${coords[coords.length - 1][0]},${height} Z`
-
-  return { linePoints, areaPath }
 }
 
 export function WeeklyACWRTrendCard({ weekPoints, daysUntilAvailable, onOpenDetail, isLoading }: WeeklyACWRTrendCardProps) {

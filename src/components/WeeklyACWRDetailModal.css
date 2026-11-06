@@ -75,6 +75,11 @@
   color: var(--color-danger-text);
 }
 
+.weekly-acwr-detail__badge--data {
+  background: var(--color-data-soft);
+  color: var(--color-data);
+}
+
 .weekly-acwr-detail__badge--accent {
   background: var(--color-accent-soft);
   color: var(--color-accent-text);

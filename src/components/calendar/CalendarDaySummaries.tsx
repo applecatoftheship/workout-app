@@ -93,6 +93,9 @@ export function TrainingSummary({
   const dayLog = trainingLogs.find((log) => log.date === selectedDate)
   const [meta, setMeta] = useState<TrainingMetaState>(() => buildMetaState(dayLog))
   const [isSavingMeta, setIsSavingMeta] = useState(false)
+  // 画面の整理（2026年11月6日）：完了/未完了・終了時刻・メモの入力欄を常に開いていたため、
+  // ふだんは1行の要約と文字ボタンだけにし、押したときだけ入力欄を出す（プログレッシブ・ディスクロージャ）。
+  const [isMetaOpen, setIsMetaOpen] = useState(false)
 
   // selectedDateが変わるたび、その日の最新状態でメタ欄を作り直す
   // （TrainingLogForm.tsx時代のuseEffect(() => {...}, [selectedDate])を踏襲）。
@@ -106,6 +109,7 @@ export function TrainingSummary({
   // しても値は変わらないため、その操作でmeta欄（入力中のメモ等）が意図せず
   // 巻き戻ることはない。
   useEffect(() => {
+    setIsMetaOpen(false)
     setMeta(buildMetaState(trainingLogs.find((log) => log.date === selectedDate)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, dayLog?.id])
@@ -121,6 +125,7 @@ export function TrainingSummary({
       const refreshed = await fetchTrainingLogs()
       setTrainingLogs(refreshed)
       showToast('保存しました', 'success')
+      setIsMetaOpen(false)
     } catch (error) {
       console.error('Supabaseへの日次メタ情報の保存に失敗しました', error)
       showToast('保存に失敗しました。もう一度お試しください', 'error')
@@ -145,6 +150,27 @@ export function TrainingSummary({
         </div>
       </div>
 
+      {dayLog ? (
+        <p className="training-day-meta__summary">
+          {dayLog.completed ? '完了' : '未完了'}
+          {dayLog.endTime ? `・終了 ${extractTimeHHMMFromISO(dayLog.endTime)}` : ''}
+          {dayLog.notes ? `・${dayLog.notes}` : ''}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        className="btn-text"
+        aria-expanded={isMetaOpen}
+        onClick={() => {
+          // 閉じるときは、保存していない書きかけを捨てて保存済みの内容に戻す
+          if (isMetaOpen) setMeta(buildMetaState(dayLog))
+          setIsMetaOpen((current) => !current)
+        }}
+      >
+        {isMetaOpen ? '保存せずに閉じる' : '完了・メモを編集'}
+      </button>
+
+      {isMetaOpen ? (
       <div className="training-day-meta">
         <div className="calendar-detail__inline-fields">
           <label className="calendar-detail__field">
@@ -182,6 +208,7 @@ export function TrainingSummary({
           {isSavingMeta ? '保存中...' : '保存'}
         </button>
       </div>
+      ) : null}
 
       {dayLog && dayLog.exercises.length > 0 ? (
         <>
